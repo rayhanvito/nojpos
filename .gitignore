@@ -1,0 +1,35 @@
+# Generated Flutter artifacts
+**/build/
+**/.dart_tool/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/.gradle/
+**/.kotlin/
+**/local.properties
+
+# Laravel generated/dependencies
+apps/backend/vendor/
+apps/backend/.env
+apps/backend/.phpunit.result.cache
+apps/backend/database/*.sqlite
+apps/backend/bootstrap/cache/*.php
+apps/backend/storage/logs/*.log
+apps/backend/storage/framework/cache/data/
+apps/backend/storage/framework/views/*.php
+
+# JavaScript dependencies
+**/node_modules/
+
+# Environment/secrets
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+
+# Logs and OS/editor noise
+*.log
+.DS_Store
+Thumbs.db
+*.iml
+.idea/
