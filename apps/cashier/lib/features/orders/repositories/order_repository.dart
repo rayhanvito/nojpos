@@ -4,7 +4,7 @@ import '../../../shared/models/nojpos_models.dart';
 import '../../pos/models/cart_item.dart';
 
 final orderRepositoryProvider = Provider<OrderRepository>(
-  (ref) => const MockOrderRepository(),
+  (ref) => const LocalOrderRepository(),
 );
 
 abstract interface class OrderRepository {
@@ -18,8 +18,8 @@ abstract interface class OrderRepository {
   });
 }
 
-class MockOrderRepository implements OrderRepository {
-  const MockOrderRepository();
+class LocalOrderRepository implements OrderRepository {
+  const LocalOrderRepository();
 
   @override
   SalesOrder createOrder({
@@ -31,6 +31,8 @@ class MockOrderRepository implements OrderRepository {
     Customer? customer,
   }) {
     final createdAt = DateTime.now();
+    // Local order numbers are only for cart/held display; paid receipts use
+    // the server transaction number applied in NojposSessionNotifier.
     return SalesOrder(
       id: 'order-${createdAt.millisecondsSinceEpoch}',
       number: _numberFor(createdAt, sequence, outletId),
@@ -43,6 +45,7 @@ class MockOrderRepository implements OrderRepository {
             name: item.product.name,
             quantity: item.quantity,
             unitPrice: item.product.price,
+            discount: item.discount,
           ),
       ],
       status: status,
