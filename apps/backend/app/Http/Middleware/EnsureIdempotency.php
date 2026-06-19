@@ -3,9 +3,11 @@
 namespace App\Http\Middleware;
 
 use App\Models\IdempotencyKey;
+use App\Models\Scopes\BusinessScope;
 use App\Support\ApiResponse;
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 
 class EnsureIdempotency
@@ -18,11 +20,15 @@ class EnsureIdempotency
             return ApiResponse::error('IDEMPOTENCY_KEY_REQUIRED', 'Idempotency-Key header is required.', [], 422);
         }
 
-        $businessId = $request->user()?->business_id;
+        if (! Str::isUuid($key)) {
+            return ApiResponse::error('IDEMPOTENCY_KEY_INVALID', 'Idempotency-Key must be a UUID.', [], 422);
+        }
+
+        $businessId = $request->user()?->business_id ?? '00000000-0000-4000-8000-000000000000';
         $endpoint = $request->method().' '.$request->path();
         $hash = hash('sha256', json_encode($request->all(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
-        $stored = IdempotencyKey::query()
+        $stored = IdempotencyKey::withoutGlobalScope(BusinessScope::class)
             ->where('business_id', $businessId)
             ->where('endpoint', $endpoint)
             ->where('key', $key)
@@ -45,7 +51,7 @@ class EnsureIdempotency
         $response = $next($request);
 
         if ($response->headers->get('Content-Type') && str_contains($response->headers->get('Content-Type'), 'application/json')) {
-            IdempotencyKey::query()->create([
+            IdempotencyKey::withoutGlobalScope(BusinessScope::class)->create([
                 'business_id' => $businessId,
                 'endpoint' => $endpoint,
                 'key' => $key,
