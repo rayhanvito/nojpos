@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\PaymentController;
 use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\ShiftController;
+use App\Http\Controllers\Api\V1\SubscriptionController;
 use App\Http\Controllers\Api\V1\Superadmin\BusinessController as SuperadminBusinessController;
 use App\Http\Controllers\Api\V1\Superadmin\PlanController as SuperadminPlanController;
 use App\Http\Controllers\Api\V1\Superadmin\SubscriptionController as SuperadminSubscriptionController;
@@ -32,6 +33,7 @@ Route::prefix('v1')->group(function (): void {
         Route::post('/auth/logout', [AuthController::class, 'logout']);
         Route::get('/me', [AuthController::class, 'me']);
         Route::get('/outlets', [AuthController::class, 'outlets']);
+        Route::get('/subscription', [SubscriptionController::class, 'show']);
 
         Route::get('/products', [ProductController::class, 'index']);
 
