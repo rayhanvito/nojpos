@@ -5,10 +5,11 @@ namespace App\Models;
 use App\Models\Concerns\BelongsToBusiness;
 use App\Models\Concerns\UsesUuid;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
-class IdempotencyKey extends Model
+class AttendanceRecord extends Model
 {
-    use BelongsToBusiness, UsesUuid;
+    use BelongsToBusiness, SoftDeletes, UsesUuid;
 
     protected $guarded = [];
 }

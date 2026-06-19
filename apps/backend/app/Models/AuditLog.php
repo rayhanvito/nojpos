@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToBusiness;
 use App\Models\Concerns\UsesUuid;
 use Illuminate\Database\Eloquent\Model;
 
 class AuditLog extends Model
 {
-    use UsesUuid;
+    use BelongsToBusiness, UsesUuid;
 
     public $timestamps = false;
 

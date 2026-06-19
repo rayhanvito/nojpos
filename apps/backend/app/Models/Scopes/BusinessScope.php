@@ -11,9 +11,15 @@ class BusinessScope implements Scope
 {
     public function apply(Builder $builder, Model $model): void
     {
-        $user = Auth::user();
+        $user = Auth::hasUser() ? Auth::user() : null;
 
-        if (! $user || $user->role === 'superadmin' || ! $user->business_id) {
+        if (! $user) {
+            return;
+        }
+
+        if ($user->role === 'superadmin' || ! $user->business_id) {
+            $builder->whereRaw('1 = 0');
+
             return;
         }
 
