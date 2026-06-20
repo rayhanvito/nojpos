@@ -1,6 +1,6 @@
 # NojPOS Final Fix
 
-Monorepo NojPOS untuk Flutter Cashier App dan Laravel API.
+Monorepo NojPOS untuk Flutter Cashier App dan Laravel API. Admin web dibekukan sampai kontrak Flutter dan backend stabil.
 
 ## Struktur
 
@@ -8,10 +8,9 @@ Monorepo NojPOS untuk Flutter Cashier App dan Laravel API.
 apps/
   cashier/   Flutter Cashier App
   backend/   Laravel API
-docs/        PRD dan ADR
 ```
 
-Source of truth produk dan arsitektur: `docs/NOJPOS_PRD.md` Revisi 8.
+Source of truth produk dan arsitektur: `NOJPOS_POS_FLUTTER_BACKEND_PRD.md`.
 
 ## Backend
 

@@ -1,17 +1,57 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../app/providers/nojpos_session_provider.dart';
 import '../../../app/theme.dart';
+import '../repositories/auth_repository.dart';
 
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
   @override
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends ConsumerState<LoginScreen> {
+  final emailController = TextEditingController(text: 'owner@demo.nojpos.test');
+  final passwordController = TextEditingController(text: 'password');
+  String deviceUuid = newDeviceUuid();
+
+  @override
+  void dispose() {
+    emailController.dispose();
+    passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _login() async {
+    await ref
+        .read(nojposSessionProvider.notifier)
+        .login(
+          email: emailController.text.trim(),
+          password: passwordController.text,
+          deviceUuid: deviceUuid,
+        );
+    if (!mounted) return;
+    final status = ref.read(nojposSessionProvider).status;
+    switch (status) {
+      case SessionStatus.outletRequired:
+        context.go('/outlet');
+      case SessionStatus.pinRequired:
+      case SessionStatus.ready:
+        context.go('/sync');
+      case SessionStatus.booting:
+      case SessionStatus.unauthenticated:
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final session = ref.watch(nojposSessionProvider);
     final size = MediaQuery.sizeOf(context);
     final isWide = size.width >= 900;
-
     return Scaffold(
       body: SafeArea(
         child: Row(
@@ -55,29 +95,56 @@ class LoginScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 8),
                           const Text(
-                            'Pilih kasir aktif dan lanjutkan transaksi toko.',
+                            'Login akun, pilih outlet, lalu lanjut PIN kasir.',
                             style: TextStyle(
                               color: MokposColors.muted,
                               fontSize: 15,
                             ),
                           ),
                           const SizedBox(height: 28),
-                          const _FieldLabel('Outlet'),
-                          const _SelectField(
-                            icon: LucideIcons.store,
-                            text: 'Kedai Nusantara',
+                          TextField(
+                            key: const ValueKey('login_email'),
+                            controller: emailController,
+                            keyboardType: TextInputType.emailAddress,
+                            decoration: const InputDecoration(
+                              labelText: 'Email',
+                              prefixIcon: Icon(LucideIcons.mail),
+                              border: OutlineInputBorder(),
+                            ),
                           ),
-                          const SizedBox(height: 16),
-                          const _FieldLabel('Kasir'),
-                          const _SelectField(
-                            icon: LucideIcons.userRound,
-                            text: 'Rayhan - Kasir Utama',
+                          const SizedBox(height: 14),
+                          TextField(
+                            key: const ValueKey('login_password'),
+                            controller: passwordController,
+                            obscureText: true,
+                            decoration: const InputDecoration(
+                              labelText: 'Password',
+                              prefixIcon: Icon(LucideIcons.lockKeyhole),
+                              border: OutlineInputBorder(),
+                            ),
                           ),
+                          if (session.errorMessage != null) ...[
+                            const SizedBox(height: 14),
+                            Text(
+                              session.errorMessage!,
+                              style: const TextStyle(
+                                color: MokposColors.danger,
+                              ),
+                            ),
+                          ],
                           const SizedBox(height: 28),
                           FilledButton.icon(
-                            onPressed: () => context.go('/pin'),
-                            icon: const Icon(LucideIcons.arrowRight, size: 20),
-                            label: const Text('Lanjut ke PIN'),
+                            key: const ValueKey('login_submit'),
+                            onPressed: session.isBusy ? null : _login,
+                            icon: session.isBusy
+                                ? const SizedBox.square(
+                                    dimension: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(LucideIcons.arrowRight, size: 20),
+                            label: const Text('Masuk'),
                             style: FilledButton.styleFrom(
                               backgroundColor: MokposColors.primary,
                               foregroundColor: Colors.white,
@@ -104,7 +171,7 @@ class LoginScreen extends StatelessWidget {
                               ),
                               SizedBox(width: 8),
                               Text(
-                                'Online · Shift aktif',
+                                'Online · Laravel API',
                                 style: TextStyle(
                                   color: MokposColors.muted,
                                   fontWeight: FontWeight.w600,
@@ -148,7 +215,7 @@ class _BrandPanel extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           const Text(
-            'UI mock bersih untuk fondasi kasir operasional ala Majoo/Moka.',
+            'Wave 1A tersambung ke Laravel API untuk login, PIN, shift, dan katalog.',
             style: TextStyle(
               color: Color(0xDFFFFFFF),
               fontSize: 18,
@@ -194,66 +261,6 @@ class _LogoMark extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _FieldLabel extends StatelessWidget {
-  const _FieldLabel(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Text(
-        text,
-        style: const TextStyle(
-          color: MokposColors.text,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-    );
-  }
-}
-
-class _SelectField extends StatelessWidget {
-  const _SelectField({required this.icon, required this.text});
-
-  final IconData icon;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 56,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: MokposColors.line),
-        borderRadius: BorderRadius.circular(MokposRadius.md),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: MokposColors.primary, size: 21),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(
-                color: MokposColors.text,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          const Icon(
-            LucideIcons.chevronDown,
-            color: MokposColors.muted,
-            size: 20,
-          ),
-        ],
-      ),
     );
   }
 }

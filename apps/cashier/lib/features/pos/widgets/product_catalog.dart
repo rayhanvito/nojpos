@@ -14,6 +14,7 @@ class ProductCatalog extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final catalog = ref.watch(posCatalogProvider);
     final products = ref.watch(filteredProductsProvider);
 
     return Column(
@@ -22,7 +23,11 @@ class ProductCatalog extends ConsumerWidget {
         Expanded(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
-            child: products.isEmpty
+            child: catalog.isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : catalog.errorMessage != null
+                ? _CatalogError(message: catalog.errorMessage!)
+                : products.isEmpty
                 ? const _NoProductsFound()
                 : GridView.builder(
                     itemCount: products.length,
@@ -30,7 +35,7 @@ class ProductCatalog extends ConsumerWidget {
                       maxCrossAxisExtent: compact ? 142 : 158,
                       mainAxisSpacing: 8,
                       crossAxisSpacing: 8,
-                      childAspectRatio: compact ? .8 : .82,
+                      mainAxisExtent: compact ? 178 : 192,
                     ),
                     itemBuilder: (context, index) => ProductCard(
                       product: products[index],
@@ -41,6 +46,48 @@ class ProductCatalog extends ConsumerWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _CatalogError extends ConsumerWidget {
+  const _CatalogError({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            LucideIcons.cloudOff,
+            color: MokposColors.primary,
+            size: 72,
+          ),
+          const SizedBox(height: 14),
+          const Text(
+            'Produk gagal dimuat',
+            style: TextStyle(
+              color: MokposColors.text,
+              fontWeight: FontWeight.w900,
+              fontSize: 16,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: MokposColors.muted),
+          ),
+          const SizedBox(height: 16),
+          FilledButton(
+            onPressed: () => ref.read(posCatalogProvider.notifier).load(),
+            child: const Text('Coba lagi'),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -108,162 +155,47 @@ class _CatalogToolbar extends ConsumerWidget {
           ),
           if (!compact) ...[
             const SizedBox(width: 14),
-            _ToolbarAction(
-              icon: LucideIcons.circlePlus,
-              text: 'Custom Amount',
-              onTap: () => _showCustomAmountDialog(context, ref),
-            ),
-            const SizedBox(width: 10),
-            _IconAction(
+            const _IconAction(
               icon: LucideIcons.scanBarcode,
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Scanner barcode aktif sebagai mock UI'),
-                  ),
-                );
-              },
+              tooltip: 'Segera hadir (keyboard-wedge)',
+              enabled: false,
             ),
           ],
         ],
       ),
     );
   }
-
-  Future<void> _showCustomAmountDialog(
-    BuildContext context,
-    WidgetRef ref,
-  ) async {
-    final result = await showDialog<int>(
-      context: context,
-      builder: (context) => const _CustomAmountDialog(),
-    );
-    if (result == null || result <= 0) return;
-    final product = Product(
-      id: 'custom-${DateTime.now().microsecondsSinceEpoch}',
-      name: 'Custom Amount',
-      category: 'Lainnya',
-      price: result,
-      imageUrl: '',
-      badge: 'Custom',
-    );
-    ref.read(cartProvider.notifier).add(product);
-  }
-}
-
-class _ToolbarAction extends StatelessWidget {
-  const _ToolbarAction({required this.icon, required this.text, this.onTap});
-
-  final IconData icon;
-  final String text;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(MokposRadius.sm),
-      child: Container(
-        height: 44,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        decoration: BoxDecoration(
-          border: Border.all(color: MokposColors.line),
-          borderRadius: BorderRadius.circular(MokposRadius.sm),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: MokposColors.text, size: 20),
-            const SizedBox(width: 8),
-            Text(
-              text,
-              style: const TextStyle(
-                color: MokposColors.text,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 class _IconAction extends StatelessWidget {
-  const _IconAction({required this.icon, this.onTap});
+  const _IconAction({required this.icon, this.tooltip, this.enabled = true});
 
   final IconData icon;
-  final VoidCallback? onTap;
+  final String? tooltip;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(MokposRadius.sm),
-      child: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          border: Border.all(color: MokposColors.line),
-          borderRadius: BorderRadius.circular(MokposRadius.sm),
-        ),
-        child: Icon(icon, color: MokposColors.text, size: 21),
-      ),
-    );
-  }
-}
-
-class _CustomAmountDialog extends StatefulWidget {
-  const _CustomAmountDialog();
-
-  @override
-  State<_CustomAmountDialog> createState() => _CustomAmountDialogState();
-}
-
-class _CustomAmountDialogState extends State<_CustomAmountDialog> {
-  final controller = TextEditingController(text: '10000');
-
-  @override
-  void dispose() {
-    controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(
+    return Tooltip(
+      message: tooltip ?? '',
+      child: InkWell(
+        onTap: null,
         borderRadius: BorderRadius.circular(MokposRadius.sm),
-      ),
-      title: const Text(
-        'Custom Amount',
-        style: TextStyle(fontWeight: FontWeight.w900),
-      ),
-      content: TextField(
-        controller: controller,
-        autofocus: true,
-        keyboardType: TextInputType.number,
-        decoration: const InputDecoration(
-          labelText: 'Nominal',
-          prefixText: 'Rp ',
-          border: OutlineInputBorder(),
+        child: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: enabled ? Colors.white : MokposColors.disabledSurface,
+            border: Border.all(color: MokposColors.line),
+            borderRadius: BorderRadius.circular(MokposRadius.sm),
+          ),
+          child: Icon(
+            icon,
+            color: enabled ? MokposColors.text : MokposColors.muted,
+            size: 21,
+          ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Batal'),
-        ),
-        FilledButton(
-          onPressed: () {
-            final amount = int.tryParse(
-              controller.text.replaceAll(RegExp(r'[^0-9]'), ''),
-            );
-            Navigator.of(context).pop(amount);
-          },
-          child: const Text('Tambah'),
-        ),
-      ],
     );
   }
 }
@@ -277,6 +209,7 @@ class ProductCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
+      key: ValueKey('product_${product.id}'),
       color: Colors.white,
       borderRadius: BorderRadius.circular(MokposRadius.sm),
       child: InkWell(
@@ -303,7 +236,7 @@ class ProductCard extends StatelessWidget {
                           fit: BoxFit.cover,
                           errorBuilder: (context, error, stackTrace) {
                             return Container(
-                              color: const Color(0xFFDDE7DD),
+                              color: MokposColors.productFallback,
                               child: Center(
                                 child: Text(
                                   product.name.characters.first.toUpperCase(),
@@ -330,7 +263,9 @@ class ProductCard extends StatelessWidget {
                           ),
                           decoration: BoxDecoration(
                             color: Colors.white.withValues(alpha: .9),
-                            borderRadius: BorderRadius.circular(4),
+                            borderRadius: BorderRadius.circular(
+                              MokposRadius.xs,
+                            ),
                           ),
                           child: Text(
                             product.badge!,
@@ -345,17 +280,23 @@ class ProductCard extends StatelessWidget {
                   ],
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
-                child: Text(
-                  product.name,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: MokposColors.text,
-                    fontWeight: FontWeight.w800,
-                    height: 1.15,
-                    fontSize: 13,
+              SizedBox(
+                height: 46,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+                  child: Align(
+                    alignment: Alignment.topLeft,
+                    child: Text(
+                      product.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: MokposColors.text,
+                        fontWeight: FontWeight.w800,
+                        height: 1.15,
+                        fontSize: 13,
+                      ),
+                    ),
                   ),
                 ),
               ),

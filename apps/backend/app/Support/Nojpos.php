@@ -2,23 +2,30 @@
 
 namespace App\Support;
 
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
+use App\Services\AuditLogService;
 
 class Nojpos
 {
     public static function audit(?string $businessId, ?string $actorId, string $action, ?string $entityType = null, ?string $entityId = null, ?array $before = null, ?array $after = null): void
     {
-        DB::table('audit_logs')->insert([
-            'id' => (string) Str::uuid(),
-            'business_id' => $businessId,
-            'actor_id' => $actorId,
-            'action' => $action,
-            'entity_type' => $entityType,
-            'entity_id' => $entityId,
-            'before' => $before ? json_encode($before) : null,
-            'after' => $after ? json_encode($after) : null,
-            'created_at' => now(),
-        ]);
+        $request = request();
+
+        app(AuditLogService::class)->record(
+            $businessId,
+            $actorId,
+            $action,
+            $entityType,
+            $entityId,
+            $before,
+            $after,
+            [
+                'approver_id' => $request?->input('approver_id'),
+                'outlet_id' => $request?->input('outlet_id'),
+                'device_id' => $request?->input('device_id'),
+                'request_id' => $request?->header('X-Request-Id') ?: $request?->header('X-Correlation-Id'),
+                'idempotency_key' => $request?->attributes->get('idempotency_key') ?: $request?->header('Idempotency-Key'),
+                'event_version' => 1,
+            ],
+        );
     }
 }

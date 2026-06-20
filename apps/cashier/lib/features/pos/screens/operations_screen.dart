@@ -5,10 +5,23 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../app/theme.dart';
 import '../../../app/providers/nojpos_session_provider.dart';
+import '../../../core/network/api_client.dart';
+import '../../../core/printing/printer_settings_store.dart';
+import '../../../core/printing/receipt_printing_service.dart';
+import '../../../features/attendance/providers/attendance_controller.dart';
+import '../../../features/inventory/providers/inventory_operations_provider.dart';
+import '../../../features/inventory/widgets/inventory_operation_panels.dart';
+import '../../../features/reports/providers/report_providers.dart';
+import '../../../features/reports/repositories/report_repository.dart';
+import '../../../features/reports/widgets/report_panels.dart';
+import '../../../features/settings/providers/settings_providers.dart';
+import '../../../features/settings/widgets/settings_summary_panel.dart';
+import '../../../features/staff/widgets/staff_settings_panel.dart';
 import '../../../shared/models/nojpos_models.dart';
 import '../formatters.dart';
 import '../models/cart_item.dart';
 import '../models/product.dart';
+import '../providers/parked_order_lease_controller.dart';
 import '../providers/pos_providers.dart';
 
 enum OperationsPageType {
@@ -92,6 +105,7 @@ class _OpsTopBar extends ConsumerWidget {
       child: Row(
         children: [
           IconButton(
+            key: const ValueKey('ops_back'),
             onPressed: () => context.go('/pos'),
             icon: const Icon(LucideIcons.arrowLeft),
             color: Colors.white,
@@ -153,14 +167,25 @@ class _OpsTopBar extends ConsumerWidget {
 
   Future<void> _handleAction(BuildContext context, WidgetRef ref) async {
     if (config.title.startsWith('Inventori')) {
-      final result = await showDialog<({String supplierName, int total})>(
-        context: context,
-        builder: (context) => const _PurchaseDialog(),
-      );
+      final result =
+          await showDialog<
+            ({
+              String supplierName,
+              String productId,
+              int quantity,
+              int unitCost,
+            })
+          >(context: context, builder: (context) => const _PurchaseDialog());
       if (result == null || !context.mounted) return;
-      final purchase = ref
+      final purchase = await ref
           .read(nojposSessionProvider.notifier)
-          .addPurchase(supplierName: result.supplierName, total: result.total);
+          .addPurchase(
+            supplierName: result.supplierName,
+            productId: result.productId,
+            quantity: result.quantity,
+            unitCost: result.unitCost,
+          );
+      if (!context.mounted || purchase == null) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('${purchase.number} ditambahkan')));
@@ -219,12 +244,28 @@ class _TopSearch extends StatelessWidget {
   }
 }
 
-class _OrdersBody extends ConsumerWidget {
+class _OrdersBody extends ConsumerStatefulWidget {
   const _OrdersBody();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final orders = ref.watch(nojposSessionProvider).savedOrders;
+  ConsumerState<_OrdersBody> createState() => _OrdersBodyState();
+}
+
+class _OrdersBodyState extends ConsumerState<_OrdersBody> {
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(
+      () => ref.read(nojposSessionProvider.notifier).loadHeldTransactions(),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final session = ref.watch(nojposSessionProvider);
+    final orders = session.savedOrders;
+    final isBusy = session.isBusy;
+    final error = session.errorMessage;
     return Row(
       children: [
         _LeftList(
@@ -236,6 +277,7 @@ class _OrdersBody extends ConsumerWidget {
             'Faktur Penjualan (0)',
           ],
           activeIndex: 0,
+          comingSoonIndexes: const {2, 3},
         ),
         Expanded(
           child: Column(
@@ -251,7 +293,16 @@ class _OrdersBody extends ConsumerWidget {
                 ],
               ),
               Expanded(
-                child: orders.isEmpty
+                child: isBusy
+                    ? const Center(child: CircularProgressIndicator())
+                    : error != null
+                    ? _LoadErrorState(
+                        message: error,
+                        onRetry: () => ref
+                            .read(nojposSessionProvider.notifier)
+                            .loadHeldTransactions(),
+                      )
+                    : orders.isEmpty
                     ? const _EmptyState(
                         icon: LucideIcons.receiptText,
                         title: 'Belum Ada Pesanan',
@@ -264,11 +315,26 @@ class _OrdersBody extends ConsumerWidget {
                         itemBuilder: (context, index) {
                           final order = orders[index];
                           return _DataRow(
-                            onTap: () {
-                              final activated = ref
-                                  .read(nojposSessionProvider.notifier)
-                                  .activateSavedOrder(order.id);
-                              if (activated == null) return;
+                            onTap: () async {
+                              final activated = await ref
+                                  .read(
+                                    parkedOrderLeaseControllerProvider.notifier,
+                                  )
+                                  .acquireForEdit(order.id);
+                              if (!context.mounted) return;
+                              if (activated == null) {
+                                final message =
+                                    ref
+                                        .read(
+                                          parkedOrderLeaseControllerProvider,
+                                        )
+                                        .errorMessage ??
+                                    'Order tidak bisa dibuka.';
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text(message)),
+                                );
+                                return;
+                              }
                               final products = ref.read(productsProvider);
                               ref
                                   .read(cartProvider.notifier)
@@ -304,15 +370,46 @@ class _OrdersBody extends ConsumerWidget {
   }
 }
 
-class _SalesBody extends ConsumerWidget {
+class _SalesBody extends ConsumerStatefulWidget {
   const _SalesBody();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final transactions = ref.watch(nojposSessionProvider).transactions;
+  ConsumerState<_SalesBody> createState() => _SalesBodyState();
+}
+
+class _SalesBodyState extends ConsumerState<_SalesBody> {
+  String? statusFilter;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() => _loadSales(null));
+  }
+
+  Future<void> _loadSales(String? status) async {
+    if (mounted) setState(() => statusFilter = status);
+    await ref
+        .read(nojposSessionProvider.notifier)
+        .loadSalesTransactions(status: status);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final session = ref.watch(nojposSessionProvider);
+    final transactions = session.transactions;
+    final isBusy = session.isBusy;
+    final error = session.errorMessage;
+    final pendingPaymentRows = [
+      for (final transaction in transactions)
+        for (final payment in transaction.payments)
+          if (!payment.isCash &&
+              payment.status == 'pending' &&
+              payment.paymentId != null)
+            (transaction: transaction, payment: payment),
+    ];
     final totalSales = transactions.fold(
       0,
-      (sum, transaction) => sum + transaction.order.total,
+      (sum, transaction) => sum + transaction.total,
     );
     return Column(
       children: [
@@ -338,18 +435,96 @@ class _SalesBody extends ConsumerWidget {
             ],
           ),
         ),
-        const _TableHeader(
-          columns: [
-            'Jenis',
-            'Nama',
-            'No Transaksi',
-            'Waktu',
-            'Kasir',
-            'Pembayaran',
-          ],
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          child: Row(
+            children: [
+              OutlinedButton.icon(
+                key: const ValueKey('sales_filter_all'),
+                onPressed: statusFilter == null ? null : () => _loadSales(null),
+                icon: const Icon(LucideIcons.receiptText, size: 16),
+                label: const Text('Semua Transaksi'),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                key: const ValueKey('sales_filter_pending'),
+                onPressed: statusFilter == 'pending'
+                    ? null
+                    : () => _loadSales('pending'),
+                icon: const Icon(LucideIcons.clock3, size: 16),
+                label: const Text('Pembayaran Pending'),
+              ),
+            ],
+          ),
+        ),
+        _TableHeader(
+          columns: statusFilter == 'pending'
+              ? const [
+                  'No Transaksi',
+                  'Pelanggan',
+                  'Waktu',
+                  'Metode',
+                  'Reference',
+                  'Aksi',
+                ]
+              : const [
+                  'Jenis',
+                  'Nama',
+                  'No Transaksi',
+                  'Waktu',
+                  'Kasir',
+                  'Pembayaran',
+                ],
         ),
         Expanded(
-          child: transactions.isEmpty
+          child: isBusy
+              ? const Center(child: CircularProgressIndicator())
+              : error != null
+              ? _LoadErrorState(
+                  message: error,
+                  onRetry: () => ref
+                      .read(nojposSessionProvider.notifier)
+                      .loadSalesTransactions(status: statusFilter),
+                )
+              : statusFilter == 'pending'
+              ? pendingPaymentRows.isEmpty
+                    ? const _EmptyState(
+                        icon: LucideIcons.clock3,
+                        title: 'Tidak Ada Pembayaran Pending',
+                        subtitle:
+                            'Pembayaran non-tunai pending dari server akan muncul di sini.',
+                      )
+                    : ListView.separated(
+                        itemCount: pendingPaymentRows.length,
+                        separatorBuilder: (context, index) =>
+                            const Divider(height: 1, color: MokposColors.line),
+                        itemBuilder: (context, index) {
+                          final row = pendingPaymentRows[index];
+                          final transaction = row.transaction;
+                          final payment = row.payment;
+                          return _DataRow(
+                            key: ValueKey(
+                              'pending_payment_${payment.paymentId}',
+                            ),
+                            cells: [
+                              '${transaction.number}\n${transaction.status}',
+                              transaction.order.customer?.name ??
+                                  'Tanpa Pelanggan',
+                              _formatDateTime(transaction.createdAt),
+                              '${payment.methodName}\n${rupiah(payment.amount)}',
+                              payment.reference ?? '-',
+                              'Tandai sudah diterima',
+                            ],
+                            onTap: () => _showConfirmPaymentDialog(
+                              context,
+                              ref,
+                              transaction,
+                              payment,
+                            ),
+                          );
+                        },
+                      )
+              : transactions.isEmpty
               ? const _EmptyState(
                   icon: LucideIcons.badgeDollarSign,
                   title: 'Belum Ada Penjualan',
@@ -365,19 +540,176 @@ class _SalesBody extends ConsumerWidget {
                     final order = transaction.order;
                     final payment = transaction.payments.isEmpty
                         ? '-'
-                        : transaction.payments.first.method.label;
+                        : transaction.payments.first.methodName;
                     return _DataRow(
+                      key: ValueKey('sales_transaction_${transaction.id}'),
                       cells: [
                         order.type.label,
                         order.customer?.name ?? 'Tanpa Pelanggan',
-                        transaction.number,
+                        '${transaction.number}\n${transaction.status}',
                         _formatDateTime(transaction.createdAt),
                         transaction.cashier.name,
-                        '${rupiah(order.total)}\n$payment',
+                        '${rupiah(transaction.total)}\n$payment',
                       ],
+                      onTap: transaction.status == 'voided'
+                          ? null
+                          : () => _showVoidDialog(context, ref, transaction),
                     );
                   },
                 ),
+        ),
+      ],
+    );
+  }
+}
+
+Future<void> _showConfirmPaymentDialog(
+  BuildContext context,
+  WidgetRef ref,
+  SalesTransaction transaction,
+  PaymentLine payment,
+) {
+  final paymentId = payment.paymentId;
+  return showDialog<void>(
+    context: context,
+    barrierColor: Colors.black54,
+    builder: (context) => AlertDialog(
+      backgroundColor: Colors.white,
+      title: const Text('Konfirmasi Pembayaran'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Transaksi: ${transaction.number}'),
+          Text('Metode: ${payment.methodName}'),
+          Text('Nominal: ${rupiah(payment.amount)}'),
+          Text('Reference: ${payment.reference ?? '-'}'),
+          const SizedBox(height: 12),
+          const Text(
+            'Pastikan dana benar-benar sudah diterima sebelum menandai pembayaran.',
+            style: TextStyle(color: MokposColors.muted),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Batal'),
+        ),
+        FilledButton(
+          key: const ValueKey('confirm_payment_submit'),
+          onPressed: paymentId == null
+              ? null
+              : () async {
+                  await ref
+                      .read(nojposSessionProvider.notifier)
+                      .confirmPaymentLine(paymentId);
+                  if (!context.mounted) return;
+                  Navigator.of(context).pop();
+                  final updated = ref
+                      .read(nojposSessionProvider)
+                      .transactions
+                      .where((item) => item.id == transaction.id)
+                      .firstOrNull;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Pembayaran dikonfirmasi. Status transaksi: ${updated?.status ?? payment.status}',
+                      ),
+                    ),
+                  );
+                },
+          child: const Text('Tandai sudah diterima'),
+        ),
+      ],
+    ),
+  );
+}
+
+Future<void> _showVoidDialog(
+  BuildContext context,
+  WidgetRef ref,
+  SalesTransaction transaction,
+) {
+  return showDialog<void>(
+    context: context,
+    barrierColor: Colors.black54,
+    builder: (dialogContext) => _VoidTransactionDialog(
+      parentContext: context,
+      ref: ref,
+      transaction: transaction,
+    ),
+  );
+}
+
+class _VoidTransactionDialog extends StatefulWidget {
+  const _VoidTransactionDialog({
+    required this.parentContext,
+    required this.ref,
+    required this.transaction,
+  });
+
+  final BuildContext parentContext;
+  final WidgetRef ref;
+  final SalesTransaction transaction;
+
+  @override
+  State<_VoidTransactionDialog> createState() => _VoidTransactionDialogState();
+}
+
+class _VoidTransactionDialogState extends State<_VoidTransactionDialog> {
+  final controller = TextEditingController();
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: Colors.white,
+      title: Text('Void ${widget.transaction.number}'),
+      content: TextField(
+        key: const ValueKey('void_reason'),
+        controller: controller,
+        autofocus: true,
+        maxLines: 3,
+        decoration: const InputDecoration(
+          labelText: 'Reason',
+          border: OutlineInputBorder(),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Batal'),
+        ),
+        FilledButton(
+          key: const ValueKey('void_submit'),
+          onPressed: () async {
+            final reason = controller.text.trim();
+            if (reason.isEmpty) return;
+            final ok = await widget.ref
+                .read(nojposSessionProvider.notifier)
+                .voidTransaction(
+                  transaction: widget.transaction,
+                  reason: reason,
+                );
+            if (!context.mounted) return;
+            Navigator.of(context).pop();
+            final error = widget.ref.read(nojposSessionProvider).errorMessage;
+            if (!widget.parentContext.mounted) return;
+            ScaffoldMessenger.of(widget.parentContext).showSnackBar(
+              SnackBar(
+                content: Text(
+                  ok ? 'Transaksi berhasil di-void' : error ?? 'Void ditolak',
+                ),
+              ),
+            );
+          },
+          child: const Text('Void Penuh'),
         ),
       ],
     );
@@ -389,36 +721,20 @@ class _ReportsBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final transactions = ref.watch(nojposSessionProvider).transactions;
-    final totalSales = transactions.fold(
-      0,
-      (sum, transaction) => sum + transaction.order.total,
-    );
-    final productCount = transactions.fold(
-      0,
-      (sum, transaction) =>
-          sum +
-          transaction.order.lines.fold(
-            0,
-            (lineSum, line) => lineSum + line.quantity,
-          ),
-    );
+    final dashboard = ref.watch(reportsDashboardProvider);
+    final session = ref.watch(nojposSessionProvider);
+    final isCashier = !session.canManageMasterData;
     return Row(
       children: [
         const _LeftList(
           title: 'Kategori Laporan',
           items: [
             'Ringkasan Penjualan',
-            '10 Laporan Teratas',
-            'Komisi',
-            'Void',
-            'Kasir',
-            'Kas Kasir',
             'Produk Terjual',
             'Jenis Bayar',
-            'Kepuasan Pelanggan',
-            'Lainnya',
-            'Penjualan Deposit',
+            'Shift Kasir',
+            'Void / Refund',
+            'Top 10',
           ],
           activeIndex: 0,
         ),
@@ -426,69 +742,21 @@ class _ReportsBody extends ConsumerWidget {
           child: Padding(
             padding: const EdgeInsets.all(18),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const _FilterRow(),
-                const SizedBox(height: 22),
+                ReportsFilterChips(isCashier: isCashier),
+                const SizedBox(height: 16),
                 Expanded(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(
-                        width: 450,
-                        child: GridView.count(
-                          crossAxisCount: 2,
-                          mainAxisSpacing: 12,
-                          crossAxisSpacing: 12,
-                          childAspectRatio: 2.45,
-                          children: [
-                            _MetricCard(
-                              label: 'Total Penjualan',
-                              value: rupiah(totalSales),
-                              color: MokposColors.primary,
-                            ),
-                            _MetricCard(
-                              label: 'Total Transaksi',
-                              value: '${transactions.length}',
-                              color: const Color(0xFFFF4FC3),
-                            ),
-                            _MetricCard(
-                              label: 'Laba Kotor',
-                              value: rupiah(totalSales),
-                              color: const Color(0xFF7C4DFF),
-                            ),
-                            _MetricCard(
-                              label: 'Total Produk',
-                              value: '$productCount',
-                              color: const Color(0xFFFFD43B),
-                            ),
-                            _MetricCard(
-                              label: 'Terima Pembayaran',
-                              value: rupiah(totalSales),
-                              color: const Color(0xFF4FC3F7),
-                            ),
-                            _MetricCard(
-                              label: 'Refund',
-                              value: 'Rp 0',
-                              color: MokposColors.danger,
-                            ),
-                            _MetricCard(
-                              label: 'Order/Transaksi',
-                              value: transactions.isEmpty
-                                  ? 'Rp 0'
-                                  : rupiah(totalSales ~/ transactions.length),
-                              color: MokposColors.accent,
-                            ),
-                            _MetricCard(
-                              label: 'Komisi',
-                              value: 'Rp 0',
-                              color: const Color(0xFFFF7043),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 50),
-                      const Expanded(child: _SimpleChart()),
-                    ],
+                  child: dashboard.when(
+                    loading: () =>
+                        const Center(child: CircularProgressIndicator()),
+                    error: (error, _) => _ReportMessage(
+                      title: 'Laporan gagal dimuat',
+                      message: error.toString(),
+                      onRetry: () => ref.invalidate(reportsDashboardProvider),
+                    ),
+                    data: (dashboard) =>
+                        _ReportsDashboardView(dashboard: dashboard),
                   ),
                 ),
               ],
@@ -500,12 +768,170 @@ class _ReportsBody extends ConsumerWidget {
   }
 }
 
-class _InventoryBody extends ConsumerWidget {
+class _ReportsDashboardView extends StatelessWidget {
+  const _ReportsDashboardView({required this.dashboard});
+
+  final ReportsDashboard dashboard;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        SizedBox(
+          height: 250,
+          child: _ReportSummary(summary: dashboard.salesSummary),
+        ),
+        const SizedBox(height: 12),
+        Expanded(
+          child: GridView(
+            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: 420,
+              mainAxisExtent: 240,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+            ),
+            children: [
+              SoldProductsReportPanel(report: dashboard.soldProducts),
+              PaymentMethodsReportPanel(report: dashboard.paymentMethods),
+              CashierShiftsReportPanel(report: dashboard.cashierShifts),
+              VoidRefundAuditReportPanel(report: dashboard.voidRefundAudit),
+              TopTenReportPanel(report: dashboard.topTen),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ReportSummary extends StatelessWidget {
+  const _ReportSummary({required this.summary});
+
+  final SalesSummary summary;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 450,
+          child: GridView.count(
+            crossAxisCount: 2,
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+            childAspectRatio: 2.45,
+            children: [
+              _MetricCard(
+                label: 'Total Penjualan',
+                value: rupiah(summary.totalSales),
+                color: MokposColors.primary,
+              ),
+              _MetricCard(
+                label: 'Total Transaksi',
+                value: '${summary.transactionCount}',
+                color: const Color(0xFFFF4FC3),
+              ),
+              _MetricCard(
+                label: 'Total Diskon',
+                value: rupiah(summary.totalDiscount),
+                color: const Color(0xFF7C4DFF),
+              ),
+              _MetricCard(
+                label: 'Total Void',
+                value: rupiah(summary.totalVoid),
+                color: MokposColors.danger,
+              ),
+              _MetricCard(
+                label: 'Rata-rata Transaksi',
+                value: rupiah(summary.averageTransactionValue),
+                color: MokposColors.accent,
+              ),
+              for (final total in summary.paymentTotals.take(3))
+                _MetricCard(
+                  label: total.method,
+                  value: rupiah(total.amount),
+                  color: const Color(0xFF4FC3F7),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 50),
+        Expanded(child: _SimpleChart(points: summary.chartPoints)),
+      ],
+    );
+  }
+}
+
+class _ReportMessage extends StatelessWidget {
+  const _ReportMessage({
+    required this.title,
+    required this.message,
+    required this.onRetry,
+  });
+
+  final String title;
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontWeight: FontWeight.w900,
+              fontSize: 18,
+              color: MokposColors.text,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(message, style: const TextStyle(color: MokposColors.muted)),
+          const SizedBox(height: 16),
+          OutlinedButton(onPressed: onRetry, child: const Text('Muat ulang')),
+        ],
+      ),
+    );
+  }
+}
+
+class _InventoryBody extends ConsumerStatefulWidget {
   const _InventoryBody();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final purchases = ref.watch(nojposSessionProvider).purchases;
+  ConsumerState<_InventoryBody> createState() => _InventoryBodyState();
+}
+
+class _InventoryBodyState extends ConsumerState<_InventoryBody> {
+  @override
+  void initState() {
+    super.initState();
+    Future<void>.microtask(_reloadInventoryFeature);
+  }
+
+  Future<void> _reloadInventoryFeature() async {
+    await ref.read(nojposSessionProvider.notifier).loadInventory();
+    final outletId = ref.read(nojposSessionProvider).outlet.id;
+    if (outletId.isEmpty) return;
+    await ref
+        .read(inventoryOperationsProvider.notifier)
+        .loadMovements(outletId: outletId);
+    await ref
+        .read(inventoryOperationsProvider.notifier)
+        .loadInTransit(outletId: outletId);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final session = ref.watch(nojposSessionProvider);
+    final operations = ref.watch(inventoryOperationsProvider);
+    final inventory = session.inventory;
+    final movements =
+        operations.movements?.items ?? inventory?.movements ?? const [];
+    final inTransit = operations.inTransit?.items ?? const [];
     return Row(
       children: [
         const _LeftList(
@@ -513,7 +939,7 @@ class _InventoryBody extends ConsumerWidget {
           items: [
             'Faktur Pembelian',
             'Stok Opname',
-            'Terima Mutasi Stok',
+            'Transfer In-Transit',
             'Stok Terbuang',
           ],
           activeIndex: 0,
@@ -523,32 +949,67 @@ class _InventoryBody extends ConsumerWidget {
             children: [
               const _FilterRow(),
               const _TableHeader(
-                columns: ['Supplier', 'No Faktur', 'Tanggal', 'Total'],
+                columns: ['Produk', 'Stok', 'Tersedia', 'Status'],
               ),
-              Expanded(
-                child: purchases.isEmpty
+              SizedBox(
+                height: 260,
+                child: session.isBusy && inventory == null
+                    ? const Center(child: CircularProgressIndicator())
+                    : inventory == null || inventory.items.isEmpty
                     ? const _EmptyState(
                         icon: LucideIcons.folderSearch,
-                        title: 'Faktur Pembelian Tidak Tersedia',
+                        title: 'Stok Tidak Tersedia',
                         subtitle:
-                            'Silakan masukkan faktur pembelian yang dimiliki melalui tombol Tambah Faktur Pembelian terlebih dahulu',
+                            'Inventory akan muncul setelah data API dimuat',
                       )
                     : ListView.separated(
-                        itemCount: purchases.length,
+                        itemCount: inventory.items.length,
                         separatorBuilder: (context, index) =>
                             const Divider(height: 1, color: MokposColors.line),
                         itemBuilder: (context, index) {
-                          final purchase = purchases[index];
+                          final item = inventory.items[index];
+                          final transit = item.inTransitOutQuantity > 0
+                              ? 'Transit keluar ${item.inTransitOutQuantity}'
+                              : item.inTransitInQuantity > 0
+                              ? 'Transit masuk ${item.inTransitInQuantity}'
+                              : item.isNegative
+                              ? 'Stok negatif diizinkan'
+                              : 'Normal';
                           return _DataRow(
                             cells: [
-                              purchase.supplierName,
-                              purchase.number,
-                              _formatDateTime(purchase.createdAt),
-                              rupiah(purchase.total),
+                              item.name,
+                              '${item.stockOnHand}',
+                              '${item.availableQuantity}',
+                              transit,
                             ],
                           );
                         },
                       ),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      InventoryActionPanel(
+                        canManage: session.canManageMasterData,
+                        outletId: session.outlet.id,
+                        outlets: session.outlets,
+                        items: inventory?.items ?? const [],
+                        onChanged: _reloadInventoryFeature,
+                      ),
+                      const SizedBox(height: 12),
+                      InTransitTransfersPanel(
+                        canManage: session.canManageMasterData,
+                        transfers: inTransit,
+                        onChanged: _reloadInventoryFeature,
+                      ),
+                      const SizedBox(height: 12),
+                      InventoryMovementPanel(movements: movements),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),
@@ -564,6 +1025,8 @@ class _SettingsBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final catalog = ref.watch(posCatalogProvider);
+    final session = ref.watch(nojposSessionProvider);
+    final canManage = session.canManageMasterData;
     return Row(
       children: [
         const _SettingsMenu(),
@@ -588,28 +1051,47 @@ class _SettingsBody extends ConsumerWidget {
                   ],
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  children: [
-                    const _SearchLine(),
-                    const SizedBox(height: 16),
-                    const _AddProductButton(),
-                    const SizedBox(height: 14),
-                    _CategoryStrip(categories: catalog.categories),
-                    const SizedBox(height: 14),
-                    SizedBox(
-                      height: 420,
-                      child: ListView.separated(
-                        itemCount: catalog.products.length,
-                        separatorBuilder: (context, index) =>
-                            const Divider(height: 1, color: MokposColors.line),
-                        itemBuilder: (context, index) => _ProductSettingRow(
-                          product: catalog.products[index],
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    children: [
+                      const _BackendSettingsSummary(),
+                      const SizedBox(height: 24),
+                      _SearchLine(
+                        onChanged: (value) => ref
+                            .read(posCatalogProvider.notifier)
+                            .load(search: value),
+                      ),
+                      const SizedBox(height: 16),
+                      if (canManage) const _AddProductButton(),
+                      if (!canManage) const _ReadOnlyNotice(),
+                      const SizedBox(height: 14),
+                      _CategoryStrip(
+                        categories: catalog.categoryItems,
+                        canManage: canManage,
+                      ),
+                      const SizedBox(height: 14),
+                      SizedBox(
+                        height: 360,
+                        child: ListView.separated(
+                          itemCount: catalog.products.length,
+                          separatorBuilder: (context, index) => const Divider(
+                            height: 1,
+                            color: MokposColors.line,
+                          ),
+                          itemBuilder: (context, index) => _ProductSettingRow(
+                            product: catalog.products[index],
+                            canManage: canManage,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 24),
+                      const _PrinterSettingsPanel(),
+                      const SizedBox(height: 24),
+                      const StaffSettingsPanel(),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -620,13 +1102,347 @@ class _SettingsBody extends ConsumerWidget {
   }
 }
 
-class _AttendanceBody extends ConsumerWidget {
-  const _AttendanceBody();
+class _BackendSettingsSummary extends ConsumerWidget {
+  const _BackendSettingsSummary();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(settingsAggregateProvider);
+
+    return settings.when(
+      data: (value) => SettingsSummaryPanel(settings: value),
+      loading: () => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: MokposColors.line),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Row(
+          children: [
+            SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: 10),
+            Text(
+              'Memuat pengaturan server...',
+              style: TextStyle(
+                color: MokposColors.muted,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+      ),
+      error: (error, stackTrace) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: MokposColors.line),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          'Gagal memuat pengaturan server: ${_messageForUi(error)}',
+          style: const TextStyle(
+            color: MokposColors.danger,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PrinterSettingsPanel extends ConsumerStatefulWidget {
+  const _PrinterSettingsPanel();
+
+  @override
+  ConsumerState<_PrinterSettingsPanel> createState() =>
+      _PrinterSettingsPanelState();
+}
+
+class _PrinterSettingsPanelState extends ConsumerState<_PrinterSettingsPanel> {
+  PrinterSettings settings = const PrinterSettings();
+  List<BluetoothPrinterDevice> devices = const [];
+  bool loading = true;
+  String? statusMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    Future<void>.microtask(_loadSettings);
+  }
+
+  Future<void> _loadSettings() async {
+    final loaded = await ref
+        .read(receiptPrintingServiceProvider)
+        .loadSettings();
+    if (!mounted) return;
+    setState(() {
+      settings = loaded;
+      loading = false;
+    });
+  }
+
+  Future<void> _scan() async {
+    setState(() {
+      loading = true;
+      statusMessage = 'Mencari printer Bluetooth paired...';
+    });
+    try {
+      final result = await ref
+          .read(receiptPrintingServiceProvider)
+          .scanPrinters();
+      if (!mounted) return;
+      setState(() {
+        devices = result;
+        statusMessage = result.isEmpty
+            ? 'Tidak ada printer paired. Pairing printer dari setting Android dulu.'
+            : 'Ditemukan ${result.length} perangkat.';
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(
+        () => statusMessage = 'Scan printer gagal: ${_messageForUi(error)}',
+      );
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  Future<void> _save(BluetoothPrinterDevice device) async {
+    setState(() => loading = true);
+    final result = await ref
+        .read(receiptPrintingServiceProvider)
+        .saveDefaultPrinter(device);
+    final loaded = await ref
+        .read(receiptPrintingServiceProvider)
+        .loadSettings();
+    if (!mounted) return;
+    setState(() {
+      settings = loaded;
+      statusMessage = result.message;
+      loading = false;
+    });
+  }
+
+  Future<void> _toggleCashDrawer(bool enabled) async {
+    await ref
+        .read(receiptPrintingServiceProvider)
+        .setCashDrawerEnabled(enabled);
+    await _loadSettings();
+    if (!mounted) return;
+    setState(() {
+      statusMessage = enabled
+          ? 'Cash drawer aktif. Perintah buka laci akan dikirim saat cetak transaksi tunai.'
+          : 'Cash drawer nonaktif.';
+    });
+  }
+
+  Future<void> _testPrint() async {
+    setState(() => loading = true);
+    final result = await ref.read(receiptPrintingServiceProvider).testPrint();
+    if (!mounted) return;
+    setState(() {
+      statusMessage = result.message;
+      loading = false;
+    });
+  }
+
+  Future<void> _kickDrawer() async {
+    setState(() => loading = true);
+    final result = await ref
+        .read(receiptPrintingServiceProvider)
+        .kickCashDrawer();
+    if (!mounted) return;
+    setState(() {
+      statusMessage = result.message;
+      loading = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final printer = settings.defaultPrinter;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: MokposColors.line),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const Icon(LucideIcons.printer, color: MokposColors.primary),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  'Manajemen Printer',
+                  style: TextStyle(
+                    color: MokposColors.text,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+              OutlinedButton.icon(
+                onPressed: loading ? null : _scan,
+                icon: const Icon(LucideIcons.bluetooth, size: 16),
+                label: const Text('Scan Bluetooth'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _PrinterStatusLine(
+            label: 'Printer default',
+            value: printer == null
+                ? 'Belum disimpan'
+                : '${printer.name} (${printer.address})',
+          ),
+          _PrinterStatusLine(
+            label: 'Status koneksi',
+            value: printer == null
+                ? 'Tidak ada printer default. Cetak tetap best-effort dan tidak blokir penjualan.'
+                : 'Siap dicoba. Aplikasi akan connect ulang saat cetak.',
+          ),
+          const SizedBox(height: 12),
+          if (devices.isNotEmpty) ...[
+            const Text(
+              'Perangkat ditemukan',
+              style: TextStyle(
+                color: MokposColors.muted,
+                fontWeight: FontWeight.w900,
+                fontSize: 12,
+              ),
+            ),
+            const SizedBox(height: 6),
+            for (final device in devices)
+              ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                title: Text(device.name),
+                subtitle: Text(device.address),
+                trailing: FilledButton(
+                  onPressed: loading ? null : () => _save(device),
+                  child: const Text('Simpan Default'),
+                ),
+              ),
+          ],
+          const Divider(height: 24, color: MokposColors.line),
+          SwitchListTile(
+            value: settings.cashDrawerEnabled,
+            onChanged: loading ? null : _toggleCashDrawer,
+            contentPadding: EdgeInsets.zero,
+            title: const Text(
+              'Cash drawer kick',
+              style: TextStyle(fontWeight: FontWeight.w900),
+            ),
+            subtitle: const Text(
+              'Best-effort dan tergantung dukungan printer. Penjualan tidak diblokir.',
+            ),
+          ),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: loading ? null : _testPrint,
+                  icon: const Icon(LucideIcons.receiptText, size: 16),
+                  label: const Text('Test Print'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: loading ? null : _kickDrawer,
+                  icon: const Icon(LucideIcons.archive, size: 16),
+                  label: const Text('Test Buka Laci'),
+                ),
+              ),
+            ],
+          ),
+          if (statusMessage != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              statusMessage!,
+              style: const TextStyle(
+                color: MokposColors.muted,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _PrinterStatusLine extends StatelessWidget {
+  const _PrinterStatusLine({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 132,
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: MokposColors.muted,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                color: MokposColors.text,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AttendanceBody extends ConsumerStatefulWidget {
+  const _AttendanceBody();
+
+  @override
+  ConsumerState<_AttendanceBody> createState() => _AttendanceBodyState();
+}
+
+class _AttendanceBodyState extends ConsumerState<_AttendanceBody> {
+  @override
+  void initState() {
+    super.initState();
+    Future<void>.microtask(
+      () => ref.read(attendanceControllerProvider.notifier).load(),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final now = DateTime.now();
-    final attendance = ref.watch(nojposSessionProvider).attendance;
+    final attendanceState = ref.watch(attendanceControllerProvider);
+    final attendance = attendanceState.records;
     final latest = attendance.isEmpty ? null : attendance.first;
     return Row(
       children: [
@@ -653,15 +1469,22 @@ class _AttendanceBody extends ConsumerWidget {
                   ),
                   const Spacer(),
                   Center(
-                    child: Text(
-                      latest == null
-                          ? 'Belum ada aktivitas absensi hari ini'
-                          : latest.isOpen
-                          ? '${latest.employee.name} sedang clock in'
-                          : '${latest.employee.name} sudah clock out',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: Colors.white70),
-                    ),
+                    child: attendanceState.isLoading && attendance.isEmpty
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : Text(
+                            attendanceState.errorMessage ??
+                                (latest == null
+                                    ? 'Belum ada aktivitas absensi hari ini'
+                                    : latest.isOpen
+                                    ? '${latest.employee.name} sedang clock in'
+                                    : '${latest.employee.name} sudah clock out'),
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: attendanceState.errorMessage == null
+                                  ? Colors.white70
+                                  : const Color(0xFFFFD7D7),
+                            ),
+                          ),
                   ),
                   const Spacer(),
                 ],
@@ -721,6 +1544,7 @@ List<CartItem> _cartItemsFromOrder(SalesOrder order, List<Product> products) {
           ),
         ),
         quantity: line.quantity,
+        discount: line.discount,
       ),
   ];
 }
@@ -730,11 +1554,13 @@ class _LeftList extends StatelessWidget {
     required this.title,
     required this.items,
     required this.activeIndex,
+    this.comingSoonIndexes = const {},
   });
 
   final String title;
   final List<String> items;
   final int activeIndex;
+  final Set<int> comingSoonIndexes;
 
   @override
   Widget build(BuildContext context) {
@@ -771,39 +1597,77 @@ class _LeftList extends StatelessWidget {
             ),
           ),
           for (final (index, item) in items.indexed)
-            Container(
-              height: 48,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              alignment: Alignment.centerLeft,
-              decoration: BoxDecoration(
-                color: index == activeIndex
-                    ? MokposColors.primarySoft
-                    : Colors.white,
-                border: Border(
-                  left: BorderSide(
-                    color: index == activeIndex
-                        ? MokposColors.primary
-                        : Colors.transparent,
-                    width: 3,
-                  ),
-                  bottom: const BorderSide(color: MokposColors.line),
-                ),
-              ),
-              child: Text(
-                item,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
+            Tooltip(
+              message: comingSoonIndexes.contains(index)
+                  ? '$item segera hadir'
+                  : '',
+              child: Container(
+                height: 48,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                alignment: Alignment.centerLeft,
+                decoration: BoxDecoration(
                   color: index == activeIndex
-                      ? MokposColors.text
-                      : MokposColors.muted,
-                  fontSize: 12,
-                  fontWeight: index == activeIndex
-                      ? FontWeight.w900
-                      : FontWeight.w700,
+                      ? MokposColors.primarySoft
+                      : Colors.white,
+                  border: Border(
+                    left: BorderSide(
+                      color: index == activeIndex
+                          ? MokposColors.primary
+                          : Colors.transparent,
+                      width: 3,
+                    ),
+                    bottom: const BorderSide(color: MokposColors.line),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        item,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: index == activeIndex
+                              ? MokposColors.text
+                              : MokposColors.muted,
+                          fontSize: 12,
+                          fontWeight: index == activeIndex
+                              ? FontWeight.w900
+                              : FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    if (comingSoonIndexes.contains(index))
+                      const _OpsSoonBadge(),
+                  ],
                 ),
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _OpsSoonBadge extends StatelessWidget {
+  const _OpsSoonBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(left: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F7F6),
+        border: Border.all(color: MokposColors.line),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: const Text(
+        'Segera hadir',
+        style: TextStyle(
+          color: MokposColors.muted,
+          fontSize: 8,
+          fontWeight: FontWeight.w900,
+        ),
       ),
     );
   }
@@ -845,7 +1709,7 @@ class _TableHeader extends StatelessWidget {
 }
 
 class _DataRow extends StatelessWidget {
-  const _DataRow({required this.cells, this.onTap});
+  const _DataRow({required this.cells, this.onTap, super.key});
 
   final List<String> cells;
   final VoidCallback? onTap;
@@ -872,6 +1736,47 @@ class _DataRow extends StatelessWidget {
                   ),
                 ),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LoadErrorState extends StatelessWidget {
+  const _LoadErrorState({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              LucideIcons.circleAlert,
+              size: 44,
+              color: MokposColors.danger,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: MokposColors.text,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(LucideIcons.refreshCw, size: 18),
+              label: const Text('Muat ulang'),
+            ),
           ],
         ),
       ),
@@ -935,7 +1840,7 @@ class _MetricCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 70,
+      height: 86,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -1029,30 +1934,38 @@ class _FilterBox extends StatelessWidget {
 }
 
 class _SimpleChart extends StatelessWidget {
-  const _SimpleChart();
+  const _SimpleChart({required this.points});
+
+  final List<SalesChartPoint> points;
 
   @override
   Widget build(BuildContext context) {
+    final maxAmount = points.fold<int>(
+      0,
+      (max, point) => point.amount > max ? point.amount : max,
+    );
     return SizedBox(
       height: 280,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          for (final height in [110.0, 175.0, 112.0])
+          for (final point in points)
             Padding(
               padding: const EdgeInsets.only(right: 12),
               child: Container(
                 width: 14,
-                height: height,
+                height: maxAmount == 0 ? 4 : 220 * point.amount / maxAmount,
                 color: MokposColors.primary,
               ),
             ),
-          const Expanded(
+          Expanded(
             child: Align(
               alignment: Alignment.bottomLeft,
               child: Text(
-                '00:00      08:00      16:00      24:00',
-                style: TextStyle(color: MokposColors.muted, fontSize: 11),
+                points.isEmpty
+                    ? 'Belum ada data chart'
+                    : points.map((point) => point.label).take(4).join('      '),
+                style: const TextStyle(color: MokposColors.muted, fontSize: 11),
               ),
             ),
           ),
@@ -1062,11 +1975,13 @@ class _SimpleChart extends StatelessWidget {
   }
 }
 
-class _SettingsMenu extends StatelessWidget {
+class _SettingsMenu extends ConsumerWidget {
   const _SettingsMenu();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final session = ref.watch(nojposSessionProvider);
+    final canLogoutApp = session.canManageMasterData;
     final items = [
       'Produk & Kategori',
       'Order Online',
@@ -1101,8 +2016,18 @@ class _SettingsMenu extends StatelessWidget {
           for (final (index, item) in items.indexed)
             ListTile(
               dense: true,
+              enabled: item != 'Keluar' || canLogoutApp,
+              onTap: item == 'Keluar'
+                  ? canLogoutApp
+                        ? () => _confirmAppLogout(context, ref)
+                        : null
+                  : null,
               leading: Icon(
-                index == 0 ? LucideIcons.boxes : LucideIcons.settings,
+                index == 0
+                    ? LucideIcons.boxes
+                    : item == 'Keluar'
+                    ? LucideIcons.logOut
+                    : LucideIcons.settings,
                 size: 18,
                 color: index == 0 ? MokposColors.primary : MokposColors.muted,
               ),
@@ -1114,11 +2039,50 @@ class _SettingsMenu extends StatelessWidget {
                   fontSize: 13,
                 ),
               ),
+              subtitle: item == 'Keluar' && !canLogoutApp
+                  ? const Text('Hanya owner/admin')
+                  : null,
             ),
         ],
       ),
     );
   }
+}
+
+Future<void> _confirmAppLogout(BuildContext context, WidgetRef ref) async {
+  final confirmed =
+      await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: Colors.white,
+          title: const Text(
+            'Konfirmasi Keluar',
+            style: TextStyle(fontWeight: FontWeight.w900),
+          ),
+          content: const Text(
+            'Akun aplikasi POS akan dikeluarkan dari perangkat ini. Setelah keluar, Anda perlu login ulang memakai email dan password.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Batal'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: FilledButton.styleFrom(
+                backgroundColor: MokposColors.danger,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Keluar Akun'),
+            ),
+          ],
+        ),
+      ) ??
+      false;
+  if (!context.mounted || !confirmed) return;
+  await ref.read(nojposSessionProvider.notifier).logout();
+  if (!context.mounted) return;
+  context.go('/login');
 }
 
 class _TabText extends StatelessWidget {
@@ -1152,7 +2116,9 @@ class _TabText extends StatelessWidget {
 }
 
 class _SearchLine extends StatelessWidget {
-  const _SearchLine();
+  const _SearchLine({this.onChanged});
+
+  final ValueChanged<String>? onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -1162,14 +2128,43 @@ class _SearchLine extends StatelessWidget {
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: MokposColors.line)),
       ),
-      child: const Row(
+      child: Row(
         children: [
-          Icon(LucideIcons.search, color: MokposColors.muted, size: 18),
-          SizedBox(width: 12),
-          Text('Cari ...', style: TextStyle(color: MokposColors.muted)),
-          Spacer(),
-          Icon(LucideIcons.listFilter, color: MokposColors.muted, size: 18),
+          const Icon(LucideIcons.search, color: MokposColors.muted, size: 18),
+          const SizedBox(width: 12),
+          Expanded(
+            child: TextField(
+              onChanged: onChanged,
+              decoration: const InputDecoration(
+                hintText: 'Cari produk...',
+                border: InputBorder.none,
+              ),
+            ),
+          ),
+          const Icon(
+            LucideIcons.listFilter,
+            color: MokposColors.muted,
+            size: 18,
+          ),
         ],
+      ),
+    );
+  }
+}
+
+class _ReadOnlyNotice extends StatelessWidget {
+  const _ReadOnlyNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Align(
+      alignment: Alignment.centerLeft,
+      child: Text(
+        'Mode cashier read-only. Edit produk dan kategori hanya untuk owner/admin.',
+        style: TextStyle(
+          color: MokposColors.muted,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
@@ -1182,22 +2177,28 @@ class _AddProductButton extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return OutlinedButton(
       onPressed: () async {
-        final result =
-            await showDialog<({String name, String category, int price})>(
-              context: context,
-              builder: (context) => const _ProductDialog(),
-            );
+        final result = await showDialog<_ProductFormResult>(
+          context: context,
+          builder: (context) => const _ProductDialog(),
+        );
         if (result == null || !context.mounted) return;
-        final product = ref
-            .read(posCatalogProvider.notifier)
-            .addProduct(
-              name: result.name,
-              category: result.category,
-              price: result.price,
-            );
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('${product.name} ditambahkan')));
+        try {
+          final product = await ref
+              .read(posCatalogProvider.notifier)
+              .addProduct(
+                outletId: ref.read(nojposSessionProvider).outlet.id,
+                name: result.name,
+                category: result.category,
+                price: result.price,
+              );
+          if (!context.mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('${product.name} ditambahkan')),
+          );
+        } catch (error) {
+          if (!context.mounted) return;
+          _showErrorSnackBar(context, _messageForUi(error));
+        }
       },
       style: OutlinedButton.styleFrom(
         minimumSize: const Size.fromHeight(46),
@@ -1213,22 +2214,44 @@ class _AddProductButton extends ConsumerWidget {
   }
 }
 
-class _CategoryStrip extends StatelessWidget {
-  const _CategoryStrip({required this.categories});
+class _CategoryStrip extends ConsumerWidget {
+  const _CategoryStrip({required this.categories, required this.canManage});
 
-  final List<String> categories;
+  final List<ProductCategory> categories;
+  final bool canManage;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return SizedBox(
       height: 38,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        itemCount: categories.length,
+        itemCount: categories.length + (canManage ? 1 : 0),
         separatorBuilder: (context, index) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
+          if (index >= categories.length) {
+            return OutlinedButton.icon(
+              onPressed: () async {
+                final name = await _promptText(
+                  context,
+                  title: 'Tambah Kategori',
+                  label: 'Nama kategori',
+                );
+                if (name == null || !context.mounted) return;
+                try {
+                  await ref.read(posCatalogProvider.notifier).addCategory(name);
+                } catch (error) {
+                  if (!context.mounted) return;
+                  _showErrorSnackBar(context, _messageForUi(error));
+                }
+              },
+              icon: const Icon(LucideIcons.plus, size: 16),
+              label: const Text('Kategori'),
+            );
+          }
           final category = categories[index];
-          return Container(
+          final isSystemCategory = category.id.startsWith('__system_');
+          final chip = Container(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             alignment: Alignment.center,
             decoration: BoxDecoration(
@@ -1236,14 +2259,55 @@ class _CategoryStrip extends StatelessWidget {
               border: Border.all(color: MokposColors.line),
               borderRadius: BorderRadius.circular(6),
             ),
-            child: Text(
-              category,
-              style: TextStyle(
-                color: index == 0 ? MokposColors.primary : MokposColors.text,
-                fontWeight: FontWeight.w800,
-                fontSize: 12,
-              ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  category.name,
+                  style: TextStyle(
+                    color: index == 0
+                        ? MokposColors.primary
+                        : MokposColors.text,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12,
+                  ),
+                ),
+                if (canManage && !isSystemCategory) ...[
+                  const SizedBox(width: 6),
+                  const Icon(LucideIcons.pencil, size: 12),
+                ],
+              ],
             ),
+          );
+          if (!canManage || isSystemCategory) return chip;
+          return InkWell(
+            borderRadius: BorderRadius.circular(6),
+            onTap: () async {
+              final name = await _promptText(
+                context,
+                title: 'Edit Kategori',
+                label: 'Nama kategori',
+                initialValue: category.name,
+              );
+              if (name == null || !context.mounted) return;
+              try {
+                await ref
+                    .read(posCatalogProvider.notifier)
+                    .updateCategory(
+                      id: category.id,
+                      oldName: category.name,
+                      name: name.trim(),
+                    );
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('${name.trim()} disimpan')),
+                );
+              } catch (error) {
+                if (!context.mounted) return;
+                _showErrorSnackBar(context, _messageForUi(error));
+              }
+            },
+            child: chip,
           );
         },
       ),
@@ -1252,42 +2316,145 @@ class _CategoryStrip extends StatelessWidget {
 }
 
 class _ProductSettingRow extends StatelessWidget {
-  const _ProductSettingRow({required this.product});
+  const _ProductSettingRow({required this.product, required this.canManage});
 
   final Product product;
+  final bool canManage;
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      leading: CircleAvatar(
-        backgroundColor: const Color(0xFFE4EEE7),
-        child: Text(product.name.characters.first.toUpperCase()),
-      ),
-      title: Text(
-        product.name,
-        style: const TextStyle(fontWeight: FontWeight.w900),
-      ),
-      subtitle: Text(product.category),
-      trailing: Text(
-        '${rupiah(product.price)}\n0',
-        textAlign: TextAlign.right,
-        style: const TextStyle(fontWeight: FontWeight.w800),
+    return Consumer(
+      builder: (context, ref, child) => ListTile(
+        enabled: true,
+        onTap: canManage
+            ? () async {
+                final result = await showDialog<_ProductFormResult>(
+                  context: context,
+                  builder: (context) => _ProductDialog(product: product),
+                );
+                if (result == null || !context.mounted) return;
+                try {
+                  await ref
+                      .read(posCatalogProvider.notifier)
+                      .updateProduct(
+                        product: product,
+                        outletId: ref.read(nojposSessionProvider).outlet.id,
+                        name: result.name,
+                        category: result.category,
+                        price: result.price,
+                      );
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('${result.name} diperbarui')),
+                  );
+                } catch (error) {
+                  if (!context.mounted) return;
+                  _showErrorSnackBar(context, _messageForUi(error));
+                }
+              }
+            : null,
+        leading: CircleAvatar(
+          backgroundColor: const Color(0xFFE4EEE7),
+          child: Text(product.name.characters.first.toUpperCase()),
+        ),
+        title: Text(
+          product.name,
+          style: const TextStyle(fontWeight: FontWeight.w900),
+        ),
+        subtitle: Text(product.category),
+        trailing: Text(
+          '${rupiah(product.price)}\n${canManage ? 'Edit' : 'Read-only'}',
+          textAlign: TextAlign.right,
+          style: const TextStyle(fontWeight: FontWeight.w800),
+        ),
       ),
     );
   }
 }
 
 class _ProductDialog extends ConsumerStatefulWidget {
-  const _ProductDialog();
+  const _ProductDialog({this.product});
+
+  final Product? product;
 
   @override
   ConsumerState<_ProductDialog> createState() => _ProductDialogState();
 }
 
+class _ProductFormResult {
+  const _ProductFormResult({
+    required this.name,
+    required this.category,
+    required this.price,
+  });
+
+  final String name;
+  final ProductCategory category;
+  final int price;
+}
+
+Future<String?> _promptText(
+  BuildContext context, {
+  required String title,
+  required String label,
+  String initialValue = '',
+}) {
+  final controller = TextEditingController(text: initialValue);
+  return showDialog<String>(
+    context: context,
+    builder: (context) => AlertDialog(
+      backgroundColor: Colors.white,
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
+      content: TextField(
+        controller: controller,
+        autofocus: true,
+        decoration: InputDecoration(
+          labelText: label,
+          border: const OutlineInputBorder(),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Batal'),
+        ),
+        FilledButton(
+          onPressed: () {
+            final text = controller.text.trim();
+            if (text.isEmpty) return;
+            Navigator.of(context).pop(text);
+          },
+          child: const Text('Simpan'),
+        ),
+      ],
+    ),
+  ).whenComplete(controller.dispose);
+}
+
+void _showErrorSnackBar(BuildContext context, String message) {
+  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+}
+
+String _messageForUi(Object error) {
+  if (error is ForbiddenApiException) {
+    return error.message.isEmpty
+        ? 'Akses ditolak. Hanya owner/admin yang bisa mengubah produk dan kategori.'
+        : error.message;
+  }
+  if (error is ApiException) return error.message;
+  final message = error.toString();
+  final separator = message.indexOf(': ');
+  return separator == -1 ? message : message.substring(separator + 2);
+}
+
 class _ProductDialogState extends ConsumerState<_ProductDialog> {
-  final nameController = TextEditingController(text: 'Produk Baru');
-  final priceController = TextEditingController(text: '15000');
-  String category = 'Makanan';
+  late final nameController = TextEditingController(
+    text: widget.product?.name ?? 'Produk Baru',
+  );
+  late final priceController = TextEditingController(
+    text: (widget.product?.price ?? 15000).toString(),
+  );
+  ProductCategory? category;
 
   @override
   void dispose() {
@@ -1300,11 +2467,16 @@ class _ProductDialogState extends ConsumerState<_ProductDialog> {
   Widget build(BuildContext context) {
     final categories = ref
         .watch(posCatalogProvider)
-        .categories
-        .where((item) => item != 'Semua' && item != 'Favorit')
+        .categoryItems
+        .where((item) => !item.id.startsWith('__system_'))
         .toList();
-    if (!categories.contains(category) && categories.isNotEmpty) {
-      category = categories.first;
+    final product = widget.product;
+    if (category == null && categories.isNotEmpty) {
+      category = categories.firstWhere(
+        (item) =>
+            item.id == product?.categoryId || item.name == product?.category,
+        orElse: () => categories.first,
+      );
     }
 
     return AlertDialog(
@@ -1327,11 +2499,11 @@ class _ProductDialogState extends ConsumerState<_ProductDialog> {
               ),
             ),
             const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
+            DropdownButtonFormField<ProductCategory>(
               initialValue: category,
               items: [
                 for (final item in categories)
-                  DropdownMenuItem(value: item, child: Text(item)),
+                  DropdownMenuItem(value: item, child: Text(item.name)),
               ],
               onChanged: (value) {
                 if (value != null) setState(() => category = value);
@@ -1366,12 +2538,19 @@ class _ProductDialogState extends ConsumerState<_ProductDialog> {
                   priceController.text.replaceAll(RegExp(r'[^0-9]'), ''),
                 ) ??
                 0;
-            if (nameController.text.trim().isEmpty || price <= 0) return;
-            Navigator.of(context).pop((
-              name: nameController.text.trim(),
-              category: category,
-              price: price,
-            ));
+            final selectedCategory = category;
+            if (nameController.text.trim().isEmpty ||
+                price <= 0 ||
+                selectedCategory == null) {
+              return;
+            }
+            Navigator.of(context).pop(
+              _ProductFormResult(
+                name: nameController.text.trim(),
+                category: selectedCategory,
+                price: price,
+              ),
+            );
           },
           child: const Text('Simpan'),
         ),
@@ -1380,26 +2559,31 @@ class _ProductDialogState extends ConsumerState<_ProductDialog> {
   }
 }
 
-class _PurchaseDialog extends StatefulWidget {
+class _PurchaseDialog extends ConsumerStatefulWidget {
   const _PurchaseDialog();
 
   @override
-  State<_PurchaseDialog> createState() => _PurchaseDialogState();
+  ConsumerState<_PurchaseDialog> createState() => _PurchaseDialogState();
 }
 
-class _PurchaseDialogState extends State<_PurchaseDialog> {
+class _PurchaseDialogState extends ConsumerState<_PurchaseDialog> {
   final supplierController = TextEditingController(text: 'Supplier Nusantara');
-  final totalController = TextEditingController(text: '250000');
+  final quantityController = TextEditingController(text: '12');
+  final unitCostController = TextEditingController(text: '10000');
+  String? productId;
 
   @override
   void dispose() {
     supplierController.dispose();
-    totalController.dispose();
+    quantityController.dispose();
+    unitCostController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final products = ref.watch(posCatalogProvider).products;
+    productId ??= products.firstOrNull?.id;
     return AlertDialog(
       backgroundColor: Colors.white,
       title: const Text(
@@ -1420,14 +2604,47 @@ class _PurchaseDialogState extends State<_PurchaseDialog> {
               ),
             ),
             const SizedBox(height: 12),
-            TextField(
-              controller: totalController,
-              keyboardType: TextInputType.number,
+            DropdownButtonFormField<String>(
+              initialValue: productId,
+              items: [
+                for (final product in products)
+                  DropdownMenuItem(
+                    value: product.id,
+                    child: Text(product.name),
+                  ),
+              ],
+              onChanged: (value) => setState(() => productId = value),
               decoration: const InputDecoration(
-                labelText: 'Total Faktur',
-                prefixText: 'Rp ',
+                labelText: 'Produk',
                 border: OutlineInputBorder(),
               ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: quantityController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Qty',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: unitCostController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Harga beli',
+                      prefixText: 'Rp ',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -1439,15 +2656,29 @@ class _PurchaseDialogState extends State<_PurchaseDialog> {
         ),
         FilledButton(
           onPressed: () {
-            final total =
+            final quantity =
                 int.tryParse(
-                  totalController.text.replaceAll(RegExp(r'[^0-9]'), ''),
+                  quantityController.text.replaceAll(RegExp(r'[^0-9]'), ''),
                 ) ??
                 0;
-            if (supplierController.text.trim().isEmpty || total <= 0) return;
-            Navigator.of(
-              context,
-            ).pop((supplierName: supplierController.text.trim(), total: total));
+            final unitCost =
+                int.tryParse(
+                  unitCostController.text.replaceAll(RegExp(r'[^0-9]'), ''),
+                ) ??
+                0;
+            final selectedProductId = productId;
+            if (supplierController.text.trim().isEmpty ||
+                selectedProductId == null ||
+                quantity <= 0 ||
+                unitCost <= 0) {
+              return;
+            }
+            Navigator.of(context).pop((
+              supplierName: supplierController.text.trim(),
+              productId: selectedProductId,
+              quantity: quantity,
+              unitCost: unitCost,
+            ));
           },
           child: const Text('Tambah'),
         ),
@@ -1461,7 +2692,7 @@ class _AttendanceListDialog extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final records = ref.watch(nojposSessionProvider).attendance;
+    final records = ref.watch(attendanceControllerProvider).records;
     return AlertDialog(
       backgroundColor: Colors.white,
       title: const Text(
@@ -1516,14 +2747,46 @@ class _AttendanceListDialog extends ConsumerWidget {
   }
 }
 
-class _AttendancePinPanel extends ConsumerWidget {
+class _AttendancePinPanel extends ConsumerStatefulWidget {
   const _AttendancePinPanel();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_AttendancePinPanel> createState() =>
+      _AttendancePinPanelState();
+}
+
+class _AttendancePinPanelState extends ConsumerState<_AttendancePinPanel> {
+  String? selectedEmployeeId;
+  String pin = '';
+
+  void _appendPin(String value) {
+    if (pin.length >= 6) return;
+    setState(() => pin += value);
+  }
+
+  void _backspacePin() {
+    if (pin.isEmpty) return;
+    setState(() => pin = pin.substring(0, pin.length - 1));
+  }
+
+  void _clearPin() {
+    if (pin.isEmpty) return;
+    setState(() => pin = '');
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final session = ref.watch(nojposSessionProvider);
-    final employee = session.cashier;
-    final openRecord = session.attendance.where(
+    final attendanceState = ref.watch(attendanceControllerProvider);
+    final staff = attendanceState.staff.isEmpty
+        ? [session.cashier]
+        : attendanceState.staff;
+    selectedEmployeeId ??= staff.firstOrNull?.id;
+    final employee = staff.firstWhere(
+      (employee) => employee.id == selectedEmployeeId,
+      orElse: () => staff.first,
+    );
+    final openRecord = attendanceState.records.where(
       (record) => record.employee.id == employee.id && record.isOpen,
     );
     final isClockedIn = openRecord.isNotEmpty;
@@ -1531,18 +2794,33 @@ class _AttendancePinPanel extends ConsumerWidget {
       padding: const EdgeInsets.fromLTRB(72, 34, 72, 34),
       child: Column(
         children: [
-          _FilterBox(text: employee.name, width: 450),
+          DropdownButtonFormField<String>(
+            initialValue: employee.id,
+            items: [
+              for (final item in staff)
+                DropdownMenuItem(value: item.id, child: Text(item.name)),
+            ],
+            onChanged: attendanceState.isLoading
+                ? null
+                : (value) => setState(() => selectedEmployeeId = value),
+            decoration: const InputDecoration(
+              labelText: 'Staff',
+              border: OutlineInputBorder(),
+            ),
+          ),
           const SizedBox(height: 34),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: List.generate(
               6,
-              (_) => Container(
+              (index) => Container(
                 width: 10,
                 height: 10,
                 margin: const EdgeInsets.symmetric(horizontal: 10),
-                decoration: const BoxDecoration(
-                  color: MokposColors.line,
+                decoration: BoxDecoration(
+                  color: index < pin.length
+                      ? MokposColors.primary
+                      : MokposColors.line,
                   shape: BoxShape.circle,
                 ),
               ),
@@ -1558,41 +2836,83 @@ class _AttendancePinPanel extends ConsumerWidget {
             child: GridView.count(
               crossAxisCount: 3,
               childAspectRatio: 1.6,
-              children: const [
-                Center(child: Text('1')),
-                Center(child: Text('2')),
-                Center(child: Text('3')),
-                Center(child: Text('4')),
-                Center(child: Text('5')),
-                Center(child: Text('6')),
-                Center(child: Text('7')),
-                Center(child: Text('8')),
-                Center(child: Text('9')),
-                Center(child: Text('C')),
-                Center(child: Text('0')),
-                Center(child: Icon(LucideIcons.delete, size: 16)),
+              children: [
+                for (final key in const [
+                  '1',
+                  '2',
+                  '3',
+                  '4',
+                  '5',
+                  '6',
+                  '7',
+                  '8',
+                  '9',
+                  'C',
+                  '0',
+                  '<',
+                ])
+                  InkWell(
+                    onTap: attendanceState.isLoading
+                        ? null
+                        : () {
+                            if (key == 'C') return _clearPin();
+                            if (key == '<') return _backspacePin();
+                            _appendPin(key);
+                          },
+                    child: Center(
+                      child: key == '<'
+                          ? const Icon(LucideIcons.delete, size: 16)
+                          : Text(key),
+                    ),
+                  ),
               ],
             ),
           ),
-          FilledButton(
-            onPressed: () {
-              final record = ref
-                  .read(nojposSessionProvider.notifier)
-                  .toggleAttendance(employee);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    record.isOpen ? 'Clock in berhasil' : 'Clock out berhasil',
-                  ),
+          if (attendanceState.errorMessage != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(
+                attendanceState.errorMessage!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: MokposColors.danger,
+                  fontWeight: FontWeight.w800,
                 ),
-              );
-            },
+              ),
+            ),
+          FilledButton(
+            onPressed: attendanceState.isLoading || pin.isEmpty
+                ? null
+                : () async {
+                    final record = await ref
+                        .read(attendanceControllerProvider.notifier)
+                        .clockAttendance(employee: employee, pin: pin);
+                    if (!context.mounted || record == null) return;
+                    setState(() => pin = '');
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          record.isOpen
+                              ? 'Clock in berhasil'
+                              : 'Clock out berhasil',
+                        ),
+                      ),
+                    );
+                  },
             style: FilledButton.styleFrom(
               minimumSize: const Size.fromHeight(48),
               backgroundColor: MokposColors.primary,
               foregroundColor: Colors.white,
             ),
-            child: Text(isClockedIn ? 'Clock Out' : 'Clock In'),
+            child: attendanceState.isLoading
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : Text(isClockedIn ? 'Clock Out' : 'Clock In'),
           ),
         ],
       ),

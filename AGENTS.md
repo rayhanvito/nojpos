@@ -1,43 +1,153 @@
-# AGENTS.md - NojPOS Monorepo
+# NojPOS Monorepo Guide
 
-## Source of Truth
+Read this file first, then the closest package guide.
 
-- Product and architecture source of truth: `docs/NOJPOS_PRD.md` Revisi 8.
-- ADR source files live in `docs/adr/`.
+## Product And Source Of Truth
 
-## Project
+NojPOS is an online-first POS SaaS for Indonesian UMKM. Cashiers operate shared terminals; owners and admins control business operations; superadmins operate the SaaS layer.
 
-- NojPOS adalah POS SaaS Indonesia.
-- Monorepo ini berisi Flutter Cashier App dan Laravel API.
-- Future Next.js Admin dapat ditambahkan di `apps/admin/`.
+Source order:
 
-## Shared Non-Negotiables
+1. Latest user instruction.
+2. Closest `AGENTS.md`.
+3. [PRD v2.0](NOJPOS_POS_FLUTTER_BACKEND_PRD.md).
+4. [Current architecture map](docs/ARCHITECTURE.md).
+5. [Current analysis findings](docs/ANALYSIS_FINDINGS.md).
+6. [Improvement plan / execution waves](docs/IMPROVEMENT_PLAN.md).
+7. [Design system](docs/DESIGN.md) and [design tokens](docs/design-tokens.json).
+8. Actual code and tests for implementation details and current constraints.
+9. [Task breakdown](Task%20%26%20Subtask%20Breakdown.md) only as a legacy/reconciled reference. Do not execute it blindly.
 
-- MVP online-first.
-- Dilarang membuat `/sync/pull`, `/sync/push`, Drift production DB, sync queue umum, atau conflict resolver di MVP.
-- Semua nilai uang adalah integer rupiah. Tidak boleh memakai float untuk uang.
-- Semua endpoint API berada di prefix `/api/v1` dan memakai header `Accept: application/json`.
-- Multi-tenancy memakai `business_id` dari token/session, bukan input client.
-- Idempotency wajib untuk write transaksional dengan header `Idempotency-Key`.
-- Error envelope API wajib konsisten: sukses `{ "data": {}, "meta": {} }`; error `{ "error": { "code", "message", "details" } }`.
-- Jangan mengubah logika, endpoint, skema, atau behavior di luar scope task.
+When business rules are ambiguous, use the PRD `[DECISION]` default. State which default was used in the change summary; do not invent a different rule. When execution sequence is ambiguous, follow `docs/IMPROVEMENT_PLAN.md` waves, not the legacy task breakdown.
 
-## App Routing
+## Active Packages
 
-- Flutter Cashier detail rules: `apps/cashier/AGENTS.md`.
-- Laravel API detail rules: `apps/backend/AGENTS.md`.
-- Root docs: `docs/NOJPOS_PRD.md` dan `docs/adr/`.
+| Package | Purpose | Guide | Setup and verification |
+| --- | --- | --- | --- |
+| `apps/backend` | Laravel API, Sanctum, tenant data, money/stock rules | [backend guide](apps/backend/AGENTS.md) | `composer install`; `php artisan migrate:fresh --seed`; `php artisan test`; `php artisan route:list --path=api/v1` |
+| `apps/cashier` | Flutter shared-terminal cashier app | [cashier guide](apps/cashier/AGENTS.md) | `flutter pub get`; `flutter analyze`; `flutter test`; `flutter build apk --debug` |
 
-## Verification Gates
+There is currently no `apps/web`, Next.js app, or shared package. Do NOT create an AGENTS file, build command, or architecture dependency for a package that does not exist. A future admin surface starts only after backend P0 contracts are green and explicitly approved.
 
-Sebelum task dianggap selesai:
+Local API for Android emulator: `http://10.0.2.2:8000/api/v1`.
 
-- Backend: `cd apps/backend && php artisan test`.
-- Backend route check: `cd apps/backend && php artisan route:list --path=api/v1`.
-- Cashier: `cd apps/cashier && flutter analyze`.
-- Cashier: `cd apps/cashier && flutter test`.
-- Cashier: `cd apps/cashier && flutter build apk --debug`.
+## MUST Invariants
 
-Format laporan:
+1. **Tenant and actor:** Every domain query MUST scope `business_id` from the authenticated principal. Clients MUST NOT choose tenant ownership or acting `cashier_id`; server-side terminal context/policy MUST derive or verify actor, outlet, device, and shift together.
+2. **Money and stock:** All money MUST be integer rupiah. The server is the only calculator for price, discount, promotion, tax, service, rounding, totals, and stock. Flutter renders server results.
+3. **Sensitive writes:** Money, stock, shift, cash, payment, refund, void, and privileged writes MUST be database-transactional, idempotent by `business_id + endpoint + request_hash`, and create immutable audit events.
+4. **Authorization:** Server-side policy/gate/action authorization is mandatory. Hiding a Flutter control is never security.
+5. **Terminal:** Shift, cash, lock, checkout, and attendance writes MUST use a valid enrolled `device_id` and server-verified terminal actor context.
+6. **Time:** Store timestamps in UTC. Render and calculate business-day boundaries using the outlet timezone, defaulting to `Asia/Jakarta` when no configured outlet timezone exists.
+7. **Response envelope:** Success is `{ "data": ..., "meta": ... }`; failure is `{ "error": { "code": "...", "message": "...", "details": ... } }`.
+8. **PIN and PII:** PINs MUST be hashed; raw PIN, password, token, customer PII, and payment references MUST NEVER enter logs, audit payloads, screenshots, fixtures, or error messages.
+9. **Online-first:** NEVER add Drift, a general offline database, `/sync/pull`, `/sync/push`, or a general write queue. Checkout retry behavior is only the bounded PRD §2.1 mechanism.
 
-`Built X. Verified Y. Blocker Z + alasan persis.`
+### Standard Error Codes
+
+| HTTP | Use |
+| --- | --- |
+| `401` | `UNAUTHENTICATED` - session/token invalid |
+| `403` | `FORBIDDEN` - tenant, outlet, role, or policy denied |
+| `404` | `NOT_FOUND` - resource absent within allowed scope |
+| `409` | `IDEMPOTENCY_CONFLICT`, `CONFLICT_REVISION`, `ORDER_LOCKED`, `QUOTE_STALE`, concurrent state conflict |
+| `422` | `VALIDATION_ERROR`, invalid state, required PIN/reason, `SHIFT_NOT_OPEN` |
+
+## Architecture Rules
+
+### Flutter
+
+MUST follow `ui -> provider/notifier -> repository interface -> ApiClient`.
+
+```dart
+// DO: feature notifier calls a repository.
+final result = await ref.read(transactionRepositoryProvider).createTransaction(draft);
+
+// DON'T: create Dio or serialize HTTP directly in a widget.
+await Dio().post('/transactions');
+```
+
+- Put new code in `apps/cashier/lib/features/<feature>/{pages,widgets,providers,repositories,models}`.
+- Widgets MUST NOT call HTTP, persist tokens, calculate money, or own idempotency retry behavior.
+- Feature state MUST own its own busy/error/result state. Do not add unrelated work to `NojposSessionNotifier`; it is a known fix-forward hotspot.
+- Repositories expose an interface and an API implementation. DTO parsing belongs in repositories/models, not widgets.
+
+### Laravel
+
+MUST use `controller -> authorization -> service/transaction -> model/query -> ApiResponse`.
+
+```php
+// DO: controller validates, authorizes, then delegates.
+$data = $request->validated();
+$this->authorize('close', $shift);
+return ApiResponse::success($service->close($context, $shift, $data));
+
+// DON'T: accept a free cashier ID and perform multi-table money writes in a controller.
+DB::table('transactions')->insert($request->all());
+```
+
+- Controllers live in `app/Http/Controllers/Api/V1/`; keep them thin.
+- Form requests live in `app/Http/Requests/`; policies in `app/Policies/`; business services in `app/Services/`; API output formatters/resources in `app/Http/Resources/`.
+- New domain models MUST use UUIDs, timestamps, soft delete where required, and tenant scope according to the domain model.
+- Query-builder reads MUST explicitly add `business_id`; do not assume Eloquent global scopes apply to `DB::table`.
+- A service handling a sensitive write MUST wrap state, ledger/movement, and audit insert in one `DB::transaction` and lock mutable aggregates as needed.
+
+## Conventions And Recipes
+
+### Add an endpoint
+
+1. Confirm PRD scope and `[DECISION]` rule.
+2. Add a FormRequest and policy/action authorization.
+3. Implement transaction/business logic in a service.
+4. Scope every resource by token-derived business and verified outlet/device/actor relation.
+5. Add route under `/api/v1`, then apply auth, role/policy, and idempotency middleware where required.
+6. Return only the standard envelope through `ApiResponse` or an API Resource.
+7. Add feature tests for tenant isolation, authorization, validation, idempotency, rollback, and concurrency when money/stock/state changes.
+
+### Add a Flutter feature
+
+1. Create the feature folder and repository interface/API implementation.
+2. Add a narrow provider/notifier; do not add new feature state to the global session notifier.
+3. Use typed `ApiException` and render loading, empty, validation, forbidden, conflict, and retry states.
+4. Use integer values for money and display rupiah only at the presentation boundary.
+5. Add unit/provider tests, a widget test for interaction, and an integration test when the flow crosses authentication, shift, checkout, or inventory.
+
+### Add a migration, audit, report, or idempotent write
+
+- Migrations MUST be additive and reversible. Inspect existing data before adding constraints. Never silently mutate financial history.
+- Audit events use `domain.action`, actor, business, outlet/device/request context, before/after, and are written in the same transaction as the effect.
+- Reports MUST aggregate server-side, paginate lists, apply outlet timezone, and never calculate totals in Flutter.
+- Idempotent writes MUST reserve the key atomically before executing, store an in-progress/completed response, and return the saved response for the same body.
+
+## Testing And Definition Of Done
+
+Every money, stock, or privileged change MUST test: tenant isolation, role/outlet authorization, idempotency, transaction rollback, and concurrent/state-conflict behavior. Use [docs/EXECUTION_CHECKLIST.md](docs/EXECUTION_CHECKLIST.md) before opening a PR or reporting Codex completion.
+
+Before declaring a change done:
+
+- [ ] Scope is limited and no unrelated dirty work was reverted.
+- [ ] Backend: `php artisan test` and route check pass when API changed.
+- [ ] Flutter: `flutter analyze`, `flutter test`, `flutter build apk --debug`; install on `emulator-5554` when available.
+- [ ] Formatting/lint is clean.
+- [ ] Migration is additive and rollback considered.
+- [ ] Audit exists for privileged/money/stock action.
+- [ ] No client-side money or stock calculation was added.
+- [ ] Docs/PRD/task plan are updated when contract changed.
+
+## Security And Logging
+
+Log structured identifiers only: `request_id`, `idempotency_key`, `business_id`, `outlet_id`, `device_id`, resource ID, and error code. Redact bearer token, password, PIN, full phone/email, receipt content, and payment reference.
+
+Do not commit `.env`, database dumps, device tokens, or production credentials. Demo credentials may appear only in dev seed documentation, never production code.
+
+## Current Fix-Forward Exceptions
+
+These are known gaps, not patterns to copy: client-trusted checkout price/rounding, client-trusted cashier context, persistent multi-item checkout outbox, controller-heavy writes, missing policy layer, UTC-only outlet behavior, and incomplete audit/idempotency coverage. P0 production blockers must be fixed before broad feature expansion. Sensitive writes must be tenant-scoped, authorized, idempotent, transactional, row-locked where state can race, and audited inside the same transaction. See [findings](docs/ANALYSIS_FINDINGS.md), [plan](docs/IMPROVEMENT_PLAN.md), and [execution checklist](docs/EXECUTION_CHECKLIST.md).
+
+Final report format:
+
+```text
+Built: <changed>
+Verified: <commands and results>
+Blocker: <precise blocker or none>
+```

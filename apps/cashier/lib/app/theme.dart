@@ -14,15 +14,31 @@ class MokposColors {
   static const muted = Color(0xFF707A86);
   static const warning = Color(0xFFFFD43B);
   static const danger = Color(0xFFE53935);
+  static const success = Color(0xFF70E06D);
+  static const disabledSurface = Color(0xFFF5F7F6);
+  static const productFallback = Color(0xFFDDE7DD);
+  static const onPrimaryMuted = Color(0xE6FFFFFF);
 }
 
 class MokposRadius {
   const MokposRadius._();
 
+  static const xs = 4.0;
   static const sm = 8.0;
   static const md = 12.0;
   static const lg = 16.0;
   static const xl = 22.0;
+}
+
+class MokposSpacing {
+  const MokposSpacing._();
+
+  static const xs = 4.0;
+  static const sm = 8.0;
+  static const md = 12.0;
+  static const lg = 16.0;
+  static const xl = 24.0;
+  static const xxl = 32.0;
 }
 
 class MokposShadow {

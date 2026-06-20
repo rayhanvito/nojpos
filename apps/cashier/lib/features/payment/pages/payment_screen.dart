@@ -3,12 +3,90 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/network/api_client.dart';
+import '../../../core/outbox/checkout_outbox.dart';
 import '../../../app/theme.dart';
 import '../../../app/providers/nojpos_session_provider.dart';
 import '../../../shared/models/nojpos_models.dart';
 import '../../pos/formatters.dart';
 import '../../pos/models/cart_item.dart';
+import '../../pos/providers/parked_order_lease_controller.dart';
 import '../../pos/providers/pos_providers.dart';
+import '../../pos/widgets/pos_dialogs.dart';
+import '../../transactions/repositories/transaction_repository.dart';
+import '../providers/pending_payment_controller.dart';
+import '../widgets/pending_payment_status_view.dart';
+import '../widgets/promotion_quote_panel.dart';
+
+CheckoutPayment buildSingleCheckoutPayment({
+  required PaymentMethodConfig method,
+  required int total,
+  required int paidAmount,
+  required String reference,
+}) {
+  if (method.isCash) {
+    return CheckoutPayment(
+      method: method.method,
+      amount: paidAmount,
+      isCash: true,
+    );
+  }
+  final normalizedReference = reference.trim();
+  if (normalizedReference.isEmpty) {
+    throw ArgumentError('Reference non-tunai wajib diisi.');
+  }
+  return CheckoutPayment(
+    method: method.method,
+    amount: total,
+    isCash: false,
+    reference: normalizedReference,
+  );
+}
+
+void requireNonCashReferences(List<CheckoutPayment> payments) {
+  for (final payment in payments) {
+    if (payment.isCash) continue;
+    if (payment.reference?.trim().isNotEmpty ?? false) continue;
+    throw ArgumentError('Reference non-tunai wajib diisi.');
+  }
+}
+
+final paymentPromotionCodesProvider =
+    NotifierProvider<PaymentPromotionCodesNotifier, List<String>>(
+      PaymentPromotionCodesNotifier.new,
+    );
+
+class PaymentPromotionCodesNotifier extends Notifier<List<String>> {
+  @override
+  List<String> build() => const [];
+
+  void add(String code) {
+    if (state.contains(code)) return;
+    state = [...state, code];
+  }
+
+  void remove(String code) {
+    state = [
+      for (final current in state)
+        if (current != code) current,
+    ];
+  }
+}
+
+final checkoutQuoteProvider = FutureProvider.autoDispose<CheckoutQuote>((ref) {
+  final items = ref.watch(cartProvider);
+  final details = ref.watch(checkoutDetailsProvider);
+  final promotionCodes = ref.watch(paymentPromotionCodesProvider);
+  return ref
+      .watch(nojposSessionProvider.notifier)
+      .quoteCheckout(
+        cartItems: items,
+        cartDiscount: details.cartDiscount,
+        promotionCodes: promotionCodes,
+        notes: details.notes,
+        servedBy: details.servedBy,
+      );
+});
 
 class PaymentScreen extends ConsumerStatefulWidget {
   const PaymentScreen({super.key});
@@ -18,15 +96,163 @@ class PaymentScreen extends ConsumerStatefulWidget {
 }
 
 class _PaymentScreenState extends ConsumerState<PaymentScreen> {
-  String selectedMethod = 'Tunai';
+  String? selectedMethod;
   int paidAmount = 0;
+  final paymentLines = <CheckoutPayment>[];
+  final referenceController = TextEditingController();
+  final promotionCodeController = TextEditingController();
+  bool submitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    referenceController.addListener(_refreshReferenceState);
+    ref.listenManual(pendingPaymentControllerProvider, (previous, next) {
+      if (!mounted ||
+          previous?.transaction?.status == next.transaction?.status) {
+        return;
+      }
+      if (next.transaction?.status == 'paid') {
+        context.go('/success');
+      }
+    });
+  }
+
+  void _refreshReferenceState() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    referenceController.removeListener(_refreshReferenceState);
+    referenceController.dispose();
+    promotionCodeController.dispose();
+    ref.read(pendingPaymentControllerProvider.notifier).stop();
+    super.dispose();
+  }
+
+  Future<void> _pay(
+    List<CartItem> items,
+    int total,
+    CheckoutQuote quote,
+  ) async {
+    final methods = ref.read(nojposSessionProvider).outlet.paymentMethods;
+    final selected = _methodByName(methods, selectedMethod);
+    late final List<CheckoutPayment> lines;
+    try {
+      lines = paymentLines.isNotEmpty
+          ? [...paymentLines]
+          : [
+              buildSingleCheckoutPayment(
+                method: selected,
+                total: total,
+                paidAmount: paidAmount,
+                reference: referenceController.text,
+              ),
+            ];
+      requireNonCashReferences(lines);
+    } on ArgumentError catch (error) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message.toString())));
+      return;
+    }
+    setState(() => submitting = true);
+    try {
+      final details = ref.read(checkoutDetailsProvider);
+      final result = await ref
+          .read(nojposSessionProvider.notifier)
+          .completeCheckout(
+            cartItems: items,
+            payments: lines,
+            paidAmount: lines.fold(0, (sum, line) => sum + line.amount),
+            cartDiscount: details.cartDiscount,
+            promotionCodes: ref.read(paymentPromotionCodesProvider),
+            notes: details.notes,
+            servedBy: details.servedBy,
+            quote: quote,
+          );
+      if (!mounted) return;
+      if (result is SentCheckoutResult) {
+        await ref
+            .read(parkedOrderLeaseControllerProvider.notifier)
+            .releaseAfterCheckout();
+        if (!mounted) return;
+        if (result.transaction.status == 'payment_pending') {
+          ref
+              .read(pendingPaymentControllerProvider.notifier)
+              .start(result.transaction);
+        } else {
+          context.go('/success');
+        }
+      } else if (result is QueuedCheckoutResult) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Checkout belum terkonfirmasi. Pulihkan atau kirim ulang checkout yang sama.',
+            ),
+          ),
+        );
+        context.go('/pos');
+      }
+    } catch (error) {
+      if (!mounted) return;
+      if (error is ApiException && error.code == 'QUOTE_STALE') {
+        ref.invalidate(checkoutQuoteProvider);
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(_checkoutErrorMessage(error))));
+    } finally {
+      if (mounted) setState(() => submitting = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final pending = ref.watch(pendingPaymentControllerProvider);
+    if (pending.transaction != null) {
+      return PendingPaymentStatusView(
+        transaction: pending.transaction!,
+        errorMessage: pending.errorMessage,
+        onCancel: () {
+          ref.read(pendingPaymentControllerProvider.notifier).stop();
+          context.go('/pos');
+        },
+      );
+    }
     final items = ref.watch(cartProvider);
-    final total = ref.watch(cartTotalProvider);
-    final remaining = (total - paidAmount).clamp(0, total);
-    final change = (paidAmount - total).clamp(0, paidAmount);
+    final baseTotal = ref.watch(cartTotalProvider);
+    final promotionCodes = ref.watch(paymentPromotionCodesProvider);
+    final quoteAsync = ref.watch(checkoutQuoteProvider);
+    final quote = quoteAsync.asData?.value;
+    final isQuoteLoading = quote == null && quoteAsync.isLoading;
+    final quoteError = quote == null ? quoteAsync.error : null;
+    final total = quote?.grandTotal ?? baseTotal;
+    final itemDiscountTotal = ref.watch(itemDiscountTotalProvider);
+    final cartDiscount = ref.watch(checkoutDetailsProvider).cartDiscount;
+    final session = ref.watch(nojposSessionProvider);
+    final hasUnresolvedCheckout = ref
+        .watch(checkoutOutboxControllerProvider)
+        .any((item) => item.blocksClose);
+    final methods = session.outlet.paymentMethods;
+    if (selectedMethod == null && methods.isNotEmpty) {
+      selectedMethod = methods.first.method;
+    }
+    final selected = _methodByName(methods, selectedMethod);
+    final lineTotal = paymentLines.fold(0, (sum, line) => sum + line.amount);
+    final effectivePaid = paymentLines.isEmpty ? paidAmount : lineTotal;
+    final remaining = (total - effectivePaid).clamp(0, total).toInt();
+    final nonCashTotal = paymentLines
+        .where((line) => !line.isCash)
+        .fold(0, (sum, line) => sum + line.amount);
+    final cashDue = (total - nonCashTotal).clamp(0, total).toInt();
+    final cashPaid = paymentLines.isEmpty && selected.isCash
+        ? paidAmount
+        : paymentLines
+              .where((line) => line.isCash)
+              .fold(0, (sum, line) => sum + line.amount);
+    final change = (cashPaid - cashDue).clamp(0, cashPaid).toInt();
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -44,25 +270,57 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                           total: total,
                           remaining: remaining,
                           change: change,
+                          showChange:
+                              selected.isCash ||
+                              paymentLines.any((line) => line.isCash),
                         ),
-                        const _PaymentActions(),
+                        _PaymentActions(
+                          onSplit: () async {
+                            final result = await showSplitPaymentDialog(
+                              context,
+                              methods: methods,
+                              total: total,
+                              existing: paymentLines,
+                            );
+                            if (result != null && mounted) {
+                              setState(() {
+                                paymentLines
+                                  ..clear()
+                                  ..addAll(result);
+                                paidAmount = result.fold(
+                                  0,
+                                  (sum, line) => sum + line.amount,
+                                );
+                              });
+                            }
+                          },
+                          onHeld: () => _saveHeld(items),
+                        ),
                         Expanded(
                           child: Row(
                             children: [
                               _MethodRail(
-                                selected: selectedMethod,
+                                methods: methods,
+                                selected: selected.method,
                                 onSelect: (method) {
                                   setState(() {
                                     selectedMethod = method;
-                                    paidAmount = method == 'Tunai' ? 0 : total;
+                                    paymentLines.clear();
+                                    final config = _methodByName(
+                                      methods,
+                                      method,
+                                    );
+                                    paidAmount = config.isCash ? 0 : total;
+                                    referenceController.clear();
                                   });
                                 },
                               ),
                               Expanded(
                                 child: _PaymentAmountPanel(
-                                  method: selectedMethod,
+                                  method: selected,
                                   total: total,
                                   paidAmount: paidAmount,
+                                  referenceController: referenceController,
                                   onSelectAmount: (amount) {
                                     setState(() => paidAmount = amount);
                                   },
@@ -92,17 +350,31 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                     child: _PaymentOrderSummary(
                       items: items,
                       total: total,
-                      canPay: items.isNotEmpty && remaining == 0,
-                      onPay: () {
-                        ref
-                            .read(nojposSessionProvider.notifier)
-                            .completeTransaction(
-                              cartItems: items,
-                              method: _paymentMethodFromLabel(selectedMethod),
-                              paidAmount: paidAmount,
-                            );
-                        context.go('/success');
-                      },
+                      itemDiscountTotal: itemDiscountTotal,
+                      cartDiscount: cartDiscount,
+                      paymentLines: paymentLines,
+                      quote: quote,
+                      quoteLoading: isQuoteLoading,
+                      quoteError: quoteError,
+                      promotionCodes: promotionCodes,
+                      promotionCodeController: promotionCodeController,
+                      onApplyPromotionCode: _applyPromotionCode,
+                      onRemovePromotionCode: _removePromotionCode,
+                      canPay:
+                          !submitting &&
+                          !isQuoteLoading &&
+                          quoteError == null &&
+                          quote != null &&
+                          items.isNotEmpty &&
+                          !hasUnresolvedCheckout &&
+                          remaining == 0 &&
+                          methods.isNotEmpty &&
+                          _hasReadyPaymentReference(
+                            selected: selected,
+                            paymentLines: paymentLines,
+                            singleReference: referenceController.text,
+                          ),
+                      onPay: () => _pay(items, total, quote!),
                     ),
                   ),
                 ],
@@ -113,17 +385,78 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       ),
     );
   }
+
+  void _applyPromotionCode() {
+    final code = promotionCodeController.text.trim().toUpperCase();
+    if (code.isEmpty) return;
+    ref.read(paymentPromotionCodesProvider.notifier).add(code);
+    promotionCodeController.clear();
+  }
+
+  void _removePromotionCode(String code) {
+    ref.read(paymentPromotionCodesProvider.notifier).remove(code);
+  }
+
+  Future<void> _saveHeld(List<CartItem> items) async {
+    if (items.isEmpty) return;
+    final details = ref.read(checkoutDetailsProvider);
+    try {
+      await ref
+          .read(parkedOrderLeaseControllerProvider.notifier)
+          .saveCurrentCartAsParked(
+            cartItems: items,
+            cartDiscount: details.cartDiscount,
+            notes: details.notes,
+            servedBy: details.servedBy,
+          );
+      if (!mounted) return;
+      ref.read(cartProvider.notifier).clear();
+      context.go('/orders');
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(parkedOrderLeaseMessage(error))));
+    }
+  }
 }
 
-PaymentMethod _paymentMethodFromLabel(String label) {
-  return switch (label) {
-    'Nontunai' => PaymentMethod.cashless,
-    'Transfer' => PaymentMethod.transfer,
-    'QRIS' => PaymentMethod.qris,
-    'Komplimen' => PaymentMethod.compliment,
-    'Deposit' => PaymentMethod.deposit,
-    _ => PaymentMethod.cash,
-  };
+String _checkoutErrorMessage(Object error) {
+  if (error is ApiException && error.code == 'QUOTE_STALE') {
+    return 'Quote promo sudah berubah. Total diperbarui, coba checkout lagi.';
+  }
+  if (error is ApiException && error.code == 'TOTAL_MISMATCH') {
+    return 'Harga atau pajak berubah. Ulangi checkout untuk mengambil total terbaru.';
+  }
+  final message = error.toString();
+  final separator = message.indexOf(': ');
+  return separator == -1 ? message : message.substring(separator + 2);
+}
+
+bool _hasReadyPaymentReference({
+  required PaymentMethodConfig selected,
+  required List<CheckoutPayment> paymentLines,
+  required String singleReference,
+}) {
+  if (paymentLines.isNotEmpty) {
+    return paymentLines.every(
+      (line) => line.isCash || (line.reference?.trim().isNotEmpty ?? false),
+    );
+  }
+  return selected.isCash || singleReference.trim().isNotEmpty;
+}
+
+PaymentMethodConfig _methodByName(
+  List<PaymentMethodConfig> methods,
+  String? name,
+) {
+  if (methods.isEmpty) {
+    return const PaymentMethodConfig(method: 'Tidak tersedia', isCash: false);
+  }
+  return methods.firstWhere(
+    (method) => method.method == name,
+    orElse: () => methods.first,
+  );
 }
 
 class _PaymentTopBar extends StatelessWidget {
@@ -164,7 +497,10 @@ class _PaymentTopBar extends StatelessWidget {
                   SizedBox(width: 5),
                   Text(
                     'Status: Online',
-                    style: TextStyle(color: Color(0xE6FFFFFF), fontSize: 11),
+                    style: TextStyle(
+                      color: MokposColors.onPrimaryMuted,
+                      fontSize: 11,
+                    ),
                   ),
                 ],
               ),
@@ -195,7 +531,7 @@ class _TinyDot extends StatelessWidget {
       width: 8,
       height: 8,
       decoration: const BoxDecoration(
-        color: Color(0xFF70E06D),
+        color: MokposColors.success,
         shape: BoxShape.circle,
       ),
     );
@@ -207,11 +543,13 @@ class _PaymentStats extends StatelessWidget {
     required this.total,
     required this.remaining,
     required this.change,
+    required this.showChange,
   });
 
   final int total;
   final int remaining;
   final int change;
+  final bool showChange;
 
   @override
   Widget build(BuildContext context) {
@@ -238,7 +576,7 @@ class _PaymentStats extends StatelessWidget {
           Expanded(
             child: _StatBox(
               label: 'Kembalian',
-              value: rupiah(change),
+              value: showChange ? rupiah(change) : '-',
               valueColor: MokposColors.accent,
             ),
           ),
@@ -282,34 +620,43 @@ class _StatBox extends StatelessWidget {
   }
 }
 
-class _PaymentActions extends StatelessWidget {
-  const _PaymentActions();
+class _PaymentActions extends ConsumerWidget {
+  const _PaymentActions({required this.onSplit, required this.onHeld});
+
+  final VoidCallback onSplit;
+  final VoidCallback onHeld;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Container(
       height: 54,
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: MokposColors.line)),
       ),
-      child: const Row(
+      child: Row(
         children: [
           Expanded(
             child: _PaymentAction(
               icon: LucideIcons.creditCard,
               label: 'Pisah Bayar',
+              onTap: onSplit,
             ),
           ),
-          VerticalDivider(width: 1, color: MokposColors.line),
+          const VerticalDivider(width: 1, color: MokposColors.line),
           Expanded(
             child: _PaymentAction(
               icon: LucideIcons.fileText,
               label: 'Jadikan Invoice',
+              onTap: onHeld,
             ),
           ),
-          VerticalDivider(width: 1, color: MokposColors.line),
+          const VerticalDivider(width: 1, color: MokposColors.line),
           Expanded(
-            child: _PaymentAction(icon: LucideIcons.pencil, label: 'Catatan'),
+            child: _PaymentAction(
+              icon: LucideIcons.pencil,
+              label: 'Catatan',
+              onTap: () => showNotesDialog(context, ref),
+            ),
           ),
         ],
       ),
@@ -318,47 +665,22 @@ class _PaymentActions extends StatelessWidget {
 }
 
 class _PaymentAction extends StatelessWidget {
-  const _PaymentAction({required this.icon, required this.label});
+  const _PaymentAction({required this.icon, required this.label, this.onTap});
 
   final IconData icon;
   final String label;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: () {
-        if (label == 'Catatan') {
-          showDialog<void>(
-            context: context,
-            builder: (context) => AlertDialog(
-              backgroundColor: Colors.white,
-              title: const Text('Catatan Order'),
-              content: const TextField(
-                autofocus: true,
-                maxLines: 3,
-                decoration: InputDecoration(
-                  hintText: 'Tulis catatan transaksi',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Batal'),
-                ),
-                FilledButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Simpan'),
-                ),
-              ],
-            ),
-          );
-          return;
-        }
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$label siap disambungkan ke backend')),
-        );
-      },
+      onTap:
+          onTap ??
+          () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('$label siap disambungkan ke backend')),
+            );
+          },
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -379,21 +701,18 @@ class _PaymentAction extends StatelessWidget {
 }
 
 class _MethodRail extends StatelessWidget {
-  const _MethodRail({required this.selected, required this.onSelect});
+  const _MethodRail({
+    required this.methods,
+    required this.selected,
+    required this.onSelect,
+  });
 
+  final List<PaymentMethodConfig> methods;
   final String selected;
   final ValueChanged<String> onSelect;
 
   @override
   Widget build(BuildContext context) {
-    final methods = [
-      'Tunai',
-      'Nontunai',
-      'Transfer',
-      'QRIS',
-      'Komplimen',
-      'Deposit',
-    ];
     return Container(
       width: 174,
       decoration: const BoxDecoration(
@@ -429,11 +748,21 @@ class _MethodRail extends StatelessWidget {
               ],
             ),
           ),
+          if (methods.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(12),
+              child: Text(
+                'Metode pembayaran belum dikonfigurasi',
+                style: TextStyle(color: MokposColors.danger, fontSize: 12),
+              ),
+            ),
           for (final method in methods)
             _MethodTile(
-              text: method,
-              active: selected == method,
-              onTap: () => onSelect(method),
+              key: ValueKey('payment_method_${method.method}'),
+              text:
+                  '${method.method} ${method.isCash ? '(cash)' : '(non-cash)'}',
+              active: selected == method.method,
+              onTap: () => onSelect(method.method),
             ),
         ],
       ),
@@ -446,6 +775,7 @@ class _MethodTile extends StatelessWidget {
     required this.text,
     required this.active,
     required this.onTap,
+    super.key,
   });
 
   final String text;
@@ -488,13 +818,15 @@ class _PaymentAmountPanel extends StatelessWidget {
     required this.method,
     required this.total,
     required this.paidAmount,
+    required this.referenceController,
     required this.onSelectAmount,
     required this.onOpenAmountDialog,
   });
 
-  final String method;
+  final PaymentMethodConfig method;
   final int total;
   final int paidAmount;
+  final TextEditingController referenceController;
   final ValueChanged<int> onSelectAmount;
   final VoidCallback onOpenAmountDialog;
 
@@ -502,17 +834,27 @@ class _PaymentAmountPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final cashOptions = [total, 20000, 50000];
 
-    if (method != 'Tunai') {
+    if (!method.isCash) {
       return Padding(
         padding: const EdgeInsets.all(28),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _SelectedPaymentChip(method: method, amount: total),
+            _SelectedPaymentChip(method: method.method, amount: total),
             const SizedBox(height: 24),
             const Text(
-              'Metode ini akan mencatat pembayaran penuh secara otomatis.',
+              'Non-tunai membutuhkan reference manual dan konfirmasi diterima.',
               style: TextStyle(color: MokposColors.muted),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              key: const ValueKey('payment_reference'),
+              controller: referenceController,
+              decoration: const InputDecoration(
+                labelText: 'Reference manual',
+                hintText: 'Nomor referensi QRIS/transfer/e-wallet',
+                border: OutlineInputBorder(),
+              ),
             ),
           ],
         ),
@@ -525,7 +867,7 @@ class _PaymentAmountPanel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (paidAmount > 0) ...[
-            _SelectedPaymentChip(method: method, amount: paidAmount),
+            _SelectedPaymentChip(method: method.method, amount: paidAmount),
             const SizedBox(height: 14),
           ],
           Wrap(
@@ -534,11 +876,20 @@ class _PaymentAmountPanel extends StatelessWidget {
             children: [
               for (final amount in cashOptions)
                 _AmountOption(
+                  key: ValueKey(
+                    amount == total
+                        ? 'payment_amount_exact'
+                        : 'payment_amount_$amount',
+                  ),
                   text: amount == total ? 'Uang Pas' : rupiah(amount),
                   active: paidAmount == amount,
                   onTap: () => onSelectAmount(amount),
                 ),
-              _AmountOption(text: 'Lainnya', onTap: onOpenAmountDialog),
+              _AmountOption(
+                key: const ValueKey('payment_amount_custom'),
+                text: 'Lainnya',
+                onTap: onOpenAmountDialog,
+              ),
             ],
           ),
         ],
@@ -586,6 +937,7 @@ class _AmountOption extends StatelessWidget {
     required this.text,
     required this.onTap,
     this.active = false,
+    super.key,
   });
 
   final String text;
@@ -623,12 +975,32 @@ class _PaymentOrderSummary extends StatelessWidget {
   const _PaymentOrderSummary({
     required this.items,
     required this.total,
+    required this.itemDiscountTotal,
+    required this.cartDiscount,
+    required this.paymentLines,
+    required this.quote,
+    required this.quoteLoading,
+    required this.quoteError,
+    required this.promotionCodes,
+    required this.promotionCodeController,
+    required this.onApplyPromotionCode,
+    required this.onRemovePromotionCode,
     required this.canPay,
     required this.onPay,
   });
 
   final List<CartItem> items;
   final int total;
+  final int itemDiscountTotal;
+  final int cartDiscount;
+  final List<CheckoutPayment> paymentLines;
+  final CheckoutQuote? quote;
+  final bool quoteLoading;
+  final Object? quoteError;
+  final List<String> promotionCodes;
+  final TextEditingController promotionCodeController;
+  final VoidCallback onApplyPromotionCode;
+  final ValueChanged<String> onRemovePromotionCode;
   final bool canPay;
   final VoidCallback onPay;
 
@@ -710,7 +1082,7 @@ class _PaymentOrderSummary extends StatelessWidget {
                       Padding(
                         padding: const EdgeInsets.only(right: 12),
                         child: Text(
-                          rupiah(item.subtotal),
+                          rupiah(item.total),
                           style: const TextStyle(
                             color: MokposColors.text,
                             fontSize: 12,
@@ -725,39 +1097,62 @@ class _PaymentOrderSummary extends StatelessWidget {
             ),
           ),
           Container(
-            height: 44,
+            height: paymentLines.isEmpty ? 290 : 330,
             padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: const BoxDecoration(
               color: MokposColors.canvas,
               border: Border(top: BorderSide(color: MokposColors.line)),
             ),
-            child: Row(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(
-                  'Total $itemCount Produk',
-                  style: const TextStyle(
-                    color: MokposColors.text,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 13,
-                  ),
+                _SummaryLine(label: 'Diskon item', value: itemDiscountTotal),
+                _SummaryLine(label: 'Diskon cart', value: cartDiscount),
+                PromotionQuotePanel(
+                  quote: quote,
+                  promotionCodes: promotionCodes,
+                  controller: promotionCodeController,
+                  onApply: onApplyPromotionCode,
+                  onRemove: onRemovePromotionCode,
                 ),
-                const Spacer(),
-                Text(
-                  rupiah(total),
-                  style: const TextStyle(
-                    color: MokposColors.text,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 13,
+                if (quoteLoading)
+                  const _SummaryMessage('Mengambil total server...')
+                else if (quoteError != null)
+                  const _SummaryMessage('Gagal mengambil total server')
+                else ...[
+                  _SummaryLine(
+                    label: 'Diskon promo',
+                    value: quote?.promotionDiscountTotal ?? 0,
                   ),
+                  _SummaryLine(
+                    label: 'Service charge',
+                    value: quote?.serviceChargeTotal ?? 0,
+                  ),
+                  _SummaryLine(label: 'Pajak', value: quote?.taxTotal ?? 0),
+                  _SummaryLine(
+                    label: 'Rounding',
+                    value: quote?.roundingTotal ?? 0,
+                  ),
+                ],
+                for (final line in paymentLines)
+                  _SummaryLine(
+                    label: '${line.method}${line.isCash ? '' : ' pending'}',
+                    value: line.amount,
+                  ),
+                _SummaryLine(
+                  label: 'Grand total $itemCount Produk',
+                  value: total,
+                  emphasized: true,
                 ),
               ],
             ),
           ),
           InkWell(
+            key: const ValueKey('process_payment_button'),
             onTap: canPay ? onPay : null,
             child: Container(
               height: 58,
-              color: canPay ? MokposColors.primary : const Color(0xFFD8DDDD),
+              color: canPay ? MokposColors.primary : MokposColors.line,
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
                 children: [
@@ -784,6 +1179,64 @@ class _PaymentOrderSummary extends StatelessWidget {
   }
 }
 
+class _SummaryMessage extends StatelessWidget {
+  const _SummaryMessage(this.message);
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Text(
+        message,
+        style: const TextStyle(
+          color: MokposColors.muted,
+          fontWeight: FontWeight.w700,
+          fontSize: 12,
+        ),
+      ),
+    );
+  }
+}
+
+class _SummaryLine extends StatelessWidget {
+  const _SummaryLine({
+    required this.label,
+    required this.value,
+    this.emphasized = false,
+  });
+
+  final String label;
+  final int value;
+  final bool emphasized;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: emphasized ? MokposColors.text : MokposColors.muted,
+            fontWeight: emphasized ? FontWeight.w900 : FontWeight.w700,
+            fontSize: 12,
+          ),
+        ),
+        const Spacer(),
+        Text(
+          rupiah(value),
+          style: TextStyle(
+            color: emphasized ? MokposColors.text : MokposColors.muted,
+            fontWeight: FontWeight.w900,
+            fontSize: 12,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class AmountDialog extends StatefulWidget {
   const AmountDialog({
     required this.total,
@@ -796,6 +1249,187 @@ class AmountDialog extends StatefulWidget {
 
   @override
   State<AmountDialog> createState() => _AmountDialogState();
+}
+
+Future<List<CheckoutPayment>?> showSplitPaymentDialog(
+  BuildContext context, {
+  required List<PaymentMethodConfig> methods,
+  required int total,
+  required List<CheckoutPayment> existing,
+}) {
+  return showDialog<List<CheckoutPayment>>(
+    context: context,
+    barrierColor: Colors.black54,
+    builder: (context) =>
+        _SplitPaymentDialog(methods: methods, total: total, existing: existing),
+  );
+}
+
+class _SplitPaymentDialog extends StatefulWidget {
+  const _SplitPaymentDialog({
+    required this.methods,
+    required this.total,
+    required this.existing,
+  });
+
+  final List<PaymentMethodConfig> methods;
+  final int total;
+  final List<CheckoutPayment> existing;
+
+  @override
+  State<_SplitPaymentDialog> createState() => _SplitPaymentDialogState();
+}
+
+class _SplitPaymentDialogState extends State<_SplitPaymentDialog> {
+  late final lines = [...widget.existing];
+  late String method = widget.methods.firstOrNull?.method ?? '';
+  final amountController = TextEditingController();
+  final referenceController = TextEditingController();
+  String? lineError;
+
+  @override
+  void dispose() {
+    amountController.dispose();
+    referenceController.dispose();
+    super.dispose();
+  }
+
+  void _addLine() {
+    final config = _methodByName(widget.methods, method);
+    final amount =
+        int.tryParse(amountController.text.replaceAll(RegExp(r'[^0-9]'), '')) ??
+        0;
+    if (amount <= 0 || config.method.isEmpty) return;
+    final reference = referenceController.text.trim();
+    if (!config.isCash && reference.isEmpty) {
+      setState(() => lineError = 'Reference non-tunai wajib diisi.');
+      return;
+    }
+    setState(() {
+      lineError = null;
+      lines.add(
+        CheckoutPayment(
+          method: config.method,
+          amount: amount,
+          isCash: config.isCash,
+          reference: config.isCash ? null : reference,
+        ),
+      );
+      amountController.clear();
+      referenceController.clear();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final paid = lines.fold(0, (sum, line) => sum + line.amount);
+    final remaining = (widget.total - paid).clamp(0, widget.total);
+    final selected = _methodByName(widget.methods, method);
+    return AlertDialog(
+      backgroundColor: Colors.white,
+      title: const Text('Pisah Bayar'),
+      content: SizedBox(
+        width: 460,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            DropdownButtonFormField<String>(
+              initialValue: method.isEmpty ? null : method,
+              items: [
+                for (final config in widget.methods)
+                  DropdownMenuItem(
+                    value: config.method,
+                    child: Text(
+                      '${config.method} ${config.isCash ? '(cash)' : '(non-cash)'}',
+                    ),
+                  ),
+              ],
+              onChanged: (value) => setState(() => method = value ?? method),
+              decoration: const InputDecoration(
+                labelText: 'Metode',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: amountController,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                labelText: 'Nominal',
+                helperText: 'Sisa tagihan ${rupiah(remaining)}',
+                prefixText: 'Rp ',
+                border: const OutlineInputBorder(),
+              ),
+            ),
+            if (!selected.isCash) ...[
+              const SizedBox(height: 12),
+              TextField(
+                controller: referenceController,
+                decoration: const InputDecoration(
+                  labelText: 'Reference manual',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+            if (lineError != null) ...[
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  lineError!,
+                  style: const TextStyle(
+                    color: MokposColors.danger,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerRight,
+              child: OutlinedButton.icon(
+                onPressed: _addLine,
+                icon: const Icon(LucideIcons.plus, size: 16),
+                label: const Text('Tambah Line'),
+              ),
+            ),
+            const Divider(),
+            for (final (index, line) in lines.indexed)
+              ListTile(
+                dense: true,
+                title: Text(line.method),
+                subtitle: Text(
+                  line.reference ?? (line.isCash ? 'cash' : 'pending'),
+                ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(rupiah(line.amount)),
+                    IconButton(
+                      onPressed: () => setState(() => lines.removeAt(index)),
+                      icon: const Icon(LucideIcons.x, size: 16),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Batal'),
+        ),
+        FilledButton(
+          onPressed: lines.isEmpty
+              ? null
+              : () => Navigator.of(context).pop([...lines]),
+          child: const Text('Simpan Split'),
+        ),
+      ],
+    );
+  }
 }
 
 class _AmountDialogState extends State<AmountDialog> {
@@ -819,7 +1453,9 @@ class _AmountDialogState extends State<AmountDialog> {
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 110, vertical: 34),
       backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(MokposRadius.sm),
+      ),
       child: Column(
         children: [
           Container(

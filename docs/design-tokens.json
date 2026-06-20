@@ -1,0 +1,188 @@
+{
+  "$schema": "https://nojpos.local/schemas/design-tokens.schema.json",
+  "meta": {
+    "product": "NojPOS",
+    "version": "1.0.0",
+    "source": [
+      "Flow dan Contoh UI/*.pdf",
+      "NOJPOS_POS_FLUTTER_BACKEND_PRD.md v2.0"
+    ],
+    "notes": "Token values are derived from the existing teal/neutral visual concept and PRD rules. Semantic warning/danger/info colors are proposals to fill gaps not fully specified by the examples."
+  },
+  "color": {
+    "brand": {
+      "50": "#E6F8F4",
+      "100": "#C9F1EA",
+      "500": "#00B894",
+      "600": "#009E82",
+      "700": "#007C66",
+      "900": "#064E3B"
+    },
+    "surface": {
+      "canvas": "#F7F8FA",
+      "base": "#FFFFFF",
+      "subtle": "#F1F5F4",
+      "raised": "#FFFFFF"
+    },
+    "text": {
+      "primary": "#111827",
+      "secondary": "#4B5563",
+      "muted": "#6B7280",
+      "inverse": "#FFFFFF"
+    },
+    "border": {
+      "subtle": "#E5E7EB",
+      "strong": "#D1D5DB"
+    },
+    "success": {
+      "50": "#ECFDF5",
+      "600": "#059669"
+    },
+    "warning": {
+      "50": "#FFFBEB",
+      "600": "#D97706"
+    },
+    "danger": {
+      "50": "#FEF2F2",
+      "600": "#DC2626"
+    },
+    "info": {
+      "50": "#EFF6FF",
+      "600": "#2563EB"
+    },
+    "connection": {
+      "online": "#059669",
+      "degraded": "#D97706",
+      "offline": "#DC2626"
+    }
+  },
+  "typography": {
+    "fontFamily": {
+      "flutter": "Roboto, system",
+      "web": "Inter, system-ui, sans-serif"
+    },
+    "display": {
+      "sm": { "size": 28, "lineHeight": 36, "weight": 700 }
+    },
+    "heading": {
+      "lg": { "size": 22, "lineHeight": 30, "weight": 700 },
+      "md": { "size": 18, "lineHeight": 26, "weight": 700 },
+      "sm": { "size": 16, "lineHeight": 24, "weight": 600 }
+    },
+    "body": {
+      "lg": { "size": 16, "lineHeight": 24, "weight": 400 },
+      "md": { "size": 14, "lineHeight": 20, "weight": 400 },
+      "sm": { "size": 13, "lineHeight": 18, "weight": 400 }
+    },
+    "caption": { "size": 12, "lineHeight": 16, "weight": 500 },
+    "button": { "size": 14, "lineHeight": 20, "weight": 600 },
+    "numeric": {
+      "lg": { "size": 24, "lineHeight": 32, "weight": 700 },
+      "md": { "size": 16, "lineHeight": 24, "weight": 600 }
+    }
+  },
+  "space": {
+    "0": 0,
+    "1": 4,
+    "2": 8,
+    "3": 12,
+    "4": 16,
+    "5": 20,
+    "6": 24,
+    "8": 32,
+    "10": 40,
+    "12": 48
+  },
+  "size": {
+    "touch": {
+      "min": 44,
+      "cashier": 48,
+      "keypad": 64
+    },
+    "topbar": {
+      "tablet": 64
+    },
+    "category": {
+      "collapsed": 72,
+      "expanded": 220
+    },
+    "orderPanel": {
+      "min": 400,
+      "max": 440
+    },
+    "admin": {
+      "row": 44,
+      "header": 56
+    }
+  },
+  "radius": {
+    "none": 0,
+    "xs": 4,
+    "sm": 6,
+    "md": 8,
+    "lg": 12
+  },
+  "border": {
+    "width": {
+      "hairline": 1
+    }
+  },
+  "shadow": {
+    "none": "none",
+    "sm": "0 1px 2px rgba(17, 24, 39, 0.08)",
+    "md": "0 8px 24px rgba(17, 24, 39, 0.14)"
+  },
+  "motion": {
+    "duration": {
+      "fast": 120,
+      "base": 180,
+      "sheet": 200
+    },
+    "easing": {
+      "standard": "cubic-bezier(0.2, 0, 0, 1)",
+      "exit": "cubic-bezier(0.4, 0, 1, 1)"
+    }
+  },
+  "zIndex": {
+    "dropdown": 20,
+    "sticky": 30,
+    "sheet": 40,
+    "dialog": 50,
+    "toast": 60
+  },
+  "semanticLabels": {
+    "connection": {
+      "online": "Online",
+      "degraded": "Gangguan",
+      "offline": "Offline"
+    },
+    "order": {
+      "draft_cart": "Draft",
+      "parked_order": "Tersimpan",
+      "payment_pending": "Menunggu pembayaran",
+      "paid": "Lunas",
+      "voided": "Void",
+      "refunded": "Refund",
+      "partially_refunded": "Refund Sebagian"
+    },
+    "shift": {
+      "not_open": "Belum buka shift",
+      "open": "Aktif",
+      "pending_close": "Perlu ditutup",
+      "closed": "Tutup"
+    },
+    "inventoryDocument": {
+      "draft": "Draf",
+      "requested": "Diajukan",
+      "sent": "Dikirim",
+      "partially_received": "Diterima Sebagian",
+      "done": "Selesai",
+      "cancelled": "Dibatalkan"
+    },
+    "stock": {
+      "safe": "Aman",
+      "low": "Rendah",
+      "negative": "Negatif"
+    }
+  }
+}

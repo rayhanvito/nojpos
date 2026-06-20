@@ -31,6 +31,31 @@ class AuthController extends Controller
         }
 
         $plainToken = Str::random(48);
+        $outlet = DB::table('outlets')
+            ->where('business_id', $user->business_id)
+            ->first();
+        $device = null;
+        if ($outlet) {
+            $device = DB::table('devices')
+                ->where('business_id', $user->business_id)
+                ->where('device_uuid', $data['device_uuid'])
+                ->first();
+
+            if (! $device) {
+                $deviceId = (string) Str::uuid();
+                DB::table('devices')->insert([
+                    'id' => $deviceId,
+                    'business_id' => $user->business_id,
+                    'outlet_id' => $outlet->id,
+                    'device_uuid' => $data['device_uuid'],
+                    'name' => $data['device_uuid'],
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+                $device = DB::table('devices')->where('id', $deviceId)->first();
+            }
+        }
+
         DB::table('personal_access_tokens')->insert([
             'id' => (string) Str::uuid(),
             'tokenable_type' => User::class,
@@ -48,7 +73,16 @@ class AuthController extends Controller
             'token' => $plainToken,
             'user' => $this->userPayload($user),
             'business' => Business::query()->where('id', $user->business_id)->first()?->only(['id', 'name']),
-            'outlets' => Outlet::query()->get(['id', 'business_id', 'name'])->values()->all(),
+            'device' => $device ? [
+                'id' => $device->id,
+                'device_uuid' => $device->device_uuid,
+            ] : null,
+            'outlets' => Outlet::query()
+                ->where('business_id', $user->business_id)
+                ->get()
+                ->map(fn (Outlet $outlet): array => $this->outletPayload($outlet))
+                ->values()
+                ->all(),
         ]);
     }
 
@@ -138,6 +172,11 @@ class AuthController extends Controller
         return ApiResponse::success([
             'user' => $this->userPayload($user),
             'business' => Business::query()->where('id', $user->business_id)->first()?->only(['id', 'name']),
+            'outlets' => Outlet::query()
+                ->get()
+                ->map(fn (Outlet $outlet): array => $this->outletPayload($outlet))
+                ->values()
+                ->all(),
             'permissions' => [$user->role],
         ]);
     }
@@ -145,8 +184,45 @@ class AuthController extends Controller
     public function outlets(): JsonResponse
     {
         return ApiResponse::success([
-            'outlets' => Outlet::query()->get(['id', 'business_id', 'name'])->values()->all(),
+            'outlets' => Outlet::query()
+                ->get()
+                ->map(fn (Outlet $outlet): array => $this->outletPayload($outlet))
+                ->values()
+                ->all(),
         ]);
+    }
+
+    private function outletPayload(Outlet $outlet): array
+    {
+        return [
+            'id' => $outlet->id,
+            'business_id' => $outlet->business_id,
+            'name' => $outlet->name,
+            'timezone' => $outlet->timezone ?? 'Asia/Jakarta',
+            'receipt_config' => [
+                'paper_width' => $outlet->receipt_paper_width ?? '58mm',
+                'header_name' => $outlet->receipt_header_name,
+                'header_address' => $outlet->receipt_header_address,
+                'footer_note' => $outlet->receipt_footer_note,
+                'show_logo' => (bool) $outlet->receipt_show_logo,
+                'show_qris_info' => (bool) $outlet->receipt_show_qris_info,
+            ],
+            'payment_methods' => DB::table('payment_method_configs')
+                ->where('business_id', $outlet->business_id)
+                ->where(function ($query) use ($outlet): void {
+                    $query->whereNull('outlet_id')->orWhere('outlet_id', $outlet->id);
+                })
+                ->whereNull('deleted_at')
+                ->orderByDesc('is_cash')
+                ->orderBy('method')
+                ->get(['method', 'is_cash'])
+                ->map(fn ($method): array => [
+                    'method' => $method->method,
+                    'is_cash' => (bool) $method->is_cash,
+                ])
+                ->values()
+                ->all(),
+        ];
     }
 
     private function userPayload(User $user): array

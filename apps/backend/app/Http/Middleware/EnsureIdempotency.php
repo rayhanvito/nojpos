@@ -2,8 +2,7 @@
 
 namespace App\Http\Middleware;
 
-use App\Models\IdempotencyKey;
-use App\Models\Scopes\BusinessScope;
+use App\Services\IdempotencyService;
 use App\Support\ApiResponse;
 use Closure;
 use Illuminate\Http\Request;
@@ -12,6 +11,8 @@ use Symfony\Component\HttpFoundation\Response;
 
 class EnsureIdempotency
 {
+    public function __construct(private readonly IdempotencyService $idempotency) {}
+
     public function handle(Request $request, Closure $next): Response
     {
         $key = $request->header('Idempotency-Key');
@@ -24,41 +25,19 @@ class EnsureIdempotency
             return ApiResponse::error('IDEMPOTENCY_KEY_INVALID', 'Idempotency-Key must be a UUID.', [], 422);
         }
 
-        $businessId = $request->user()?->business_id ?? '00000000-0000-4000-8000-000000000000';
-        $endpoint = $request->method().' '.$request->path();
-        $hash = hash('sha256', json_encode($request->all(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $reservation = $this->idempotency->reserveOrReplay($request);
 
-        $stored = IdempotencyKey::withoutGlobalScope(BusinessScope::class)
-            ->where('business_id', $businessId)
-            ->where('endpoint', $endpoint)
-            ->where('key', $key)
-            ->first();
-
-        if ($stored) {
-            if ($stored->request_hash !== $hash) {
-                return ApiResponse::error(
-                    'IDEMPOTENCY_CONFLICT',
-                    'Idempotency key was reused with a different request payload.',
-                    [],
-                    409,
-                );
-            }
-
-            return response($stored->response_snapshot, $stored->status)
-                ->header('Content-Type', 'application/json');
+        if ($reservation['action'] === 'response') {
+            return $reservation['response'];
         }
+
+        $request->attributes->set('idempotency_key', $key);
+        $request->attributes->set('idempotency_record_id', $reservation['record']->id);
 
         $response = $next($request);
 
         if ($response->headers->get('Content-Type') && str_contains($response->headers->get('Content-Type'), 'application/json')) {
-            IdempotencyKey::withoutGlobalScope(BusinessScope::class)->create([
-                'business_id' => $businessId,
-                'endpoint' => $endpoint,
-                'key' => $key,
-                'request_hash' => $hash,
-                'response_snapshot' => $response->getContent(),
-                'status' => $response->getStatusCode(),
-            ]);
+            $this->idempotency->complete($reservation['record'], $response);
         }
 
         return $response;

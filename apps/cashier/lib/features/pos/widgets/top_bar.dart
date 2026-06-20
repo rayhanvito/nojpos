@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../app/providers/nojpos_session_provider.dart';
 import '../../../app/theme.dart';
+import '../../../core/outbox/checkout_outbox.dart';
+import '../../notifications/widgets/checkout_outbox_center.dart';
 
-class PosTopBar extends StatelessWidget {
+class PosTopBar extends ConsumerWidget {
   const PosTopBar({
     required this.onOpenMenu,
     required this.onOpenOrders,
@@ -19,21 +23,30 @@ class PosTopBar extends StatelessWidget {
   final VoidCallback onShowNotification;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final session = ref.watch(nojposSessionProvider);
+    final outboxItems = ref.watch(checkoutOutboxControllerProvider);
+    final blockingOutboxCount = outboxItems
+        .where((item) => item.blocksClose)
+        .length;
     return Container(
       height: 64,
       color: MokposColors.primary,
       padding: const EdgeInsets.symmetric(horizontal: 14),
       child: Row(
         children: [
-          _TopIconButton(icon: LucideIcons.menu, onTap: onOpenMenu),
+          _TopIconButton(
+            icon: LucideIcons.menu,
+            label: 'Menu',
+            onTap: onOpenMenu,
+          ),
           const SizedBox(width: 10),
           Container(
             width: 44,
             height: 44,
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(MokposRadius.md),
             ),
             child: const Icon(
               LucideIcons.store,
@@ -42,26 +55,31 @@ class PosTopBar extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          const Column(
+          Column(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Kedai Nusantara - Kasir',
-                style: TextStyle(
+                '${session.outlet.name} - ${session.cashier.name}',
+                style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w900,
                   fontSize: 16,
                 ),
               ),
-              SizedBox(height: 2),
+              const SizedBox(height: 2),
               Row(
                 children: [
-                  _OnlineDot(),
-                  SizedBox(width: 6),
+                  const _OnlineDot(),
+                  const SizedBox(width: 6),
                   Text(
-                    'Status: Online · Shift Aktif',
-                    style: TextStyle(color: Color(0xE6FFFFFF), fontSize: 12),
+                    session.hasOpenShift
+                        ? 'Status: Online · Shift Aktif'
+                        : 'Status: Online · Shift belum dibuka',
+                    style: const TextStyle(
+                      color: MokposColors.onPrimaryMuted,
+                      fontSize: 12,
+                    ),
                   ),
                 ],
               ),
@@ -77,14 +95,28 @@ class PosTopBar extends StatelessWidget {
             ),
           ),
           const Spacer(),
-          _TopIconButton(icon: LucideIcons.bell, onTap: onShowNotification),
-          _TopIconButton(icon: LucideIcons.layoutGrid, onTap: onOpenMode),
+          _TopIconButton(
+            icon: LucideIcons.bell,
+            label: 'Notifikasi',
+            badge: blockingOutboxCount,
+            onTap: () => showCheckoutOutboxDialog(context, ref),
+          ),
+          _TopIconButton(
+            icon: LucideIcons.layoutGrid,
+            label: 'Mode order',
+            onTap: onOpenMode,
+          ),
           _TopIconButton(
             icon: LucideIcons.lockKeyhole,
-            onTap: () => context.go('/login'),
+            label: 'Lock: kembali ke PIN',
+            onTap: () {
+              ref.read(nojposSessionProvider.notifier).lock();
+              context.go('/pin');
+            },
           ),
           const SizedBox(width: 10),
           GestureDetector(
+            key: const ValueKey('topbar_orders'),
             behavior: HitTestBehavior.opaque,
             onTap: onOpenOrders,
             child: Container(
@@ -127,7 +159,7 @@ class _OnlineDot extends StatelessWidget {
       width: 10,
       height: 10,
       decoration: const BoxDecoration(
-        color: Color(0xFF70E06D),
+        color: MokposColors.success,
         shape: BoxShape.circle,
       ),
     );
@@ -135,18 +167,32 @@ class _OnlineDot extends StatelessWidget {
 }
 
 class _TopIconButton extends StatelessWidget {
-  const _TopIconButton({required this.icon, required this.onTap});
+  const _TopIconButton({
+    required this.icon,
+    required this.onTap,
+    required this.label,
+    this.badge = 0,
+  });
 
   final IconData icon;
   final VoidCallback onTap;
+  final String label;
+  final int badge;
 
   @override
   Widget build(BuildContext context) {
     return Tooltip(
-      message: 'Aksi cepat',
+      message: label,
       child: IconButton(
+        key: ValueKey(
+          'topbar_${label.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '_')}',
+        ),
         onPressed: onTap,
-        icon: Icon(icon),
+        icon: Badge(
+          isLabelVisible: badge > 0,
+          label: Text('$badge'),
+          child: Icon(icon),
+        ),
         color: Colors.white,
         iconSize: 23,
         style: IconButton.styleFrom(
@@ -159,4 +205,32 @@ class _TopIconButton extends StatelessWidget {
       ),
     );
   }
+}
+
+Future<void> showCheckoutOutboxDialog(BuildContext context, WidgetRef ref) {
+  return showDialog<void>(
+    context: context,
+    builder: (context) {
+      final items = ref.watch(checkoutOutboxControllerProvider);
+      return AlertDialog(
+        backgroundColor: Colors.white,
+        title: const Text('Pemulihan Checkout'),
+        content: SizedBox(
+          width: 460,
+          child: CheckoutOutboxCenter(
+            items: items,
+            onRetry: (item) => ref
+                .read(nojposSessionProvider.notifier)
+                .retryCheckoutOutboxItem(item),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Tutup'),
+          ),
+        ],
+      );
+    },
+  );
 }

@@ -7,7 +7,9 @@ import '../../../app/theme.dart';
 import '../../../app/providers/nojpos_session_provider.dart';
 import '../formatters.dart';
 import '../models/cart_item.dart';
+import '../providers/parked_order_lease_controller.dart';
 import '../providers/pos_providers.dart';
+import 'pos_dialogs.dart';
 
 class OrderPanel extends ConsumerWidget {
   const OrderPanel({
@@ -25,9 +27,12 @@ class OrderPanel extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final items = ref.watch(cartProvider);
     final total = ref.watch(cartTotalProvider);
+    final itemDiscountTotal = ref.watch(itemDiscountTotalProvider);
+    final cartDiscount = ref.watch(checkoutDetailsProvider).cartDiscount;
     final selectedCustomer = ref.watch(
       nojposSessionProvider.select((session) => session.selectedCustomer),
     );
+    final leaseState = ref.watch(parkedOrderLeaseControllerProvider);
 
     return Container(
       decoration: const BoxDecoration(
@@ -42,6 +47,8 @@ class OrderPanel extends ConsumerWidget {
             onSelectOrderType: onSelectOrderType,
             onSelectCustomer: onSelectCustomer,
           ),
+          if (leaseState.active != null || leaseState.errorMessage != null)
+            _ParkedOrderLeaseBanner(state: leaseState),
           Expanded(
             child: items.isEmpty
                 ? const _EmptyOrder()
@@ -56,6 +63,8 @@ class OrderPanel extends ConsumerWidget {
           ),
           _OrderFooter(
             total: total,
+            itemDiscountTotal: itemDiscountTotal,
+            cartDiscount: cartDiscount,
             itemCount: items.fold(0, (sum, item) => sum + item.quantity),
             orderType: orderType,
           ),
@@ -188,6 +197,51 @@ class _EmptyOrder extends StatelessWidget {
   }
 }
 
+class _ParkedOrderLeaseBanner extends StatelessWidget {
+  const _ParkedOrderLeaseBanner({required this.state});
+
+  final ParkedOrderLeaseState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final active = state.active;
+    final message =
+        state.errorMessage ??
+        (active == null
+            ? ''
+            : 'Mengedit ${active.orderNumber} · rev ${active.revision}');
+    if (message.isEmpty) return const SizedBox.shrink();
+    final isError = state.errorMessage != null;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      color: isError ? MokposColors.danger.withValues(alpha: 0.08) : null,
+      child: Row(
+        children: [
+          Icon(
+            isError ? LucideIcons.triangleAlert : LucideIcons.lockKeyhole,
+            size: 15,
+            color: isError ? MokposColors.danger : MokposColors.primary,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: isError ? MokposColors.danger : MokposColors.text,
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _CartItemTile extends ConsumerWidget {
   const _CartItemTile({required this.item});
 
@@ -227,7 +281,7 @@ class _CartItemTile extends ConsumerWidget {
           SizedBox(
             width: 96,
             child: Text(
-              rupiah(item.subtotal),
+              rupiah(item.total),
               textAlign: TextAlign.right,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
@@ -235,6 +289,20 @@ class _CartItemTile extends ConsumerWidget {
                 fontWeight: FontWeight.w800,
                 fontSize: 13,
               ),
+            ),
+          ),
+          IconButton(
+            key: ValueKey('item_discount_${item.product.id}'),
+            tooltip: 'Diskon item',
+            onPressed: () => showItemDiscountDialog(context, ref, item),
+            icon: const Icon(LucideIcons.badgePercent, size: 15),
+            color: item.discount > 0
+                ? MokposColors.warning
+                : MokposColors.primary,
+            style: IconButton.styleFrom(
+              fixedSize: const Size(30, 30),
+              minimumSize: const Size(30, 30),
+              padding: EdgeInsets.zero,
             ),
           ),
           IconButton(
@@ -280,11 +348,15 @@ class _CartItemTile extends ConsumerWidget {
 class _OrderFooter extends ConsumerWidget {
   const _OrderFooter({
     required this.total,
+    required this.itemDiscountTotal,
+    required this.cartDiscount,
     required this.itemCount,
     required this.orderType,
   });
 
   final int total;
+  final int itemDiscountTotal;
+  final int cartDiscount;
   final int itemCount;
   final String orderType;
 
@@ -300,7 +372,7 @@ class _OrderFooter extends ConsumerWidget {
       context.go('/payment');
     }
 
-    void saveOrder() {
+    Future<void> saveOrder() async {
       final items = ref.read(cartProvider);
       if (items.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -308,19 +380,31 @@ class _OrderFooter extends ConsumerWidget {
         );
         return;
       }
-      final order = ref
-          .read(nojposSessionProvider.notifier)
-          .saveOrder(cartItems: items);
-      ref.read(cartProvider.notifier).clear();
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('${order.number} disimpan')));
-    }
-
-    void showDiscountPlaceholder() {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Diskon siap dihubungkan ke backend')),
-      );
+      final details = ref.read(checkoutDetailsProvider);
+      try {
+        final transaction = await ref
+            .read(parkedOrderLeaseControllerProvider.notifier)
+            .saveCurrentCartAsParked(
+              cartItems: items,
+              cartDiscount: details.cartDiscount,
+              notes: details.notes,
+              servedBy: details.servedBy,
+            );
+        if (!context.mounted || transaction == null) return;
+        ref.read(cartProvider.notifier).clear();
+        ref.read(checkoutDetailsProvider.notifier).clear();
+        final number = transaction.number.isEmpty
+            ? transaction.id
+            : transaction.number;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$number disimpan')));
+      } catch (error) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(parkedOrderLeaseMessage(error))));
+      }
     }
 
     return Container(
@@ -337,13 +421,20 @@ class _OrderFooter extends ConsumerWidget {
                 _FooterTool(
                   icon: LucideIcons.trash2,
                   onTap: itemCount > 0
-                      ? () => ref.read(cartProvider.notifier).clear()
+                      ? () async {
+                          await ref
+                              .read(parkedOrderLeaseControllerProvider.notifier)
+                              .releaseActive(restoreOrder: true);
+                          ref.read(cartProvider.notifier).clear();
+                          ref.read(checkoutDetailsProvider.notifier).clear();
+                        }
                       : null,
                 ),
                 const VerticalDivider(width: 1, color: MokposColors.line),
                 _FooterTool(
+                  key: const ValueKey('cart_discount_button'),
                   icon: LucideIcons.badgePercent,
-                  onTap: showDiscountPlaceholder,
+                  onTap: () => showCartDiscountDialog(context, ref),
                 ),
                 const VerticalDivider(width: 1, color: MokposColors.line),
                 _FooterTool(
@@ -354,7 +445,23 @@ class _OrderFooter extends ConsumerWidget {
               ],
             ),
           ),
+          if (itemDiscountTotal > 0 || cartDiscount > 0)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 0, 18, 10),
+              child: Column(
+                children: [
+                  if (itemDiscountTotal > 0)
+                    _DiscountLine(
+                      label: 'Diskon item',
+                      amount: itemDiscountTotal,
+                    ),
+                  if (cartDiscount > 0)
+                    _DiscountLine(label: 'Diskon cart', amount: cartDiscount),
+                ],
+              ),
+            ),
           GestureDetector(
+            key: const ValueKey('open_payment_button'),
             behavior: HitTestBehavior.opaque,
             onTap: openPayment,
             child: Container(
@@ -426,7 +533,7 @@ class _OrderFooter extends ConsumerWidget {
 }
 
 class _FooterTool extends StatelessWidget {
-  const _FooterTool({required this.icon, this.label, this.onTap});
+  const _FooterTool({required this.icon, this.label, this.onTap, super.key});
 
   final IconData icon;
   final String? label;
@@ -463,6 +570,38 @@ class _FooterTool extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _DiscountLine extends StatelessWidget {
+  const _DiscountLine({required this.label, required this.amount});
+
+  final String label;
+  final int amount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            color: MokposColors.muted,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const Spacer(),
+        Text(
+          '-${rupiah(amount)}',
+          style: const TextStyle(
+            color: MokposColors.danger,
+            fontSize: 12,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ],
     );
   }
 }

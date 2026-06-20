@@ -51,6 +51,34 @@ Boost provides your agent 15+ tools and skills that help agents build Laravel ap
 - Prompts may say `use context7` to request version-specific Laravel/Sanctum documentation when Context7 is configured in the client.
 - Do not store Context7 API keys or other secrets in this repo.
 
+## NojPOS Local API
+
+Seed a fresh local database with the demo tenant:
+
+```bash
+php artisan migrate:fresh --seed
+```
+
+Serve the API for an Android emulator:
+
+```bash
+php artisan serve --host=0.0.0.0 --port=8000
+```
+
+Android emulator base URL:
+
+```text
+http://10.0.2.2:8000/api/v1
+```
+
+Demo credentials:
+
+- Owner email: `owner@demo.nojpos.test`
+- Owner password: `password`
+- Cashier email: `cashier@demo.nojpos.test`
+- Cashier PIN: `1234`
+- Device UUID: `demo-tablet-001`
+
 ## Contributing
 
 Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).

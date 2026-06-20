@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use Database\Seeders\SuperadminBootstrapSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -135,7 +136,7 @@ class SuperadminCoreTest extends TestCase
             ->withHeaders(['Idempotency-Key' => $key])
             ->postJson('/api/v1/superadmin/businesses', $payload)
             ->assertConflict()
-            ->assertJsonPath('error.code', 'IDEMPOTENCY_CONFLICT');
+            ->assertJsonPath('error.code', 'IDEMPOTENCY_MISMATCH');
     }
 
     public function test_superadmin_assigns_single_current_subscription_with_audit_and_idempotency(): void
@@ -197,8 +198,8 @@ class SuperadminCoreTest extends TestCase
 
     public function test_bootstrap_seeder_is_idempotent_and_superadmin_can_login(): void
     {
-        $this->seed(\Database\Seeders\SuperadminBootstrapSeeder::class);
-        $this->seed(\Database\Seeders\SuperadminBootstrapSeeder::class);
+        $this->seed(SuperadminBootstrapSeeder::class);
+        $this->seed(SuperadminBootstrapSeeder::class);
 
         $this->assertSame(1, DB::table('users')->where('role', 'superadmin')->whereNull('business_id')->count());
         $this->assertSame(1, DB::table('plans')->where('code', 'starter')->whereNull('deleted_at')->count());

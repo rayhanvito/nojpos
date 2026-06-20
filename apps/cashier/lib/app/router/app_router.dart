@@ -1,17 +1,33 @@
 import 'package:go_router/go_router.dart';
 
 import '../../features/auth/pages/login_screen.dart';
+import '../../features/auth/pages/outlet_select_screen.dart';
 import '../../features/auth/pages/pin_screen.dart';
+import '../../features/auth/pages/splash_screen.dart';
+import '../../features/auth/pages/sync_screen.dart';
 import '../../features/pos/screens/operations_screen.dart';
 import '../../features/payment/pages/payment_screen.dart';
 import '../../features/pos/pages/pos_screen.dart';
+import '../../features/shift/pages/shift_gate_screen.dart';
 import '../../features/transactions/pages/success_screen.dart';
 
 final appRouter = GoRouter(
-  initialLocation: '/login',
+  initialLocation: '/',
   routes: [
+    GoRoute(path: '/', builder: (context, state) => const SplashScreen()),
     GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
+    GoRoute(
+      path: '/outlet',
+      builder: (context, state) => OutletSelectScreen(
+        allowChange: state.uri.queryParameters['change'] == '1',
+      ),
+    ),
     GoRoute(path: '/pin', builder: (context, state) => const PinScreen()),
+    GoRoute(path: '/sync', builder: (context, state) => const SyncScreen()),
+    GoRoute(
+      path: '/shift',
+      builder: (context, state) => const ShiftGateScreen(),
+    ),
     GoRoute(path: '/pos', builder: (context, state) => const PosScreen()),
     GoRoute(
       path: '/orders',

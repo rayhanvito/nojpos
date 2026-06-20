@@ -4,15 +4,21 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\ShiftSession;
+use App\Services\ShiftService;
+use App\Services\ShiftStateException;
+use App\Services\TerminalContextException;
+use App\Services\TerminalContextService;
 use App\Support\ApiResponse;
-use App\Support\Nojpos;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 class ShiftController extends Controller
 {
+    public function __construct(
+        private readonly TerminalContextService $terminalContext,
+        private readonly ShiftService $shifts,
+    ) {}
+
     public function open(Request $request): JsonResponse
     {
         $data = $request->validate([
@@ -24,35 +30,17 @@ class ShiftController extends Controller
 
         $businessId = $request->user()->business_id;
 
-        if (! $this->allBelongToBusiness($businessId, [
-            'outlets' => $data['outlet_id'],
-            'devices' => $data['device_id'],
-            'users' => $data['cashier_id'],
-        ])) {
-            return ApiResponse::error('FORBIDDEN', 'Resource is outside the current business scope.', [], 403);
+        try {
+            $this->terminalContext->fromPayload($request, $data);
+        } catch (TerminalContextException $error) {
+            return $this->terminalContextError($error);
         }
 
-        $existing = ShiftSession::query()
-            ->where('outlet_id', $data['outlet_id'])
-            ->where('device_id', $data['device_id'])
-            ->where('status', 'open')
-            ->first();
-
-        if ($existing) {
-            return ApiResponse::error('SHIFT_ALREADY_OPEN', 'A shift is already open for this device and outlet.', [], 422);
+        try {
+            $shift = $this->shifts->open($businessId, $data, $request->user()->id);
+        } catch (ShiftStateException $error) {
+            return $this->shiftStateError($error);
         }
-
-        $shift = ShiftSession::query()->create([
-            'business_id' => $businessId,
-            'outlet_id' => $data['outlet_id'],
-            'device_id' => $data['device_id'],
-            'cashier_id' => $data['cashier_id'],
-            'status' => 'open',
-            'opening_cash' => $data['opening_cash'],
-            'opened_at' => now(),
-        ]);
-
-        Nojpos::audit($businessId, $request->user()->id, 'shift.open', 'shift_session', $shift->id);
 
         return ApiResponse::success($this->shiftPayload($shift), [], 201);
     }
@@ -60,6 +48,7 @@ class ShiftController extends Controller
     public function current(Request $request): JsonResponse
     {
         $shift = ShiftSession::query()
+            ->where('business_id', $request->user()->business_id)
             ->when($request->query('outlet_id'), fn ($query, $outlet) => $query->where('outlet_id', $outlet))
             ->when($request->query('device_id'), fn ($query, $device) => $query->where('device_id', $device))
             ->where('status', 'open')
@@ -74,90 +63,66 @@ class ShiftController extends Controller
         $data = $request->validate([
             'type' => ['required', 'in:cash_in,cash_out'],
             'amount' => ['required', 'integer', 'min:1'],
-            'reason' => ['nullable', 'string'],
+            'reason' => ['required', 'string', 'min:1'],
         ]);
 
-        $session = ShiftSession::query()->where('id', $shift)->firstOrFail();
-        if ($session->status !== 'open') {
-            return ApiResponse::error('SHIFT_ALREADY_CLOSED', 'Shift is already closed.', [], 422);
+        $session = ShiftSession::query()
+            ->where('business_id', $request->user()->business_id)
+            ->where('id', $shift)
+            ->firstOrFail();
+
+        try {
+            $this->terminalContext->assertShiftForActor($request, $session, requireOpenShift: false);
+        } catch (TerminalContextException $error) {
+            return $this->terminalContextError($error);
         }
 
-        $id = (string) Str::uuid();
-        DB::table('cash_movements')->insert([
-            'id' => $id,
-            'business_id' => $session->business_id,
-            'outlet_id' => $session->outlet_id,
-            'shift_id' => $session->id,
-            'actor_id' => $request->user()->id,
-            'type' => $data['type'],
-            'amount' => $data['amount'],
-            'reason' => $data['reason'] ?? null,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        try {
+            $movement = $this->shifts->cashMovement($request->user()->business_id, $session->id, $data, $request->user()->id);
+        } catch (ShiftStateException $error) {
+            return $this->shiftStateError($error);
+        }
 
-        return ApiResponse::success([
-            'id' => $id,
-            'type' => $data['type'],
-            'amount' => $data['amount'],
-            'reason' => $data['reason'] ?? null,
-        ], [], 201);
+        return ApiResponse::success($movement, [], 201);
     }
 
     public function close(Request $request, string $shift): JsonResponse
     {
         $data = $request->validate([
             'actual_cash' => ['required', 'integer', 'min:0'],
+            'pin' => ['required', 'string'],
+            'variance_reason' => ['nullable', 'string'],
+            'approver_id' => ['nullable', 'uuid'],
         ]);
 
-        $session = ShiftSession::query()->where('id', $shift)->firstOrFail();
-        if ($session->status !== 'open') {
-            return ApiResponse::error('SHIFT_ALREADY_CLOSED', 'Shift is already closed.', [], 422);
+        $session = ShiftSession::query()
+            ->where('business_id', $request->user()->business_id)
+            ->where('id', $shift)
+            ->firstOrFail();
+
+        try {
+            $this->terminalContext->assertShiftForActor($request, $session, requireOpenShift: false);
+        } catch (TerminalContextException $error) {
+            return $this->terminalContextError($error);
         }
 
-        $cashSales = (int) DB::table('payments')
-            ->join('transactions', 'transactions.id', '=', 'payments.transaction_id')
-            ->where('transactions.shift_id', $session->id)
-            ->where('payments.business_id', $session->business_id)
-            ->where('payments.is_cash', true)
-            ->where('payments.status', 'confirmed')
-            ->sum('payments.amount');
+        try {
+            $closed = $this->shifts->close($request->user()->business_id, $session->id, $data, $request->user()->id);
+        } catch (ShiftStateException $error) {
+            return $this->shiftStateError($error);
+        }
 
-        $cashIn = (int) DB::table('cash_movements')
-            ->where('shift_id', $session->id)
-            ->where('type', 'cash_in')
-            ->sum('amount');
-
-        $cashOut = (int) DB::table('cash_movements')
-            ->where('shift_id', $session->id)
-            ->where('type', 'cash_out')
-            ->sum('amount');
-
-        $expected = (int) $session->opening_cash + $cashSales + $cashIn - $cashOut;
-        $difference = $data['actual_cash'] - $expected;
-
-        $session->update([
-            'status' => 'closed',
-            'expected_cash' => $expected,
-            'actual_cash' => $data['actual_cash'],
-            'cash_difference' => $difference,
-            'closed_at' => now(),
-        ]);
-
-        Nojpos::audit($session->business_id, $request->user()->id, 'shift.close', 'shift_session', $session->id);
-
-        return ApiResponse::success($this->shiftPayload($session->refresh()));
+        return ApiResponse::success($this->shiftPayload($closed));
     }
 
-    private function allBelongToBusiness(string $businessId, array $tableToIds): bool
+    private function terminalContextError(TerminalContextException $error): JsonResponse
     {
-        foreach ($tableToIds as $table => $id) {
-            if (! DB::table($table)->where('id', $id)->where('business_id', $businessId)->exists()) {
-                return false;
-            }
-        }
+        return ApiResponse::error($error->errorCode, $error->getMessage(), $error->details, $error->status);
+    }
 
-        return true;
+    private function shiftStateError(ShiftStateException $error): JsonResponse
+    {
+        return ApiResponse::error($error->errorCode, $error->getMessage(), $error->details, $error->status);
     }
 
     private function shiftPayload(ShiftSession $shift): array
@@ -173,6 +138,10 @@ class ShiftController extends Controller
             'expected_cash' => $shift->expected_cash === null ? null : (int) $shift->expected_cash,
             'actual_cash' => $shift->actual_cash === null ? null : (int) $shift->actual_cash,
             'cash_difference' => $shift->cash_difference === null ? null : (int) $shift->cash_difference,
+            'variance_reason' => $shift->variance_reason,
+            'approved_by' => $shift->approved_by,
+            'close_report' => $this->shifts->closeReport($shift),
+            'payment_totals' => $this->shifts->paymentTotals($shift),
         ];
     }
 }

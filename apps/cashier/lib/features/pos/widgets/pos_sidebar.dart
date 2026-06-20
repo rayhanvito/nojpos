@@ -38,105 +38,113 @@ class PosSidebar extends ConsumerWidget {
         border: Border(right: BorderSide(color: MokposColors.line)),
       ),
       child: ClipRect(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const SizedBox(height: 8),
-            _RailItem(
-              icon: expanded
-                  ? LucideIcons.panelLeftClose
-                  : LucideIcons.panelLeftOpen,
-              label: 'Kategori Produk',
-              expanded: expanded,
-              active: expanded,
-              onTap: onToggleCategories,
-            ),
-            _RailItem(
-              icon: LucideIcons.blocks,
-              label: 'Grid',
-              expanded: expanded,
-              active: selectedCategory == 'Semua',
-              onTap: onOpenMode,
-            ),
-            _RailItem(
-              icon: LucideIcons.star,
-              label: 'Favorit',
-              expanded: expanded,
-              active: selectedCategory == 'Favorit',
-              onTap: () => selectCategory('Favorit'),
-            ),
-            _RailItem(
-              icon: LucideIcons.package,
-              label: 'Produk Paket',
-              expanded: expanded,
-              active: selectedCategory == 'Paket',
-              onTap: () => selectCategory('Paket'),
-            ),
-            _RailItem(
-              icon: LucideIcons.bookOpen,
-              label: 'Buku Menu',
-              expanded: expanded,
-              onTap: () => onShowFeature('Buku Menu'),
-            ),
-            _RailItem(
-              icon: LucideIcons.ticketPercent,
-              label: 'Promo',
-              expanded: expanded,
-              onTap: () => onShowFeature('Promo / Voucher'),
-            ),
-            _RailItem(
-              icon: LucideIcons.walletCards,
-              label: 'Kas / Wallet',
-              expanded: expanded,
-              onTap: () => onShowFeature('Kas / Wallet'),
-            ),
-            const Divider(height: 20, color: MokposColors.line),
-            if (expanded) ...[
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 4, 16, 8),
-                child: Text(
-                  'Kategori',
-                  style: TextStyle(
-                    color: MokposColors.muted,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 8),
+              _RailItem(
+                icon: expanded
+                    ? LucideIcons.panelLeftClose
+                    : LucideIcons.panelLeftOpen,
+                label: 'Kategori Produk',
+                expanded: expanded,
+                active: expanded,
+                onTap: onToggleCategories,
               ),
-              for (final category in categories)
-                _CategoryTextRow(
-                  text: category,
-                  active: selectedCategory == category,
-                  onTap: () => selectCategory(category),
-                ),
-            ] else ...[
-              _Shortcut(
-                text: 'MA',
-                active: selectedCategory == 'Makanan',
-                onTap: () => selectCategory('Makanan'),
+              _RailItem(
+                icon: LucideIcons.blocks,
+                label: 'Grid',
+                expanded: expanded,
+                active: selectedCategory == 'Semua',
+                onTap: onOpenMode,
               ),
-              _Shortcut(
-                text: 'MU',
-                active: selectedCategory == 'Minuman',
-                onTap: () => selectCategory('Minuman'),
-              ),
-              _Shortcut(
-                text: 'PA',
-                active: selectedCategory == 'Paket',
-                onTap: () => selectCategory('Paket'),
-              ),
-              _Shortcut(
-                text: 'LA',
-                active: selectedCategory == 'Layanan',
-                onTap: () => selectCategory('Layanan'),
-              ),
-              _Shortcut(
-                text: 'FA',
+              _RailItem(
+                icon: LucideIcons.star,
+                label: 'Favorit',
+                expanded: expanded,
                 active: selectedCategory == 'Favorit',
                 onTap: () => selectCategory('Favorit'),
               ),
+              _RailItem(
+                icon: LucideIcons.package,
+                label: 'Produk Paket',
+                expanded: expanded,
+                active: selectedCategory == 'Paket',
+                onTap: () => selectCategory('Paket'),
+              ),
+              _RailItem(
+                icon: LucideIcons.bookOpen,
+                label: 'Buku Menu',
+                expanded: expanded,
+                onTap: () => onShowFeature('Buku Menu'),
+              ),
+              _RailItem(
+                icon: LucideIcons.ticketPercent,
+                label: 'Promo',
+                expanded: expanded,
+                onTap: () => onShowFeature('Promo / Voucher'),
+              ),
+              _RailItem(
+                icon: LucideIcons.lifeBuoy,
+                label: 'NojPOS Care',
+                expanded: expanded,
+                onTap: () => onShowFeature('NojPOS Care'),
+              ),
+              _RailItem(
+                icon: LucideIcons.walletCards,
+                label: 'Kas / Wallet',
+                expanded: expanded,
+                onTap: () => onShowFeature('Kas / Wallet'),
+              ),
+              const Divider(height: 20, color: MokposColors.line),
+              if (expanded) ...[
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 4, 16, 8),
+                  child: Text(
+                    'Kategori',
+                    style: TextStyle(
+                      color: MokposColors.muted,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                for (final category in categories)
+                  _CategoryTextRow(
+                    text: category,
+                    active: selectedCategory == category,
+                    onTap: () => selectCategory(category),
+                  ),
+              ] else ...[
+                _Shortcut(
+                  text: 'MA',
+                  active: selectedCategory == 'Makanan',
+                  onTap: () => selectCategory('Makanan'),
+                ),
+                _Shortcut(
+                  text: 'MU',
+                  active: selectedCategory == 'Minuman',
+                  onTap: () => selectCategory('Minuman'),
+                ),
+                _Shortcut(
+                  text: 'PA',
+                  active: selectedCategory == 'Paket',
+                  onTap: () => selectCategory('Paket'),
+                ),
+                _Shortcut(
+                  text: 'LA',
+                  active: selectedCategory == 'Layanan',
+                  onTap: () => selectCategory('Layanan'),
+                ),
+                _Shortcut(
+                  text: 'FA',
+                  active: selectedCategory == 'Favorit',
+                  onTap: () => selectCategory('Favorit'),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
