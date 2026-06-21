@@ -7,7 +7,8 @@ Dokumen ini adalah index aktif untuk memantau progress NojPOS. Semua kerja baru 
 1. `PRDPOSJA.md` — PRD utama NojPOS.
 2. `docs/SINGLE_AGENT_WORKFLOW.md` — aturan kerja single active coding agent.
 3. `docs/TASK_QUEUE.md` — queue task final yang dikerjakan berurutan.
-4. `docs/STORY_PROGRESS.md` — progress global dan urutan fase.
+4. `docs/PROMPT_SEQUENCE.md` — prompt copy-paste lengkap untuk menjalankan task satu per satu.
+5. `docs/STORY_PROGRESS.md` — progress global dan urutan fase.
 5. Story area:
    - `docs/STORY_BACKEND.md`
    - `docs/STORY_MOBILE_KASIR.md`
@@ -24,6 +25,7 @@ Dokumen ini adalah index aktif untuk memantau progress NojPOS. Semua kerja baru 
 | --- | --- |
 | `docs/SINGLE_AGENT_WORKFLOW.md` | Aturan single-agent, scope, validasi, dan laporan akhir |
 | `docs/TASK_QUEUE.md` | Task aktif yang dikerjakan dari atas ke bawah |
+| `docs/PROMPT_SEQUENCE.md` | Prompt copy-paste detail dari checkpoint dashboard sampai RC |
 | `docs/STORY_PROGRESS.md` | Status fase dan progres global |
 | `docs/STORY_BACKEND.md` | Story, task, subtask, dan bug backend |
 | `docs/STORY_MOBILE_KASIR.md` | Story, task, subtask, dan bug mobile kasir |
@@ -53,8 +55,9 @@ Dokumen ini adalah index aktif untuk memantau progress NojPOS. Semua kerja baru 
 2. Baca `PRDPOSJA.md`.
 3. Baca `docs/SINGLE_AGENT_WORKFLOW.md`.
 4. Baca `docs/TASK_QUEUE.md`.
-5. Pilih task paling atas yang statusnya `[READY]` atau lanjutkan task `[IN PROGRESS]` yang sedang berjalan.
-6. Baca story area yang relevan.
+5. Ambil prompt yang sesuai dari `docs/PROMPT_SEQUENCE.md`.
+6. Pilih task paling atas yang statusnya `[READY]` atau lanjutkan task `[IN PROGRESS]` yang sedang berjalan.
+7. Baca story area yang relevan.
 7. Baca kontrak API jika task menyentuh integrasi.
 8. Kerjakan hanya file yang masuk allowed scope task.
 9. Jalankan validasi sesuai `docs/VALIDATION_CHECKLIST.md`.

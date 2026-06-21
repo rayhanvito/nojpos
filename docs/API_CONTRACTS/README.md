@@ -14,8 +14,8 @@ Folder ini menyimpan kontrak API sebelum backend endpoint diimplementasikan atau
 
 | Contract | Status | Dipakai oleh | Catatan |
 | --- | --- | --- | --- |
-| `SESSION.md` | Draft needed | Web Admin | Web auth/session bootstrap |
-| `DASHBOARD_SUMMARY.md` | Draft needed | Backend + Web | Dashboard owner/admin read-only |
+| `SESSION.md` | Decision ready, implementation pending | Web Admin | Next.js BFF/server-side route handler with HttpOnly sealed session cookie |
+| `DASHBOARD_SUMMARY.md` | Contract ready, implementation complete | Backend + Web | Dashboard owner/admin read-only endpoint implemented in BE-04B |
 | `PLATFORM_READ.md` | Draft needed | Backend Platform + Web | Super Admin read-only |
 
 ## Template Ringkas

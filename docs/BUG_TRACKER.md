@@ -7,11 +7,8 @@ Gunakan file ini untuk bug, blocker, dan gap yang menghambat implementasi story.
 
 | ID | Area | Severity | Status | Ringkasan | Story Terkait | Next Action |
 | --- | --- | --- | --- | --- | --- | --- |
-| BUG-INT-01 | Integration/Web | P0 | `[OPEN]` | Session strategy web admin belum final. | INT-01, BE-01, WEB-07 | Putuskan cookie HttpOnly/Sanctum SPA/BFF dan dokumentasikan. |
-| BUG-BE-01 | Backend | P0 | `[OPEN]` | Perlu audit tenant scope untuk semua query builder/read-write tenant data. | BE-01 | Audit endpoint yang akan dibuka ke web admin. |
-| BUG-BE-02 | Backend | P1 | `[OPEN]` | Endpoint `GET /api/v1/dashboard/summary` belum ada. | BE-04, INT-02, WEB-01 | Buat kontrak DTO dan endpoint agregat. |
+| BUG-BE-01 | Backend | P0 | `[OPEN]` | Perlu audit tenant scope untuk semua query builder/read-write tenant data, termasuk `/me` dan `/outlets` yang dibaca Web Admin session bootstrap. | BE-01 | Audit endpoint yang akan dibuka ke web admin; BFF WEB-01B sudah memfilter outlets by `business_id` sebagai guard tambahan. |
 | BUG-BE-03 | Backend | P2 | `[OPEN]` | Platform billing/support/activity/system/announcement/operator backend belum lengkap. | BE-06, WEB-05, WEB-06, INT-05 | Pecah domain read-only satu per satu. |
-| BUG-WEB-01 | Web Admin | P1 | `[OPEN]` | Web admin masih fixture lokal dan belum punya API adapter aktif. | WEB-01..WEB-07, INT-01 | Tunggu session strategy, lalu integrasi read-only. |
 | BUG-WEB-02 | Web Admin | P3 | `[OPEN]` | Folder lama `nojpos_admin_web/apps/web` masih menyisakan cache/dependency terkunci proses. | WEB-07 | Hapus manual setelah dev server/editor lama ditutup. |
 | BUG-MOB-01 | Mobile Kasir | P1 | `[OPEN]` | Perlu QA device/emulator untuk lock, PIN switch, checkout retry, dan print. | MOB-01, MOB-02, MOB-05, INT-07 | Jalankan QA di emulator/device target. |
 | BUG-MOB-02 | Mobile Kasir | P0 | `[OPEN]` | Perlu verifikasi final bahwa semua total transaksi final berasal dari server. | MOB-02, BE-03 | Audit POS/payment UI dan repository. |
@@ -21,6 +18,10 @@ Gunakan file ini untuk bug, blocker, dan gap yang menghambat implementasi story.
 
 | ID | Area | Status | Ringkasan | Bukti/Notes |
 | --- | --- | --- | --- | --- |
+| BUG-WEB-RES-04 | Integration/Web | `[RESOLVED]` | Dashboard Owner/Admin sudah terintegrasi read-only melalui BFF. | WEB-01C menambahkan route `GET /api/admin/dashboard/summary`, server-side dashboard adapter, mapping response backend ke `/dashboard`, fallback berlabel jelas, dan test/boundary scan. |
+| BUG-BE-RES-02 | Backend | `[RESOLVED]` | Endpoint `GET /api/v1/dashboard/summary` sudah tersedia. | BE-04B menambahkan endpoint tenant-scoped owner/admin dan test backend. |
+| BUG-WEB-RES-03 | Integration/Web | `[RESOLVED]` | Session/BFF adapter scaffold Web Admin sudah selesai. | WEB-01B menambahkan sealed HttpOnly cookie helper, server-only backend client, route `/api/admin/auth/login`, `/api/admin/auth/logout`, dan `/api/admin/session`; dashboard integration selesai di WEB-01C. |
+| BUG-WEB-RES-02 | Integration/Web | `[RESOLVED]` | Session strategy web admin sudah final. | WEB-01A memilih Next.js BFF/server-side route handler dengan HttpOnly sealed session cookie; implementasi adapter selesai di WEB-01B. |
 | BUG-WEB-RES-01 | Web Admin | `[RESOLVED]` | Platform shell sempat overflow/blank kanan. | CSS container platform sudah dipatch; build/test/list lolos saat itu. |
 
 ## Watchlist

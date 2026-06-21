@@ -15,10 +15,10 @@ Dokumen ini adalah queue kerja aktif. Kerjakan dari atas ke bawah. Jangan mengam
 | Field | Value |
 | --- | --- |
 | Mode | Single active coding agent |
-| Current phase | Phase 0 — docs clean baseline |
-| Current task | `DOC-01` done; commit/push in progress |
-| Next implementation target | `BE-04A` dashboard summary contract/API |
-| Do not start yet | Web API integration, Super Admin writes, payment/broadcast/impersonation real |
+| Current phase | Phase 2 — Web Dashboard Read-only Integration |
+| Current task | `WEB-01C` done; dashboard read-only BFF integration ready |
+| Next implementation target | `WEB-02A` Transactions read-only page planning/integration |
+| Do not start yet | Tenant pages beyond dashboard, Super Admin writes, payment/broadcast/impersonation real |
 
 ## Phase 0 — Clean Baseline And Planning
 
@@ -30,16 +30,16 @@ Area: Docs
 Depends on: none
 
 Goal:
-- Replace multi-agent parallel workflow with safer single-agent sequential workflow.
+- Replace old parallel workflow with safer single-agent sequential workflow.
 - Create this final task queue.
-- Remove obsolete multi-agent docs/scripts that can confuse future AI runs.
+- Remove obsolete workflow docs/scripts that can confuse future AI runs.
 - Commit clean baseline to GitHub.
 
 Allowed scope:
 - `AGENTS.md`
 - `apps/*/AGENTS.md`
 - `docs/**`
-- `scripts/**` for obsolete multi-agent setup script cleanup only
+- `scripts/**` for obsolete workflow setup script cleanup only
 
 Subtasks:
 - [x] Create `docs/SINGLE_AGENT_WORKFLOW.md`.
@@ -47,12 +47,12 @@ Subtasks:
 - [x] Update `docs/README.md`.
 - [x] Update `docs/STORY_PROGRESS.md`.
 - [x] Update root/package `AGENTS.md` references.
-- [x] Remove obsolete multi-agent docs.
-- [x] Remove obsolete setup worktree scripts.
+- [x] Remove obsolete workflow docs.
+- [x] Remove obsolete setup scripts.
 - [ ] Commit and push clean baseline if Git remote/auth is available.
 
 Acceptance criteria:
-- No active docs reference multi-agent workflow, parallel agents, or worktree setup as the default process.
+- Active docs point to single-agent sequential workflow as the default process.
 - `docs/TASK_QUEUE.md` clearly shows the next sequential work.
 - Git working tree is committed as a fresh baseline, or blocker explains why not.
 
@@ -98,7 +98,7 @@ Validation:
 
 ### BE-04A — Finalize dashboard summary API contract
 
-Status: `[READY AFTER DOC-01]`
+Status: `[DONE]`
 Priority: P0
 Area: Backend/API Contract
 Depends on: `DOC-01`
@@ -115,11 +115,11 @@ Allowed scope:
 - `docs/TASK_QUEUE.md`
 
 Subtasks:
-- [ ] Confirm endpoint path and method.
-- [ ] Define response DTO for KPI, alerts, sales chart, payment methods, top products, low stock, recent transactions, cashiers, branches.
-- [ ] Define role/tenant/outlet authorization.
-- [ ] Define empty/error/forbidden states.
-- [ ] Define calculation source and preview/estimate labels.
+- [x] Confirm endpoint path and method.
+- [x] Define response DTO for KPI, alerts, sales chart, payment methods, top products, low stock, recent transactions, cashiers, branches.
+- [x] Define role/tenant/outlet authorization.
+- [x] Define empty/error/forbidden states.
+- [x] Define calculation source and preview/estimate labels.
 
 Acceptance criteria:
 - Web admin can implement `/dashboard` without guessing response shape.
@@ -132,7 +132,7 @@ Validation:
 
 ### BE-04B — Implement `GET /api/v1/dashboard/summary`
 
-Status: `[READY AFTER BE-04A]`
+Status: `[DONE]`
 Priority: P0
 Area: Backend
 Depends on: `BE-04A`
@@ -148,12 +148,12 @@ Allowed scope:
 - `docs/TASK_QUEUE.md`
 
 Subtasks:
-- [ ] Add route under `/api/v1` with auth.
-- [ ] Add thin controller or report/dashboard controller method.
-- [ ] Add service/resource if needed.
-- [ ] Aggregate data server-side using authenticated business/outlet context.
-- [ ] Add feature tests for auth, tenant isolation, empty state, and response shape.
-- [ ] Update docs/story/bug tracker.
+- [x] Add route under `/api/v1` with auth.
+- [x] Add thin controller or report/dashboard controller method.
+- [x] Add service/resource if needed.
+- [x] Aggregate data server-side using authenticated business/outlet context.
+- [x] Add feature tests for auth, tenant isolation, empty state, and response shape.
+- [x] Update docs/story/bug tracker.
 
 Acceptance criteria:
 - Endpoint returns standard envelope `{ data, meta }`.
@@ -171,31 +171,81 @@ php artisan route:list --path=api/v1
 
 ### WEB-01A — Decide and document web admin session strategy
 
-Status: `[BLOCKED]`
+Status: `[DONE]`
 Priority: P0
-Area: Integration/Web
-Depends on: product owner decision
+Area: Integration/Web Docs
+Depends on: `BE-04B`
 
 Goal:
 - Decide how browser session works before real API calls.
 
-Options to decide:
-- HttpOnly cookie / Sanctum SPA cookie.
-- Next.js BFF/server-side adapter.
-- Token behavior for local dev only.
+Decision:
+- Next.js BFF/server-side route handler.
+- Browser talks only to same-origin `/api/admin/*` routes.
+- Backend token/session material stays behind HttpOnly sealed cookie or server-only session boundary.
+- No auth secret storage in browser-readable storage.
+- No Authorization/Bearer construction in UI components.
 
 Acceptance criteria:
-- `docs/API_CONTRACTS/SESSION.md` defines final strategy.
-- Web implementation does not use `localStorage` or `sessionStorage` for tokens.
+- [x] `docs/API_CONTRACTS/SESSION.md` defines final strategy.
+- [x] Web implementation rules forbid browser-readable auth secret storage.
+- [x] Next task is session/BFF adapter scaffold, not dashboard integration.
 
 ---
 
-### WEB-01B — Integrate `/dashboard` read-only data
+### WEB-01B — Implement Web Admin session/BFF adapter scaffold
 
-Status: `[READY AFTER WEB-01A AND BE-04B]`
+Status: `[DONE]`
+Priority: P0
+Area: Web Admin / Integration
+Depends on: `WEB-01A`, `BE-04B`
+
+Goal:
+- Implement the approved server-only session/BFF boundary before any dashboard data integration.
+
+Allowed scope:
+- `apps/web/src/lib/server/**`
+- `apps/web/src/app/api/admin/**`
+- `apps/web/src/lib/auth/**` only if needed for shared safe types/tests
+- `apps/web/src/lib/api/**` only if needed for server adapter envelope/types/tests
+- `docs/STORY_WEB_ADMIN.md`
+- `docs/STORY_INTEGRATION.md`
+- `docs/BUG_TRACKER.md`
+- `docs/TASK_QUEUE.md`
+
+Subtasks:
+- [x] Add server-only session cookie/sealing helper with existing dependencies only.
+- [x] Add server-only Laravel backend client.
+- [x] Add Next route handler `POST /api/admin/auth/login`.
+- [x] Add Next route handler `POST /api/admin/auth/logout`.
+- [x] Add Next route handler `GET /api/admin/session`.
+- [x] Reject cashier from Web Admin.
+- [x] Keep dashboard fixture integration untouched.
+- [x] Add tests and boundary scan for no raw token in UI/client code.
+
+Validation:
+```bash
+cd apps/web
+npm run typecheck
+npm run lint
+npm test
+npm run build
+npx playwright test --list
+```
+
+Boundary scan:
+```bash
+rg -n "fetch\(|XMLHttpRequest|sessionStorage|localStorage|Authorization|Bearer |NEXT_PUBLIC_API_BASE_URL|@/lib/api|@/lib/auth" src/app src/components src/fixtures --glob '!*.test.ts' --glob '!*.test.tsx' || true
+```
+
+---
+
+### WEB-01C — Integrate `/dashboard` read-only data
+
+Status: `[DONE]`
 Priority: P1
 Area: Web Admin
-Depends on: `WEB-01A`, `BE-04B`
+Depends on: `WEB-01B`, `BE-04B`
 
 Goal:
 - Replace dashboard fixture with server data behind approved API/session boundary.
@@ -208,11 +258,11 @@ Allowed scope:
 - `docs/TASK_QUEUE.md`
 
 Subtasks:
-- [ ] Add typed data adapter according to approved session strategy.
-- [ ] Add loading, error, empty, forbidden state.
-- [ ] Keep preview fallback only if explicitly documented.
-- [ ] Keep action buttons static/disabled.
-- [ ] Run full web validation.
+- [x] Add dashboard summary adapter through `/api/admin/dashboard/summary` according to approved BFF strategy.
+- [x] Add error, empty, forbidden, and session-required state.
+- [x] Keep preview fallback only with clear label when session/backend is unavailable.
+- [x] Keep action buttons static/disabled.
+- [x] Run full web validation.
 
 Validation:
 ```bash
@@ -233,7 +283,7 @@ rg -n "fetch\(|XMLHttpRequest|sessionStorage|localStorage|Authorization|Bearer |
 
 ### WEB-02A — Transactions read-only page integration
 
-Status: `[READY AFTER WEB-01B]`
+Status: `[READY]`
 Priority: P1
 Area: Web Admin
 Depends on: dashboard/session read-only success

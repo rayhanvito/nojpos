@@ -47,10 +47,10 @@ Semua request protected harus mengetahui user, business, outlet, role, device, d
   - `[TODO]` Pastikan owner/admin/kasir/superadmin boundary jelas.
   - `[TODO]` Pastikan outlet-bound endpoint validasi outlet milik business.
   - `[TODO]` Pastikan device-bound endpoint tidak menerima device palsu dari client.
-- `[BLOCKED]` Web admin browser session strategy.
-  - `[TODO]` Putuskan cookie HttpOnly/Sanctum SPA/BFF.
-  - `[TODO]` Definisikan CSRF, logout, refresh/expiry, forbidden state.
-  - `[TODO]` Dokumentasikan cara web admin menyimpan session tanpa `localStorage` token.
+- `[DONE]` Web admin browser session strategy.
+  - `[DONE]` Pilih Next.js BFF/server-side route handler dengan HttpOnly sealed session cookie.
+  - `[DONE]` Definisikan CSRF/origin check, logout, refresh/expiry, dan forbidden state di `docs/API_CONTRACTS/SESSION.md`.
+  - `[DONE]` Dokumentasikan cara Web Admin menjaga backend token di server-only boundary tanpa browser-readable auth secret storage.
 
 ### Acceptance Criteria
 
@@ -63,7 +63,7 @@ Semua request protected harus mengetahui user, business, outlet, role, device, d
 ### Bug/Kendala
 
 - `[OPEN]` BUG-BE-01 — perlu audit query builder tenant scope.
-- `[OPEN]` BUG-INT-01 — session strategy web admin belum final.
+- `[RESOLVED]` BUG-INT-01 — session strategy web admin sudah final; implementasi adapter lanjut di WEB-01B.
 
 ---
 
@@ -253,12 +253,19 @@ Owner/admin bisa melihat ringkasan bisnis tanpa web admin memanggil terlalu bany
 ### Task dan Subtask
 
 - `[DONE]` Endpoint report dasar tersedia.
-- `[READY]` Dashboard summary endpoint.
-  - `[TODO]` Buat `GET /api/v1/dashboard/summary`.
-  - `[TODO]` KPI: sales today, transaction count, average ticket, gross profit estimate, low stock count, cash difference.
-  - `[TODO]` Alerts: low stock, out of stock, unclosed shift, cash difference, subscription soon expired.
-  - `[TODO]` Charts: sales last 7 days, payment methods.
-  - `[TODO]` Lists: top products, low stock, recent transactions, cashier performance, branch highlights.
+- `[DONE]` BE-04A Dashboard summary API contract.
+  - `[DONE]` Endpoint final: `GET /api/v1/dashboard/summary`.
+  - `[DONE]` Auth/role/scope: login, owner/admin only, tenant business scope, outlet validation.
+  - `[DONE]` Response DTO: `meta`, `kpis`, `alerts`, `sales_last_7_days`, `payment_methods`, `top_products`, `low_stock_items`, `recent_transactions`, `cashier_performance`, `branch_highlights`, `data_notes`.
+  - `[DONE]` Empty state dan error state `401`, `403`, `422`, `500`.
+  - `[DONE]` BE-04B acceptance criteria documented: read-only, no sensitive trigger, tenant isolation, forbidden role, empty/normal state tests.
+- `[DONE]` BE-04B Dashboard summary endpoint implementation.
+  - `[DONE]` Implement `GET /api/v1/dashboard/summary` sesuai `docs/API_CONTRACTS/DASHBOARD_SUMMARY.md`.
+  - `[DONE]` KPI: sales today, transaction count, average ticket, gross profit estimate, low stock count, cash difference.
+  - `[DONE]` Alerts: low stock, out of stock, unclosed shift, cash difference dari data yang tersedia.
+  - `[DONE]` Charts: sales last 7 days, payment methods.
+  - `[DONE]` Lists: top products, low stock, recent transactions, cashier performance, branch highlights.
+  - `[DONE]` Feature tests: owner/admin, cashier/superadmin forbidden, unauthenticated, invalid filter, outlet tenant isolation, empty state, normal state, cross-tenant exclusion.
 - `[READY]` Report filter contract.
   - `[TODO]` Outlet filter.
   - `[TODO]` Date range.
@@ -273,7 +280,7 @@ Owner/admin bisa melihat ringkasan bisnis tanpa web admin memanggil terlalu bany
 
 ### Bug/Kendala
 
-- `[OPEN]` BUG-BE-02 — dashboard summary endpoint belum ada.
+- Tidak ada blocker baru untuk BE-04B. Session strategy sudah final di WEB-01A; web integration tetap menunggu WEB-01B session/BFF adapter scaffold.
 
 ---
 

@@ -98,12 +98,16 @@ describe('admin web route manifest', () => {
     expect(source).not.toContain('redirect("/dashboard")');
   });
 
-  it('keeps dashboard wired as UI preview with safety copy', () => {
+  it('keeps dashboard wired through the approved BFF read-only boundary with fallback safety copy', () => {
     const source = readFileSync(join(process.cwd(), 'src/app/dashboard/page.tsx'), 'utf8');
 
-    expect(source).toContain('Dashboard ini masih preview UI');
-    expect(source).toContain('Data, grafik, dan alert menggunakan contoh lokal');
-    expect(source).toContain('dashboardKpiCards');
+    expect(source).toContain('getDashboardPageModel');
+    expect(source).toContain('data contoh fallback');
+    expect(source).toContain('Dashboard ini tidak menjalankan aksi sensitif');
+    expect(source).not.toContain('localStorage');
+    expect(source).not.toContain('sessionStorage');
+    expect(source).not.toContain('Authorization');
+    expect(source).not.toContain('Bearer');
   });
 
   it('keeps primary tenant and platform routes wired to preview state coverage', () => {

@@ -10,7 +10,7 @@ Web Admin memiliki dua area yang harus tetap terpisah: Tenant Admin untuk owner/
 
 ## WEB-01 — Tenant Dashboard Owner/Admin
 
-Status: `[PREVIEW]`  
+Status: `[INTEGRATED READ-ONLY]`  
 Priority: `P1`  
 Dependency: INT-01, BE-04.
 
@@ -21,8 +21,9 @@ Owner/admin toko bisa memahami kondisi bisnis hari ini: penjualan, transaksi, ra
 ### Implemented Sekarang
 
 - Route: `/dashboard`.
-- UI preview sudah sederhana dan Indonesia-friendly.
-- Fixture lokal: `apps/web/src/fixtures/preview/dashboard.ts`.
+- UI dashboard sudah sederhana dan Indonesia-friendly.
+- Data real read-only sekarang dibaca melalui Next.js BFF route `GET /api/admin/dashboard/summary`.
+- Fixture lokal `apps/web/src/fixtures/preview/dashboard.ts` tetap ada hanya sebagai fallback/preview berlabel jelas saat session/backend belum tersedia.
 - Chart Recharts client component:
   - `DashboardSalesChart`.
   - `DashboardPaymentChart`.
@@ -36,14 +37,18 @@ Owner/admin toko bisa memahami kondisi bisnis hari ini: penjualan, transaksi, ra
 - `[DONE]` Chart sales 7 hari dan metode pembayaran.
 - `[DONE]` Ringkasan operasional.
 - `[DONE]` Quick links statis.
-- `[READY]` Integrasi read-only.
-  - `[TODO]` Tunggu session/auth web admin selesai.
-  - `[TODO]` Tunggu `GET /api/v1/dashboard/summary` atau mapping report final.
-  - `[TODO]` Buat adapter data dashboard.
-  - `[TODO]` Tambah loading state.
-  - `[TODO]` Tambah empty state.
-  - `[TODO]` Tambah error/server unavailable state.
-  - `[TODO]` Tambah 401/403 state.
+- `[DONE]` WEB-01A session strategy decision documented in `docs/API_CONTRACTS/SESSION.md`.
+- `[DONE]` WEB-01B implement session/BFF adapter scaffold.
+  - `[DONE]` Buat server-only sealed HttpOnly session adapter sesuai strategi Next.js BFF.
+  - `[DONE]` Buat route handler login/logout/session tanpa integrasi dashboard.
+  - `[DONE]` Pastikan tidak ada token mentah ke Client Component atau browser-readable storage.
+- `[DONE]` WEB-01C integrasi read-only dashboard melalui BFF.
+  - `[DONE]` Session/auth strategy web admin selesai di WEB-01A.
+  - `[DONE]` Implementasi `GET /api/v1/dashboard/summary` selesai di BE-04B; kontrak BE-04A sudah final di `docs/API_CONTRACTS/DASHBOARD_SUMMARY.md`.
+  - `[DONE]` Buat adapter data dashboard sesuai kontrak final melalui BFF.
+  - `[DONE]` Tambah empty state dari backend dan fallback session-required.
+  - `[DONE]` Tambah error/server unavailable state dengan label data contoh fallback.
+  - `[DONE]` Tambah 401/403 state tanpa menampilkan data backend tenant.
 - `[DEFERRED]` Action real dari dashboard.
   - `[TODO]` Jangan aktifkan shift close/open.
   - `[TODO]` Jangan aktifkan stock adjustment.
@@ -51,15 +56,18 @@ Owner/admin toko bisa memahami kondisi bisnis hari ini: penjualan, transaksi, ra
 
 ### Acceptance Criteria
 
-- Dashboard real data hanya setelah session dan endpoint siap.
+- Dashboard real data hanya melalui BFF/server-side helper yang disetujui.
 - Gross profit dan selisih kas tetap berlabel estimasi jika backend belum final.
 - Tidak ada horizontal overflow mobile/desktop.
 - Tidak ada API call di random component.
+- Token backend tidak masuk Client Component, props UI, fixture, atau browser-readable storage.
 
 ### Bug/Kendala
 
-- `[OPEN]` Dashboard masih fixture lokal.
-- `[OPEN]` Endpoint dashboard summary belum ada.
+- `[RESOLVED]` Dashboard tidak lagi hanya fixture lokal; WEB-01C membaca backend summary melalui BFF dan memakai fixture hanya sebagai fallback berlabel jelas.
+- `[RESOLVED]` Session strategy Web Admin sudah diputuskan di WEB-01A: Next.js BFF/server-side route handler dengan HttpOnly sealed session cookie.
+- `[RESOLVED]` WEB-01B session/BFF adapter scaffold sudah tersedia: `/api/admin/auth/login`, `/api/admin/auth/logout`, dan `/api/admin/session`.
+- `[RESOLVED]` Endpoint dashboard summary sudah diimplementasikan di BE-04B dan Web Dashboard read-only integration selesai di WEB-01C.
 
 ---
 
@@ -134,7 +142,7 @@ Route web admin tersedia:
 
 ### Bug/Kendala
 
-- `[OPEN]` Belum ada adapter API aktif di page/component.
+- `[RESOLVED]` Session/BFF adapter awal sudah tersedia di server-only boundary; page/component tetap belum memakai API langsung.
 - `[OPEN]` Payment/promotions web route belum jelas endpoint backend realnya.
 
 ---

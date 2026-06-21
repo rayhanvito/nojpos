@@ -9,32 +9,32 @@ Integrasi harus dimulai read-only, lalu safe writes, lalu sensitive actions pali
 
 ## INT-01 — Web Admin Session Integration
 
-Status: `[BLOCKED]`  
+Status: `[DONE]`  
 Priority: `P0`  
-Dependency: BE-01 decision.
+Dependency: WEB-01A session decision and WEB-01B session/BFF adapter scaffold completed.
 
 ### Tujuan
 
 Web Admin dapat mengenali user, role, business, outlet list, dan akses tenant/platform secara aman tanpa menyimpan token di `localStorage`/`sessionStorage`.
 
-### Keputusan Yang Harus Dibuat
+### Keputusan Session Final
 
-- `[TODO]` Pilih model session:
-  - cookie HttpOnly/Sanctum SPA, atau
-  - Next.js BFF/server boundary, atau
-  - model lain yang tetap tidak menyimpan token di browser storage.
-- `[TODO]` CSRF strategy.
-- `[TODO]` Logout/expiry behavior.
-- `[TODO]` 401/403 UI behavior.
-- `[TODO]` Role routing:
+- `[DONE]` Model session dipilih: Next.js BFF/server-side route handler.
+- `[DONE]` Browser hanya bicara ke `/api/admin/*` di Next.js.
+- `[DONE]` Backend token/session material disimpan di HttpOnly sealed cookie atau server-only session boundary, tidak di browser-readable storage.
+- `[DONE]` CSRF/origin strategy documented for login/logout and future writes.
+- `[DONE]` Logout/expiry behavior documented.
+- `[DONE]` 401/403 behavior documented.
+- `[DONE]` Role routing documented:
   - owner/admin ke Tenant Admin,
-  - superadmin ke Platform Admin.
+  - superadmin ke Platform Admin,
+  - cashier ditolak dari Web Admin.
 
 ### Task dan Subtask
 
-- `[TODO]` Buat dokumen keputusan session singkat.
-- `[TODO]` Siapkan API adapter layer yang disetujui.
-- `[TODO]` Integrasi read-only:
+- `[DONE]` Buat dokumen keputusan session di `docs/API_CONTRACTS/SESSION.md`.
+- `[DONE]` WEB-01B siapkan API adapter layer yang disetujui.
+- `[READY]` Integrasi read-only setelah adapter tersedia:
   - `GET /api/v1/me`.
   - `GET /api/v1/outlets`.
   - `GET /api/v1/subscription`.
@@ -52,56 +52,55 @@ Web Admin dapat mengenali user, role, business, outlet list, dan akses tenant/pl
 
 ### Bug/Kendala
 
-- `[OPEN]` BUG-INT-01 — session strategy belum final.
+- `[RESOLVED]` BUG-INT-01 — session strategy final di WEB-01A dan session/BFF adapter scaffold selesai di WEB-01B.
 
 ---
 
 ## INT-02 — Tenant Dashboard Read-only Integration
 
-Status: `[READY AFTER INT-01]`  
+Status: `[DONE]`  
 Priority: `P1`  
-Dependency: INT-01, BE-04, WEB-01.
+Dependency: INT-01, BE-04A contract, BE-04B endpoint, WEB-01.
 
 ### Tujuan
 
 Mengganti fixture `/dashboard` dengan data backend read-only tanpa mengaktifkan action sensitif.
 
-### Pilihan Integrasi
+### Urutan Integrasi Wajib
+
+1. `[DONE]` Backend contract: finalisasi `docs/API_CONTRACTS/DASHBOARD_SUMMARY.md` di BE-04A.
+2. `[DONE]` Backend endpoint: implement `GET /api/v1/dashboard/summary` di BE-04B.
+3. `[DONE]` Backend test: tenant isolation, forbidden role, invalid filter, empty state, normal state.
+4. `[DONE]` Web integration: WEB-01C membaca dashboard real read-only melalui Next.js BFF `GET /api/admin/dashboard/summary`.
 
 Preferred:
 
-- `[TODO]` Buat `GET /api/v1/dashboard/summary`.
+- Gunakan satu endpoint agregat `GET /api/v1/dashboard/summary`.
 
-Fallback sementara jika endpoint agregat belum dibuat:
-
-- `[TODO]` Map beberapa report endpoint:
-  - `/reports/sales-summary`
-  - `/reports/top-10`
-  - `/reports/payment-methods`
-  - `/reports/cashier-shifts`
-  - `/transactions`
-  - `/inventory`
+Fallback mapping beberapa report endpoint tidak menjadi jalur utama setelah kontrak BE-04A final. Gunakan fallback hanya jika product owner meminta eksplisit.
 
 ### Task dan Subtask
 
-- `[TODO]` Definisikan DTO dashboard summary.
-- `[TODO]` Backend endpoint/mapping.
-- `[TODO]` Web adapter.
-- `[TODO]` Replace fixture with server data.
-- `[TODO]` Keep local fixture only for tests/storybook-like preview jika perlu.
-- `[TODO]` Add loading/empty/error/forbidden.
-- `[TODO]` QA responsive.
+- `[DONE]` Definisikan DTO dashboard summary.
+- `[DONE]` Backend endpoint sesuai kontrak final.
+- `[DONE]` Backend tests untuk endpoint.
+- `[DONE]` Web adapter.
+- `[DONE]` Replace fixture-first dashboard with server data through BFF.
+- `[DONE]` Keep local fixture only for tests/fallback preview berlabel jelas.
+- `[DONE]` Add empty/error/401/403 states.
+- `[DONE]` Web validation completed for WEB-01C.
 
 ### Acceptance Criteria
 
-- Dashboard memuat data sesuai outlet/business user.
-- Web tidak menghitung laporan final.
+- Dashboard memuat data sesuai outlet/business user melalui BFF.
+- Web tidak menghitung laporan final; hanya memetakan DTO backend ke UI display.
 - Gross profit/cash difference diberi label estimasi bila sesuai.
 - Tidak ada action real dari dashboard.
+- Browser/UI tidak menerima token backend atau membuat Authorization header.
 
 ### Bug/Kendala
 
-- `[OPEN]` Dashboard summary endpoint belum ada.
+- `[RESOLVED]` WEB-01C dashboard read-only integration selesai; urutan backend contract → backend endpoint → backend test → session strategy → session adapter → web integration sudah terpenuhi. Next: tenant admin read-only planning/integration.
 
 ---
 

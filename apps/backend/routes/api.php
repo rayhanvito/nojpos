@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\V1\AttendanceController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\CustomerController;
+use App\Http\Controllers\Api\V1\DashboardSummaryController;
 use App\Http\Controllers\Api\V1\InventoryController;
 use App\Http\Controllers\Api\V1\OutletStoreController;
 use App\Http\Controllers\Api\V1\ParkedOrderController;
@@ -58,6 +59,7 @@ Route::prefix('v1')->group(function (): void {
         });
         Route::get('/subscription', [SubscriptionController::class, 'show']);
         Route::get('/settings', [SettingsController::class, 'index']);
+        Route::get('/dashboard/summary', DashboardSummaryController::class)->middleware('role:owner,admin');
         Route::middleware('role:owner,admin')->group(function (): void {
             Route::patch('/settings/business', [SettingsController::class, 'updateBusiness'])->middleware('idempotency');
             Route::patch('/settings/outlets/{outlet}', [SettingsController::class, 'updateOutlet'])->whereUuid('outlet')->middleware('idempotency');

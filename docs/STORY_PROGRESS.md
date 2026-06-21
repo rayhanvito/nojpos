@@ -6,11 +6,11 @@ Board ini adalah urutan kerja aktif agar implementasi tidak loncat-loncat. Detai
 
 | Area | Status | Ringkasan |
 | --- | --- | --- |
-| Backend Core POS | `[IN PROGRESS]` | Route inti auth, master data, inventory, shift, transaction, payment, reports, superadmin core sudah ada. Perlu hardening tenant scope, policy, audit, dan endpoint dashboard/platform tambahan. |
+| Backend Core POS | `[IN PROGRESS]` | Route inti auth, master data, inventory, shift, transaction, payment, reports, superadmin core, dan dashboard summary read-only sudah ada. Perlu hardening tenant scope, policy, audit, dan endpoint platform tambahan. |
 | Mobile Kasir | `[IN PROGRESS]` | Feature Flutter utama sudah ada. Perlu QA end-to-end, hardening checkout retry, device/session, shift, print. |
-| Web Admin Tenant | `[PREVIEW]` | UI dashboard dan halaman tenant admin sudah preview. Belum integrasi backend/API. |
+| Web Admin Tenant | `[INTEGRATED READ-ONLY]` | Dashboard owner/admin sudah membaca backend summary melalui Next.js BFF; halaman tenant admin lain masih preview/read-only planning. |
 | Platform Super Admin | `[PREVIEW]` | UI sederhana Indonesia-friendly sudah preview. Backend baru mendukung sebagian kecil. |
-| Integrasi Web Admin | `[BLOCKED]` | Menunggu keputusan session strategy dan kontrak API. |
+| Integrasi Web Admin | `[IN PROGRESS]` | Session strategy dan BFF adapter sudah selesai; dashboard read-only integration selesai; lanjut tenant admin read-only pages. |
 | Billing SaaS | `[TODO]` | Belum ada invoice/platform billing domain lengkap. |
 | Support/Bantuan | `[TODO]` | Belum ada support ticket backend domain. |
 | Pengumuman | `[TODO]` | Belum ada announcement backend domain. |
@@ -33,20 +33,20 @@ Aturan aktif:
 
 ### Phase 0 — Docs dan Kontrak
 
-Status: `[IN PROGRESS]`
+Status: `[DONE]`
 
 - `[DONE]` Pindahkan web admin ke `apps/web`.
 - `[DONE]` Buat `PRDPOSJA.md` sebagai PRD aktif.
 - `[DONE]` Rapikan docs menjadi story-based tracker.
-- `[IN PROGRESS]` Ganti workflow menjadi single-agent sequential workflow.
-- `[IN PROGRESS]` Buat `docs/TASK_QUEUE.md` final.
+- `[DONE]` Ganti workflow menjadi single-agent sequential workflow.
+- `[DONE]` Buat `docs/TASK_QUEUE.md` final.
 - `[READY AFTER DOC-01]` Review story dengan product owner.
-- `[READY AFTER DOC-01]` Finalisasi kontrak dashboard summary.
-- `[TODO]` Finalisasi session strategy web admin.
+- `[DONE]` Finalisasi kontrak dashboard summary.
+- `[DONE]` Finalisasi session strategy web admin.
 
 ### Phase 1 — Backend Foundation Hardening
 
-Status: `[READY AFTER PHASE 0]`
+Status: `[IN PROGRESS]`
 
 Dependency: Phase 0 minimal selesai.
 
@@ -55,25 +55,25 @@ Dependency: Phase 0 minimal selesai.
   - tenant scope audit,
   - role/outlet/device context,
   - standard error/envelope,
-  - dashboard summary endpoint,
+  - `[DONE]` dashboard summary endpoint,
   - policy test untuk endpoint yang akan dibuka ke web admin.
 
 ### Phase 2 — Tenant Dashboard Real Data
 
-Status: `[READY AFTER BE-04 AND INT-01]`
+Status: `[DONE]`
 
 Dependency: backend dashboard endpoint + web session strategy.
 
 - Story: `BE-04`, `WEB-01`, `INT-02`.
 - Fokus:
-  - `GET /api/v1/dashboard/summary`,
-  - `/dashboard` read-only integration,
-  - loading/empty/error/forbidden state,
-  - labels untuk estimasi gross profit dan selisih kas.
+  - `[DONE]` `GET /api/v1/dashboard/summary`,
+  - `[DONE]` `/dashboard` read-only integration via BFF,
+  - `[DONE]` loading/empty/error/forbidden/session-required state,
+  - `[DONE]` labels untuk estimasi gross profit dan selisih kas.
 
 ### Phase 3 — Tenant Admin Read-only Pages
 
-Status: `[READY AFTER PHASE 2]`
+Status: `[READY]`
 
 - Story: `WEB-02`, `INT-03`.
 - Urutan:
@@ -142,9 +142,9 @@ Lihat detail di `docs/BUG_TRACKER.md`.
 
 | Bug | Status | Dampak |
 | --- | --- | --- |
-| BUG-WEB-01 | `[OPEN]` | Web admin belum punya session/API integration. |
 | BUG-BE-01 | `[OPEN]` | Perlu audit tenant scope query builder. |
-| BUG-BE-02 | `[OPEN]` | Dashboard summary endpoint belum ada. |
+| BUG-BE-03 | `[OPEN]` | Platform billing/support/activity/system/announcement backend belum ada. |
+| BUG-WEB-02 | `[OPEN]` | Folder lama `nojpos_admin_web/apps/web` masih menyisakan cache/dependency terkunci proses. |
 | BUG-BE-03 | `[OPEN]` | Platform billing/support/activity/system/announcement backend belum ada. |
 | BUG-MOB-01 | `[OPEN]` | Mobile butuh QA device untuk lock/PIN/print/retry. |
 
