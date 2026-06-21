@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../app/nojpos_assets.dart';
 import '../../../app/providers/nojpos_session_provider.dart';
 import '../../../app/theme.dart';
+import '../../../shared/widgets/nojpos_state_view.dart';
 
 class ShiftGateScreen extends ConsumerStatefulWidget {
   const ShiftGateScreen({super.key});
@@ -13,7 +15,7 @@ class ShiftGateScreen extends ConsumerStatefulWidget {
 }
 
 class _ShiftGateScreenState extends ConsumerState<ShiftGateScreen> {
-  final openingCashController = TextEditingController(text: '100000');
+  final openingCashController = TextEditingController();
   bool checked = false;
 
   @override
@@ -56,67 +58,95 @@ class _ShiftGateScreenState extends ConsumerState<ShiftGateScreen> {
     final isBusy = session.isBusy || !checked;
 
     return Scaffold(
+      backgroundColor: NojposColors.canvas,
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 430),
-            child: Padding(
-              padding: const EdgeInsets.all(28),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    session.hasOpenShift ? 'Shift aktif' : 'Buka Shift',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      color: MokposColors.text,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Outlet aktif: ${session.outlet.name}\nKasir aktif: ${session.cashier.name}',
-                    style: const TextStyle(color: MokposColors.muted),
-                  ),
-                  const SizedBox(height: 26),
-                  if (isBusy)
-                    const Center(child: CircularProgressIndicator())
-                  else ...[
-                    TextField(
-                      key: const ValueKey('shift_opening_cash'),
-                      controller: openingCashController,
-                      keyboardType: TextInputType.number,
-                      decoration: InputDecoration(
-                        labelText:
-                            'Modal awal shift untuk ${session.outlet.name}',
-                        prefixText: 'Rp ',
-                        border: OutlineInputBorder(),
+            constraints: const BoxConstraints(maxWidth: 460),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(NojposRadius.xl),
+                  border: Border.all(color: NojposColors.line),
+                  boxShadow: NojposShadow.card,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      NojposStateView.success(
+                        title: session.hasOpenShift
+                            ? 'Shift aktif'
+                            : 'Buka Shift',
+                        subtitle:
+                            'Outlet aktif: ${session.outlet.name}\nKasir aktif: ${session.cashier.name}',
+                        illustrationAsset: session.hasOpenShift
+                            ? NojposAssets.shiftOpen
+                            : NojposAssets.shiftClosed,
+                        compact: true,
                       ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      'Masukkan uang tunai fisik di laci saat shift dibuka. Nilai ini dikirim sebagai opening_cash ke server.',
-                      style: const TextStyle(color: MokposColors.muted),
-                    ),
-                    if (session.errorMessage != null) ...[
-                      const SizedBox(height: 14),
-                      Text(
-                        session.errorMessage!,
-                        style: const TextStyle(color: MokposColors.danger),
-                      ),
+                      const SizedBox(height: 22),
+                      if (isBusy)
+                        const Center(child: CircularProgressIndicator())
+                      else ...[
+                        TextField(
+                          key: const ValueKey('shift_opening_cash'),
+                          controller: openingCashController,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            labelText:
+                                'Modal awal shift untuk ${session.outlet.name}',
+                            prefixText: 'Rp ',
+                            filled: true,
+                            fillColor: NojposColors.canvas,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(
+                                NojposRadius.lg,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        const Text(
+                          'Masukkan uang tunai fisik di laci saat shift dibuka. Nilai ini dikirim sebagai opening_cash ke server.',
+                          style: TextStyle(color: NojposColors.muted),
+                        ),
+                        if (session.errorMessage != null) ...[
+                          const SizedBox(height: 14),
+                          NojposStateView.error(
+                            title: 'Shift belum bisa dibuka',
+                            subtitle: session.errorMessage!,
+                            illustrationAsset: NojposAssets.errorOccurred,
+                            compact: true,
+                          ),
+                        ],
+                        const SizedBox(height: 24),
+                        FilledButton(
+                          key: const ValueKey('shift_open_submit'),
+                          onPressed: _openShift,
+                          style: FilledButton.styleFrom(
+                            minimumSize: const Size.fromHeight(54),
+                            backgroundColor: NojposColors.primary,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(
+                                NojposRadius.lg,
+                              ),
+                            ),
+                            textStyle: const TextStyle(
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          child: const Text('Buka Shift'),
+                        ),
+                      ],
                     ],
-                    const SizedBox(height: 24),
-                    FilledButton(
-                      key: const ValueKey('shift_open_submit'),
-                      onPressed: _openShift,
-                      style: FilledButton.styleFrom(
-                        minimumSize: const Size.fromHeight(54),
-                        backgroundColor: MokposColors.primary,
-                      ),
-                      child: const Text('Buka Shift'),
-                    ),
-                  ],
-                ],
+                  ),
+                ),
               ),
             ),
           ),

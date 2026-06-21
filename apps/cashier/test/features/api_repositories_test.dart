@@ -297,44 +297,42 @@ void main() {
   });
 
   test('ApiShiftRepository opens, reads, and closes current shift', () async {
+    final adapter = _RouteAdapter({
+      'POST /shifts/open': {
+        'data': {
+          'id': 'shift-id',
+          'cashier_id': 'cashier-id',
+          'status': 'open',
+          'opening_cash': 100000,
+        },
+        'meta': {},
+      },
+      'GET /shifts/current': {
+        'data': {
+          'shift': {
+            'id': 'shift-id',
+            'cashier_id': 'cashier-id',
+            'status': 'open',
+            'opening_cash': 100000,
+          },
+        },
+        'meta': {},
+      },
+      'POST /shifts/shift-id/close': {
+        'data': {
+          'id': 'shift-id',
+          'cashier_id': 'cashier-id',
+          'status': 'closed',
+          'opening_cash': 100000,
+          'expected_cash': 120000,
+          'actual_cash': 119000,
+          'cash_difference': -1000,
+        },
+        'meta': {},
+      },
+    });
     final repository = ApiShiftRepository(
-      apiClient: ApiClient(
-        dio: Dio()
-          ..httpClientAdapter = _RouteAdapter({
-            'POST /shifts/open': {
-              'data': {
-                'id': 'shift-id',
-                'cashier_id': 'cashier-id',
-                'status': 'open',
-                'opening_cash': 100000,
-              },
-              'meta': {},
-            },
-            'GET /shifts/current': {
-              'data': {
-                'shift': {
-                  'id': 'shift-id',
-                  'cashier_id': 'cashier-id',
-                  'status': 'open',
-                  'opening_cash': 100000,
-                },
-              },
-              'meta': {},
-            },
-            'POST /shifts/shift-id/close': {
-              'data': {
-                'id': 'shift-id',
-                'cashier_id': 'cashier-id',
-                'status': 'closed',
-                'opening_cash': 100000,
-                'expected_cash': 120000,
-                'actual_cash': 119000,
-                'cash_difference': -1000,
-              },
-              'meta': {},
-            },
-          }),
-      ),
+      apiClient: ApiClient(dio: Dio()..httpClientAdapter = adapter),
     );
 
     final opened = await repository.openShift(
@@ -357,6 +355,8 @@ void main() {
     expect(current?.isOpen, true);
     expect(closed.status, 'closed');
     expect(closed.cashDifference, -1000);
+    expect(adapter.idempotencyKeys, hasLength(2));
+    expect(adapter.idempotencyKeys.every((key) => key.isNotEmpty), true);
   });
 
   test('ApiCustomerRepository searches and creates customers', () async {

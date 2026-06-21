@@ -390,6 +390,22 @@ class FakeTransactionRepository implements TransactionRepository {
   }
 
   @override
+  Future<RefundResult> createRefund({
+    required String transactionId,
+    required RefundRequest request,
+  }) async {
+    return RefundResult(
+      id: 'refund-id',
+      transactionId: transactionId,
+      transactionStatus: 'refunded',
+      status: 'finalized',
+      refundMethod: request.refundMethod,
+      totalRefundAmount: 1000,
+      remainingRefundableAmount: 0,
+    );
+  }
+
+  @override
   SalesTransaction createLocalTransaction({
     required SalesOrder order,
     required List<PaymentLine> payments,

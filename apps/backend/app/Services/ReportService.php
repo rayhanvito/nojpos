@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\User;
 use Carbon\CarbonImmutable;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -22,7 +23,7 @@ class ReportService
 
         /** @var Collection<int, object> $paidRows */
         $paidRows = $this->transactionBaseQuery($scope)
-            ->where('transactions.status', 'paid')
+            ->whereIn('transactions.status', ['paid', 'partially_refunded', 'refunded'])
             ->select([
                 'transactions.id',
                 'transactions.grand_total',
@@ -36,6 +37,7 @@ class ReportService
 
         $transactionCount = $paidRows->count();
         $totalSales = (int) $paidRows->sum(fn (object $row): int => (int) $row->grand_total);
+        $refundTotal = $this->refundTotal($scope);
 
         $data = [
             'total_sales' => $totalSales,
@@ -46,6 +48,8 @@ class ReportService
             'total_tax' => (int) $paidRows->sum(fn (object $row): int => (int) $row->tax_total),
             'total_rounding' => (int) $paidRows->sum(fn (object $row): int => (int) $row->rounding_total),
             'total_void' => (int) $this->transactionBaseQuery($scope)->where('transactions.status', 'voided')->sum('transactions.grand_total'),
+            'refund_total' => $refundTotal,
+            'net_sales' => $totalSales - $refundTotal,
             'average_transaction_value' => $transactionCount === 0 ? 0 : intdiv($totalSales, $transactionCount),
             'chart' => $this->chartSeries($paidRows, $scope['bucket'], $scope['timezone']),
         ];
@@ -88,7 +92,7 @@ class ReportService
             ->selectRaw('items.product_id, items.name as product_name, categories.name as category_name, transactions.outlet_id, outlets.name as outlet_name, sum(items.quantity) as quantity_sold, sum(items.subtotal) as gross_sales, sum(items.discount) as discount_total')
             ->groupBy('items.product_id', 'items.name', 'categories.name', 'transactions.outlet_id', 'outlets.name')
             ->orderByDesc('quantity_sold')
-            ->paginate(50);
+            ->paginate($this->perPage($filters));
 
         $rows->getCollection()->transform(fn (object $row): array => [
             'product_id' => $row->product_id,
@@ -104,11 +108,7 @@ class ReportService
 
         return [
             'data' => ['rows' => $rows->items()],
-            'meta' => array_merge($this->meta($scope), ['pagination' => [
-                'total' => $rows->total(),
-                'per_page' => $rows->perPage(),
-                'current_page' => $rows->currentPage(),
-            ]]),
+            'meta' => array_merge($this->meta($scope), ['pagination' => $this->paginationMeta($rows)]),
         ];
     }
 
@@ -199,7 +199,7 @@ class ReportService
                 DB::raw('coalesce(moves.cash_out,0) as cash_out'),
             ])
             ->orderByDesc('shifts.opened_at')
-            ->paginate(50);
+            ->paginate($this->perPage($filters));
 
         $rows->getCollection()->transform(fn (object $shift): array => [
             'shift_id' => $shift->id,
@@ -220,11 +220,7 @@ class ReportService
 
         return [
             'data' => ['rows' => $rows->items()],
-            'meta' => array_merge($this->meta($scope), ['pagination' => [
-                'total' => $rows->total(),
-                'per_page' => $rows->perPage(),
-                'current_page' => $rows->currentPage(),
-            ]]),
+            'meta' => array_merge($this->meta($scope), ['pagination' => $this->paginationMeta($rows)]),
         ];
     }
 
@@ -263,7 +259,7 @@ class ReportService
                 'void_reasons.reason',
             ])
             ->orderByDesc('transactions.updated_at')
-            ->paginate(50);
+            ->paginate($this->perPage($filters));
 
         $rows->getCollection()->transform(fn (object $row): array => [
             'transaction_number' => $row->number,
@@ -277,14 +273,11 @@ class ReportService
             'amount' => (int) $row->grand_total,
             'refund_amount' => null,
         ]);
+        $refundRows = $this->refundAuditRows($scope);
 
         return [
-            'data' => ['rows' => $rows->items(), 'refund_rows' => []],
-            'meta' => array_merge($this->meta($scope), ['pagination' => [
-                'total' => $rows->total(),
-                'per_page' => $rows->perPage(),
-                'current_page' => $rows->currentPage(),
-            ]]),
+            'data' => ['rows' => $rows->items(), 'refund_rows' => $refundRows],
+            'meta' => array_merge($this->meta($scope), ['pagination' => $this->paginationMeta($rows)]),
         ];
     }
 
@@ -334,7 +327,7 @@ class ReportService
 
     /**
      * @param  array<string, mixed>  $filters
-     * @return array{business_id:string, outlet_id:?string, shift_id:?string, cashier_id:?string, start:CarbonImmutable, end:CarbonImmutable, timezone:string, bucket:string}
+     * @return array{business_id:string, outlet_id:?string, shift_id:?string, cashier_id:?string, start:CarbonImmutable, end:CarbonImmutable, timezone:string, bucket:string, range:string}
      */
     private function resolveTransactionScope(User $user, array $filters): array
     {
@@ -348,13 +341,14 @@ class ReportService
         $timezone = $outletId !== null
             ? $this->clock->outletTimezone($businessId, $outletId)
             : BusinessClock::DEFAULT_TIMEZONE;
-        [$start, $end, $bucket] = $this->dateWindow($filters['date'] ?? null, $filters['range'] ?? 'day', $timezone);
+        [$start, $end, $bucket, $rangeName] = $this->dateWindow($filters, $timezone);
         $shiftId = isset($filters['shift_id']) ? (string) $filters['shift_id'] : null;
         $cashierId = null;
 
         if ($this->isCashierLimited((string) $user->role)) {
-            [$start, $end] = $this->clock->utcDayWindow($timezone, $filters['date'] ?? $this->clock->localNow($timezone)->toDateString());
+            [$start, $end] = $this->clock->utcDayWindow($timezone, $filters['date'] ?? $filters['date_from'] ?? $this->clock->localNow($timezone)->toDateString());
             $bucket = 'hour';
+            $rangeName = 'day';
             $currentShift = $this->currentShiftForCashier((string) $user->id, $businessId, $outletId, $start, $end);
 
             if ($shiftId !== null && (! $currentShift || $shiftId !== $currentShift->id)) {
@@ -366,7 +360,7 @@ class ReportService
             if ($currentShift && $outletId === null) {
                 $outletId = $currentShift->outlet_id;
                 $timezone = $this->clock->outletTimezone($businessId, $outletId);
-                [$start, $end] = $this->clock->utcDayWindow($timezone, $filters['date'] ?? $this->clock->localNow($timezone)->toDateString());
+                [$start, $end] = $this->clock->utcDayWindow($timezone, $filters['date'] ?? $filters['date_from'] ?? $this->clock->localNow($timezone)->toDateString());
             }
         } elseif ($shiftId !== null && ! $this->shiftBelongsToBusiness($businessId, $shiftId)) {
             throw new ReportAccessException('NOT_FOUND', 'Shift not found.', [], 404);
@@ -381,11 +375,12 @@ class ReportService
             'end' => $end,
             'timezone' => $timezone,
             'bucket' => $bucket,
+            'range' => $rangeName,
         ];
     }
 
     /**
-     * @param  array{business_id:string, outlet_id:?string, shift_id:?string, cashier_id:?string, start:CarbonImmutable, end:CarbonImmutable, timezone:string, bucket:string}  $scope
+     * @param  array{business_id:string, outlet_id:?string, shift_id:?string, cashier_id:?string, start:CarbonImmutable, end:CarbonImmutable, timezone:string, bucket:string, range:string}  $scope
      */
     private function transactionBaseQuery(array $scope): Builder
     {
@@ -427,20 +422,105 @@ class ReportService
             ->first();
     }
 
-    private function dateWindow(?string $date, string $range, string $timezone): array
+    /**
+     * @param  array<string, mixed>  $filters
+     * @return array{0:CarbonImmutable, 1:CarbonImmutable, 2:string, 3:string}
+     */
+    private function dateWindow(array $filters, string $timezone): array
     {
-        $anchor = CarbonImmutable::parse($date ?? $this->clock->localNow($timezone)->toDateString(), $timezone);
+        if (isset($filters['date_from'], $filters['date_to'])) {
+            $start = CarbonImmutable::parse($filters['date_from'], $timezone)->startOfDay()->utc();
+            $end = CarbonImmutable::parse($filters['date_to'], $timezone)->startOfDay()->addDay()->utc();
+
+            return [$start, $end, 'day', 'custom'];
+        }
+
+        $range = (string) ($filters['range'] ?? 'day');
+        $anchor = CarbonImmutable::parse($filters['date'] ?? $this->clock->localNow($timezone)->toDateString(), $timezone);
 
         return match ($range) {
-            'week' => [$anchor->startOfWeek()->utc(), $anchor->startOfWeek()->addWeek()->utc(), 'day'],
-            'month' => [$anchor->startOfMonth()->utc(), $anchor->startOfMonth()->addMonth()->utc(), 'day'],
-            default => [...$this->clock->utcDayWindow($timezone, $anchor), 'hour'],
+            'week' => [$anchor->startOfWeek()->utc(), $anchor->startOfWeek()->addWeek()->utc(), 'day', 'week'],
+            'month' => [$anchor->startOfMonth()->utc(), $anchor->startOfMonth()->addMonth()->utc(), 'day', 'month'],
+            default => [...$this->clock->utcDayWindow($timezone, $anchor), 'hour', 'day'],
         };
     }
 
     private function isCashierLimited(string $role): bool
     {
         return ! in_array($role, ['owner', 'admin'], true);
+    }
+
+    /**
+     * @param  array{business_id:string, outlet_id:?string, shift_id:?string, cashier_id:?string, start:CarbonImmutable, end:CarbonImmutable, timezone:string, bucket:string, range:string}  $scope
+     */
+    private function refundTotal(array $scope): int
+    {
+        return (int) DB::table('refunds as refunds')
+            ->join('transactions as transactions', function ($join) use ($scope): void {
+                $join->on('transactions.id', '=', 'refunds.transaction_id')
+                    ->where('transactions.business_id', '=', $scope['business_id']);
+            })
+            ->where('refunds.business_id', $scope['business_id'])
+            ->where('refunds.status', 'finalized')
+            ->where('refunds.finalized_at', '>=', $scope['start'])
+            ->where('refunds.finalized_at', '<', $scope['end'])
+            ->when($scope['outlet_id'], fn (Builder $query, string $outletId): Builder => $query->where('refunds.outlet_id', $outletId))
+            ->when($scope['cashier_id'], fn (Builder $query, string $cashierId): Builder => $query->where('transactions.cashier_id', $cashierId))
+            ->when($scope['shift_id'], fn (Builder $query, string $shiftId): Builder => $query->where('transactions.shift_id', $shiftId))
+            ->sum('refunds.total_amount');
+    }
+
+    /**
+     * @param  array{business_id:string, outlet_id:?string, shift_id:?string, cashier_id:?string, start:CarbonImmutable, end:CarbonImmutable, timezone:string, bucket:string, range:string}  $scope
+     * @return array<int, array<string, mixed>>
+     */
+    private function refundAuditRows(array $scope): array
+    {
+        return DB::table('refunds as refunds')
+            ->join('transactions as transactions', function ($join) use ($scope): void {
+                $join->on('transactions.id', '=', 'refunds.transaction_id')
+                    ->where('transactions.business_id', '=', $scope['business_id']);
+            })
+            ->leftJoin('users as cashiers', function ($join) use ($scope): void {
+                $join->on('cashiers.id', '=', 'transactions.cashier_id')
+                    ->where('cashiers.business_id', '=', $scope['business_id']);
+            })
+            ->leftJoin('users as actors', function ($join) use ($scope): void {
+                $join->on('actors.id', '=', 'refunds.actor_id')
+                    ->where('actors.business_id', '=', $scope['business_id']);
+            })
+            ->where('refunds.business_id', $scope['business_id'])
+            ->where('refunds.status', 'finalized')
+            ->where('refunds.finalized_at', '>=', $scope['start'])
+            ->where('refunds.finalized_at', '<', $scope['end'])
+            ->when($scope['outlet_id'], fn (Builder $query, string $outletId): Builder => $query->where('refunds.outlet_id', $outletId))
+            ->when($scope['cashier_id'], fn (Builder $query, string $cashierId): Builder => $query->where('transactions.cashier_id', $cashierId))
+            ->when($scope['shift_id'], fn (Builder $query, string $shiftId): Builder => $query->where('transactions.shift_id', $shiftId))
+            ->orderByDesc('refunds.finalized_at')
+            ->limit(50)
+            ->get([
+                'transactions.number',
+                'transactions.created_at as original_order_time',
+                'refunds.finalized_at',
+                'refunds.reason',
+                'refunds.total_amount',
+                'cashiers.name as cashier_name',
+                'actors.name as actor_name',
+            ])
+            ->map(fn (object $row): array => [
+                'transaction_number' => $row->number,
+                'original_order_time' => $row->original_order_time,
+                'void_or_refund_time' => $row->finalized_at,
+                'type' => 'refund',
+                'cashier' => $row->cashier_name,
+                'authorizer' => $row->actor_name,
+                'reason' => $row->reason,
+                'order_type' => null,
+                'amount' => (int) $row->total_amount,
+                'refund_amount' => (int) $row->total_amount,
+            ])
+            ->values()
+            ->all();
     }
 
     private function paymentTotals(string $businessId, Collection $transactionIds): array
@@ -489,18 +569,45 @@ class ReportService
     }
 
     /**
-     * @param  array{business_id:string, outlet_id:?string, shift_id:?string, cashier_id:?string, start:CarbonImmutable, end:CarbonImmutable, timezone:string, bucket:string}  $scope
+     * @param  array{business_id:string, outlet_id:?string, shift_id:?string, cashier_id:?string, start:CarbonImmutable, end:CarbonImmutable, timezone:string, bucket:string, range:string}  $scope
      * @return array<string, mixed>
      */
     private function meta(array $scope): array
     {
+        $generatedAt = now()->toISOString();
+
         return [
-            'server_time' => now()->toISOString(),
+            'server_time' => $generatedAt,
+            'generated_at' => $generatedAt,
             'timezone' => $scope['timezone'],
+            'range' => $scope['range'],
             'window' => [
                 'start' => $scope['start']->toISOString(),
                 'end' => $scope['end']->toISOString(),
             ],
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     */
+    private function perPage(array $filters): int
+    {
+        return (int) ($filters['per_page'] ?? 50);
+    }
+
+    /**
+     * @return array{total:int, per_page:int, current_page:int, last_page:int, from:?int, to:?int}
+     */
+    private function paginationMeta(LengthAwarePaginator $rows): array
+    {
+        return [
+            'total' => $rows->total(),
+            'per_page' => $rows->perPage(),
+            'current_page' => $rows->currentPage(),
+            'last_page' => $rows->lastPage(),
+            'from' => $rows->firstItem(),
+            'to' => $rows->lastItem(),
         ];
     }
 }

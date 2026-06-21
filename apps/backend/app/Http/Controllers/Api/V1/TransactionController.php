@@ -3,10 +3,13 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\CheckoutTransactionRequest;
 use App\Services\BusinessClock;
 use App\Services\IdempotencyService;
 use App\Services\PaymentService;
 use App\Services\PaymentStateException;
+use App\Services\StoreOperationException;
+use App\Services\StoreStateService;
 use App\Services\TerminalContextException;
 use App\Services\TerminalContextService;
 use App\Services\TransactionQuoteService;
@@ -23,6 +26,7 @@ class TransactionController extends Controller
         private readonly TransactionQuoteService $quoteService,
         private readonly TerminalContextService $terminalContext,
         private readonly PaymentService $payments,
+        private readonly StoreStateService $stores,
         private readonly IdempotencyService $idempotency,
         private readonly BusinessClock $clock,
     ) {}
@@ -102,9 +106,9 @@ class TransactionController extends Controller
         return ApiResponse::success($quote);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(CheckoutTransactionRequest $request): JsonResponse
     {
-        $data = $request->validate($this->transactionValidationRules(requirePayments: false, includeContext: true));
+        $data = $request->validated();
 
         $requestedStatus = $data['status'] ?? null;
         $isHeldOrUnpaid = in_array($requestedStatus, ['held', 'unpaid'], true);
@@ -124,6 +128,12 @@ class TransactionController extends Controller
         }
 
         try {
+            $this->stores->assertStoreAllowsCheckout($businessId, $data['outlet_id']);
+        } catch (StoreOperationException $error) {
+            return ApiResponse::error($error->errorCode, $error->getMessage(), $error->details, $error->status);
+        }
+
+        try {
             $quote = $this->quoteService->quoteForCheckout(
                 $businessId,
                 $data,
@@ -136,6 +146,10 @@ class TransactionController extends Controller
 
             if ($error->getMessage() === 'QUOTE_STALE') {
                 return ApiResponse::error('QUOTE_STALE', 'Checkout quote is stale. Please request a new quote.', [], 409);
+            }
+
+            if ($error->getMessage() === 'QUOTE_REQUIRED') {
+                return ApiResponse::error('QUOTE_REQUIRED', 'Checkout quote is required. Please request a quote before checkout.', [], 422);
             }
 
             return ApiResponse::error('FORBIDDEN', 'Resource is outside the current business scope.', [], 403);
@@ -395,22 +409,28 @@ class TransactionController extends Controller
             'notes' => $transaction['notes'] ?? null,
             'created_at' => $transaction['created_at'] ?? null,
             'updated_at' => $transaction['updated_at'] ?? null,
-            'cashier' => $this->relatedUserPayload($transaction['cashier_id']),
-            'customer' => $this->relatedCustomerPayload($transaction['customer_id'] ?? null),
+            'cashier' => $this->relatedUserPayload($transaction['cashier_id'], $transaction['business_id']),
+            'customer' => $this->relatedCustomerPayload($transaction['customer_id'] ?? null, $transaction['business_id']),
             'items' => $this->transactionItems($transaction['id']),
             'payments' => $this->transactionPayments($transaction['id']),
+            'receipt' => $this->receiptPayload($transaction),
             'server_time' => $includeServerTime ? now()->toIso8601String() : null,
             'allowed_next_actions' => $transaction['status'] === 'payment_pending' ? ['poll'] : [],
         ];
     }
 
-    private function relatedUserPayload(?string $userId): ?array
+    private function relatedUserPayload(?string $userId, ?string $businessId = null): ?array
     {
         if (! $userId) {
             return null;
         }
 
-        $user = DB::table('users')->where('id', $userId)->first();
+        $query = DB::table('users')->where('id', $userId);
+        if ($businessId) {
+            $query->where('business_id', $businessId);
+        }
+
+        $user = $query->first();
         if (! $user) {
             return null;
         }
@@ -423,13 +443,40 @@ class TransactionController extends Controller
         ];
     }
 
-    private function relatedCustomerPayload(?string $customerId): ?array
+    private function relatedOutletPayload(?string $outletId, string $businessId): ?array
+    {
+        if (! $outletId) {
+            return null;
+        }
+
+        $outlet = DB::table('outlets')
+            ->where('id', $outletId)
+            ->where('business_id', $businessId)
+            ->first();
+
+        if (! $outlet) {
+            return null;
+        }
+
+        return [
+            'id' => $outlet->id,
+            'name' => $outlet->name,
+            'timezone' => $outlet->timezone ?? 'Asia/Jakarta',
+        ];
+    }
+
+    private function relatedCustomerPayload(?string $customerId, ?string $businessId = null): ?array
     {
         if (! $customerId) {
             return null;
         }
 
-        $customer = DB::table('customers')->where('id', $customerId)->first();
+        $query = DB::table('customers')->where('id', $customerId);
+        if ($businessId) {
+            $query->where('business_id', $businessId);
+        }
+
+        $customer = $query->first();
         if (! $customer) {
             return null;
         }
@@ -439,6 +486,44 @@ class TransactionController extends Controller
             'name' => $customer->name,
             'phone' => $customer->phone,
             'group' => $customer->group,
+        ];
+    }
+
+    private function receiptPayload(array $transaction): array
+    {
+        $items = $this->transactionItems($transaction['id']);
+        $payments = $this->transactionPayments($transaction['id']);
+
+        return [
+            'transaction_id' => $transaction['id'],
+            'transaction_number' => $transaction['number'],
+            'number' => $transaction['number'],
+            'issued_at' => $transaction['created_at'] ?? null,
+            'updated_at' => $transaction['updated_at'] ?? null,
+            'status' => $transaction['status'],
+            'outlet' => $this->relatedOutletPayload($transaction['outlet_id'], $transaction['business_id']),
+            'cashier' => $this->relatedUserPayload($transaction['cashier_id'], $transaction['business_id']),
+            'customer' => $this->relatedCustomerPayload($transaction['customer_id'] ?? null, $transaction['business_id']),
+            'items' => $items,
+            'totals' => [
+                'subtotal' => (int) $transaction['subtotal'],
+                'item_discount_total' => (int) ($transaction['item_discount_total'] ?? 0),
+                'cart_discount_total' => (int) ($transaction['cart_discount_total'] ?? 0),
+                'promotion_discount_total' => (int) ($transaction['promotion_discount_total'] ?? 0),
+                'discount_total' => (int) $transaction['discount_total'],
+                'service_charge_total' => (int) $transaction['service_charge_total'],
+                'tax_total' => (int) $transaction['tax_total'],
+                'rounding_total' => (int) $transaction['rounding_total'],
+                'grand_total' => (int) $transaction['grand_total'],
+            ],
+            'payments' => array_map(fn (array $payment): array => [
+                'id' => $payment['id'],
+                'method' => $payment['method'],
+                'amount' => $payment['amount'],
+                'status' => $payment['status'],
+                'is_cash' => $payment['is_cash'],
+                'confirmed_at' => $payment['confirmed_at'],
+            ], $payments),
         ];
     }
 

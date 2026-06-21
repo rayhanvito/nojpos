@@ -18,6 +18,7 @@ void main() {
           ),
         ),
       );
+      await _settleHeroFrame(tester);
       expect(find.text(entry.value), findsOneWidget);
     });
   }
@@ -30,6 +31,7 @@ void main() {
         ),
       ),
     );
+    await _settleHeroFrame(tester);
     expect(
       find.text('Pembayaran gagal. Pilih metode pembayaran lagi.'),
       findsOneWidget,
@@ -42,11 +44,16 @@ void main() {
         ),
       ),
     );
+    await _settleHeroFrame(tester);
     expect(
       find.text('Waktu pembayaran habis. Pilih metode pembayaran lagi.'),
       findsOneWidget,
     );
   });
+}
+
+Future<void> _settleHeroFrame(WidgetTester tester) async {
+  await tester.pump(const Duration(milliseconds: 500));
 }
 
 CheckoutTransaction transaction(String status, String method) =>

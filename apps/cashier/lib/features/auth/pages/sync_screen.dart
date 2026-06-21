@@ -6,6 +6,8 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../app/providers/nojpos_session_provider.dart';
 import '../../../app/theme.dart';
 import '../../attendance/providers/attendance_controller.dart';
+import '../../connectivity/providers/connectivity_provider.dart';
+import '../../connectivity/widgets/connectivity_status_chip.dart';
 import '../../pos/providers/pos_providers.dart';
 
 class SyncScreen extends ConsumerStatefulWidget {
@@ -17,6 +19,7 @@ class SyncScreen extends ConsumerStatefulWidget {
 
 class _SyncScreenState extends ConsumerState<SyncScreen> {
   final List<_SyncStep> steps = const [
+    _SyncStep('connectivity', 'Memeriksa koneksi server'),
     _SyncStep('catalog', 'Mengambil produk dan kategori'),
     _SyncStep('attendance', 'Mengambil staff dan absensi'),
     _SyncStep('shift', 'Mengecek shift outlet'),
@@ -46,6 +49,13 @@ class _SyncScreenState extends ConsumerState<SyncScreen> {
     }
 
     try {
+      await _runStep('connectivity', () async {
+        await ref.read(connectivityControllerProvider.notifier).checkNow();
+        final connectivity = ref.read(connectivityControllerProvider);
+        if (connectivity.status == ConnectivityStatus.offline) {
+          throw Exception(connectivity.friendlyMessage);
+        }
+      });
       await _runStep('catalog', () {
         return ref.read(posCatalogProvider.notifier).load();
       });
@@ -63,6 +73,8 @@ class _SyncScreenState extends ConsumerState<SyncScreen> {
       });
       return;
     }
+
+    await ref.read(nojposSessionProvider.notifier).markInitialSyncCompleted();
 
     if (!mounted) return;
     final status = ref.read(nojposSessionProvider).status;
@@ -115,6 +127,17 @@ class _SyncScreenState extends ConsumerState<SyncScreen> {
                         : '${session.outlet.name} · ${session.businessName}',
                     textAlign: TextAlign.center,
                     style: const TextStyle(color: MokposColors.muted),
+                  ),
+                  const SizedBox(height: 10),
+                  const Center(
+                    child: ConnectivityStatusChip(
+                      prefix: 'Server',
+                      compact: false,
+                      textStyle: TextStyle(
+                        color: MokposColors.muted,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 28),
                   DecoratedBox(

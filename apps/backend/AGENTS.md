@@ -1,6 +1,8 @@
 # NojPOS Laravel API Guide
 
-Read [root guide](../../AGENTS.md), [PRD v2](../../NOJPOS_POS_FLUTTER_BACKEND_PRD.md), [architecture](../../docs/ARCHITECTURE.md), [analysis findings](../../docs/ANALYSIS_FINDINGS.md), and [improvement plan](../../docs/IMPROVEMENT_PLAN.md) before editing a sensitive flow. Follow the Wave 0 -> Wave 1 -> Wave 2 order for the current repo unless a later user instruction explicitly narrows scope without violating P0 guardrails.
+Read [root guide](../../AGENTS.md), [PRDPOSJA](../../PRDPOSJA.md), [docs index](../../docs/README.md), [story progress](../../docs/STORY_PROGRESS.md), [backend story](../../docs/STORY_BACKEND.md), [integration story](../../docs/STORY_INTEGRATION.md), and [bug tracker](../../docs/BUG_TRACKER.md) before editing.
+
+Backend work must follow the story order. Do not jump to Super Admin sensitive actions, billing writes, support writes, announcement broadcast, or web admin integration before their dependencies are ready.
 
 ## Run And Verify
 
@@ -15,8 +17,6 @@ php artisan test
 php artisan route:list --path=api/v1
 ```
 
-Laravel requires PHP `^8.3`, Laravel `^13.8`, and Sanctum `^4.3`. `composer run dev` starts Laravel, queue listener, logs, and Vite for local development.
-
 ## Local Structure
 
 ```text
@@ -24,7 +24,7 @@ routes/api.php                    /api/v1 contract
 app/Http/Controllers/Api/V1/      thin request adapters
 app/Http/Middleware/              role and idempotency middleware
 app/Http/Requests/                FormRequests for new endpoints
-app/Http/Resources/               API resources for new output contracts
+app/Http/Resources/               API resources for output contracts
 app/Policies/                     policy classes for domain actions
 app/Services/                     transactional business services
 app/Models/                       UUID tenant models
@@ -36,59 +36,42 @@ tests/Feature/                    API/tenant/security tests
 tests/Unit/                       pure service/value-object tests
 ```
 
-`Http/Requests`, `Http/Resources`, and `Policies` are the target locations for new work even though parts of the current code still validate and serialize in controllers.
-
 ## MUST Rules
 
-- Current backend work is Laravel API only. Do not start `apps/web`, Next.js admin web, Drift/offline DB, or broad feature expansion from backend tasks.
-- P0 production blockers in `docs/ANALYSIS_FINDINGS.md` must be handled before non-critical product expansion. Admin web remains paused until P0 backend contracts are green and explicitly approved.
-- All API routes stay under `/api/v1`, require `Accept: application/json`, and return the standard `ApiResponse` envelope.
-- Derive `business_id` from `$request->user()`. Every `DB::table` query MUST explicitly scope it. A free `business_id`, `cashier_id`, outlet, device, or shift ID is never proof of authority.
-- Use `BelongsToBusiness` only for Eloquent models. It does not protect query-builder calls.
-- Validate with a FormRequest; authorize through a policy/action gate; then delegate to a service. Controllers MUST NOT own multi-table money/stock logic.
-- Sensitive service writes MUST use `DB::transaction`; lock mutable aggregate rows when concurrent transitions are possible.
-- Require atomic idempotency reservation for money, stock, shift, cash, payment, void/refund, and document-finalization writes. Same key/body returns the saved result; same key/different body is `409`.
-- Write immutable audit data inside the same transaction as the effect. Include actor, business, outlet, device/terminal, request ID, before/after, and stable `domain.action` name.
-- If a task touches money, shift, payment, stock, auth, device, or audit, complete `docs/EXECUTION_CHECKLIST.md` and include the tests run or explicitly not run.
-- Money uses integer rupiah only. Load price/config/rounding from server-owned records; never accept client `grand_total`, sell price, or authoritative rounding.
+- All API routes stay under `/api/v1`, require `Accept: application/json`, and return the standard envelope.
+- Derive `business_id` from `$request->user()`. Every query-builder read/write MUST explicitly scope tenant data.
+- A free `business_id`, `cashier_id`, outlet, device, shift ID, or role from client input is never proof of authority.
+- Use `controller -> request validation -> authorization/policy -> service transaction -> model/query -> resource/envelope`.
+- Controllers must not own multi-table money/stock logic.
+- Money uses integer rupiah only.
 - Store UTC timestamps and use outlet timezone for reports, shifts, attendance, and document-day boundaries.
+- Sensitive writes must be DB-transactional, idempotent, authorized, and audited in the same transaction.
+- Sensitive writes include money, stock, shift, cash, payment, void/refund, user access, toko status, paket/langganan changes, access bantuan, and announcement broadcast.
+- Never log passwords, PINs, bearer tokens, full PII, receipt content, or payment references.
 
-```php
-// DO: tenant-safe query-builder access.
-$shift = DB::table('shift_sessions')
-    ->where('business_id', $context->businessId)
-    ->where('id', $shiftId)
-    ->lockForUpdate()
-    ->first();
+## Current Known Gaps
 
-// DON'T: actor or tenant ownership from unverified request data.
-DB::table('transactions')->insert([
-    'cashier_id' => $request->input('cashier_id'),
-    'grand_total' => $request->input('grand_total'),
-]);
-```
+Track and update these in `../../docs/BUG_TRACKER.md`:
+
+- Tenant scope query-builder audit is still required.
+- Web admin session strategy is not final.
+- Dashboard summary endpoint is missing.
+- Platform billing/support/activity/system/announcement/operator domains are missing or incomplete.
+- Some sensitive POS flows need stronger audit/idempotency/concurrency verification.
 
 ## Add An Endpoint Safely
 
-1. Read the matching PRD section and apply its `[DECISION]` default.
-2. Add an additive migration/model only if the domain record is needed.
-3. Create a FormRequest, policy, service method, API Resource, and route.
-4. Resolve terminal actor/device/outlet/shift relation server-side.
-5. Put financial/stock state, movement rows, and audit event in one transaction.
-6. Add idempotency middleware/service before exposing the command.
-7. Add feature tests for 401/403/404/409/422, tenant/outlet isolation, policy, retry, rollback, and concurrency.
+1. Confirm story and dependency in `../../docs/STORY_BACKEND.md`.
+2. Confirm integration phase in `../../docs/STORY_INTEGRATION.md` if endpoint is for web/mobile integration.
+3. Add FormRequest, policy/action authorization, service, resource, and route.
+4. Scope every resource by authenticated business/outlet/device context.
+5. Use DB transaction and row lock for mutable financial/stock/state transitions.
+6. Add idempotency middleware/service for write commands.
+7. Add audit event for privileged/money/stock/state changes.
+8. Add tests for 401/403/404/409/422, tenant/outlet isolation, policy, idempotency, rollback, and concurrency when relevant.
+9. Update story docs and bug tracker.
 
-## Reporting And Migrations
-
-- Reports aggregate only on the server, use outlet-local boundaries, paginate list data, and have explicit accounting definitions.
-- New migrations MUST be additive and have a meaningful `down`. Inspect real data before adding constraints/indexes or backfills.
-- Do not edit historical transaction, payment, cash, stock, or audit rows to “correct” them. Use an explicit reversal/adjustment document.
-
-## Current Fix-Forward Exceptions
-
-Do not copy these patterns: `TransactionQuoteService` currently trusts client unit price/rounding; `ShiftController` accepts client cashier context and has incomplete close/cash protection; `PaymentController` lacks atomic state transitions; `EnsureIdempotency` has a read-execute-insert race; many controller writes bypass FormRequests, policies, services, Resources, or in-transaction audit. Details are in [analysis findings](../../docs/ANALYSIS_FINDINGS.md).
-
-## Tests And Definition Of Done
+## Definition Of Done
 
 Run:
 
@@ -97,13 +80,19 @@ php artisan test
 php artisan route:list --path=api/v1
 ```
 
-For money/stock/privileged endpoints, a change is done only when tests prove:
+For money/stock/privileged endpoints, done requires tests or documented manual verification for:
 
-- business and outlet isolation;
+- tenant and outlet isolation;
 - role and terminal-actor authorization;
 - idempotent retry and same-key/different-body conflict;
-- atomic rollback when one write fails;
-- state/concurrency conflict behavior;
-- audit event persistence with the final business result.
+- atomic rollback;
+- state/concurrency conflict;
+- audit event persistence.
 
-Never log passwords, PINs, bearer tokens, full PII, or payment references. Log only safe correlation fields: `request_id`, `idempotency_key`, `business_id`, `outlet_id`, `device_id`, resource ID, and error code.
+Final report format:
+
+```text
+Built: <changed>
+Verified: <commands and results>
+Blocker: <precise blocker or none>
+```

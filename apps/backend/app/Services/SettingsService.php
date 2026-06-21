@@ -100,6 +100,11 @@ class SettingsService
                 }
             }
 
+            $operational = $data['operational_config'] ?? [];
+            if (array_key_exists('store_open_close_enabled', $operational)) {
+                $updates['store_open_close_enabled'] = (bool) $operational['store_open_close_enabled'];
+            }
+
             $receipt = $data['receipt_config'] ?? [];
             $receiptFields = [
                 'paper_width' => 'receipt_paper_width',
@@ -358,7 +363,7 @@ class SettingsService
             'operational_config' => [
                 'cash_out_limit' => 500000,
                 'shift_auto_expiry_time' => null,
-                'store_open_close_enabled' => false,
+                'store_open_close_enabled' => (bool) ($outlet->store_open_close_enabled ?? false),
             ],
             'updated_at' => $outlet->updated_at ?? null,
         ];

@@ -62,6 +62,10 @@ class TransactionQuoteService
     public function quoteForCheckout(string $businessId, array $data, ?string $idempotencyKey): array
     {
         if (empty($data['quote_id'])) {
+            if ((bool) config('nojpos.checkout.require_quote_for_checkout', true)) {
+                throw new RuntimeException('QUOTE_REQUIRED');
+            }
+
             return $this->calculate($businessId, $data);
         }
 
@@ -84,6 +88,10 @@ class TransactionQuoteService
         }
 
         if (now()->greaterThanOrEqualTo($quote->expires_at)) {
+            throw new RuntimeException('QUOTE_STALE');
+        }
+
+        if (! empty($quote->used_transaction_id)) {
             throw new RuntimeException('QUOTE_STALE');
         }
 

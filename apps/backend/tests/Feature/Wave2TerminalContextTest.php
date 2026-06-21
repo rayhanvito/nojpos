@@ -12,6 +12,13 @@ class Wave2TerminalContextTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        config()->set('nojpos.checkout.require_quote_for_checkout', false);
+    }
+
     public function test_same_tenant_cashier_spoofing_is_rejected(): void
     {
         $ctx = $this->tenantContext();

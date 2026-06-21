@@ -46,6 +46,12 @@ dependencies:
   print_bluetooth_thermal: ^1.1.7
   esc_pos_utils: ^1.1.0
   share_plus: ^13.1.0
+  flutter_svg: ^2.2.3
+  cached_network_image: ^3.4.1
+  skeletonizer: ^2.1.0+1
+  flutter_animate: ^4.5.2
+  animations: ^2.0.11
+  lottie: ^3.3.0
 
 dev_dependencies:
   flutter_test:
@@ -70,6 +76,13 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  assets:
+    - assets/illustrations/
+    - assets/illustrations/nojpos/
+    - assets/logos/nojpos/
+    - assets/animations/
+    - assets/icons/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

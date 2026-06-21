@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ShiftSession;
 use App\Services\ShiftService;
 use App\Services\ShiftStateException;
+use App\Services\StoreOperationException;
 use App\Services\TerminalContextException;
 use App\Services\TerminalContextService;
 use App\Support\ApiResponse;
@@ -38,6 +39,8 @@ class ShiftController extends Controller
 
         try {
             $shift = $this->shifts->open($businessId, $data, $request->user()->id);
+        } catch (StoreOperationException $error) {
+            return ApiResponse::error($error->errorCode, $error->getMessage(), $error->details, $error->status);
         } catch (ShiftStateException $error) {
             return $this->shiftStateError($error);
         }

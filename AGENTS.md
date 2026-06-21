@@ -10,15 +10,16 @@ Source order:
 
 1. Latest user instruction.
 2. Closest `AGENTS.md`.
-3. [PRD v2.0](NOJPOS_POS_FLUTTER_BACKEND_PRD.md).
-4. [Current architecture map](docs/ARCHITECTURE.md).
-5. [Current analysis findings](docs/ANALYSIS_FINDINGS.md).
-6. [Improvement plan / execution waves](docs/IMPROVEMENT_PLAN.md).
-7. [Design system](docs/DESIGN.md) and [design tokens](docs/design-tokens.json).
-8. Actual code and tests for implementation details and current constraints.
-9. [Task breakdown](Task%20%26%20Subtask%20Breakdown.md) only as a legacy/reconciled reference. Do not execute it blindly.
+3. [PRDPOSJA](PRDPOSJA.md).
+4. [Active docs index](docs/README.md).
+5. [Single-agent workflow](docs/SINGLE_AGENT_WORKFLOW.md) and [task queue](docs/TASK_QUEUE.md).
+6. [Story progress board](docs/STORY_PROGRESS.md).
+7. Story files by area: [Backend](docs/STORY_BACKEND.md), [Mobile Kasir](docs/STORY_MOBILE_KASIR.md), [Web Admin](docs/STORY_WEB_ADMIN.md), and [Integration](docs/STORY_INTEGRATION.md).
+8. [API contracts](docs/API_CONTRACTS/README.md), [validation checklist](docs/VALIDATION_CHECKLIST.md), and [bug tracker](docs/BUG_TRACKER.md).
+9. Actual code and tests for implementation details and current constraints.
+10. [Task breakdown](Task%20%26%20Subtask%20Breakdown.md) only as a legacy/reconciled reference. Do not execute it blindly.
 
-When business rules are ambiguous, use the PRD `[DECISION]` default. State which default was used in the change summary; do not invent a different rule. When execution sequence is ambiguous, follow `docs/IMPROVEMENT_PLAN.md` waves, not the legacy task breakdown.
+When business rules are ambiguous, use `PRDPOSJA.md` first. State which default was used in the change summary; do not invent a different rule. When execution sequence is ambiguous, follow `docs/SINGLE_AGENT_WORKFLOW.md`, `docs/TASK_QUEUE.md`, and the story docs under `docs/`, not the legacy task breakdown. Use one active coding agent and one active task at a time; do not run parallel coding agents for this repo until the product owner explicitly changes the workflow.
 
 ## Active Packages
 
@@ -26,8 +27,9 @@ When business rules are ambiguous, use the PRD `[DECISION]` default. State which
 | --- | --- | --- | --- |
 | `apps/backend` | Laravel API, Sanctum, tenant data, money/stock rules | [backend guide](apps/backend/AGENTS.md) | `composer install`; `php artisan migrate:fresh --seed`; `php artisan test`; `php artisan route:list --path=api/v1` |
 | `apps/cashier` | Flutter shared-terminal cashier app | [cashier guide](apps/cashier/AGENTS.md) | `flutter pub get`; `flutter analyze`; `flutter test`; `flutter build apk --debug` |
+| `apps/web` | Next.js Admin Web preview for Tenant Admin and Platform Super Admin | [admin web guide](apps/web/AGENTS.md) | `npm ci`; `npm test`; `npm run typecheck`; `npm run lint`; `npm run build`; `npx playwright test --list` |
 
-There is currently no `apps/web`, Next.js app, or shared package. Do NOT create an AGENTS file, build command, or architecture dependency for a package that does not exist. A future admin surface starts only after backend P0 contracts are green and explicitly approved.
+Admin Web now lives in `apps/web` as a UI-first preview surface. Backend integration starts only after the session and integration gates in `docs/STORY_INTEGRATION.md` are approved.
 
 Local API for Android emulator: `http://10.0.2.2:8000/api/v1`.
 
@@ -121,7 +123,7 @@ DB::table('transactions')->insert($request->all());
 
 ## Testing And Definition Of Done
 
-Every money, stock, or privileged change MUST test: tenant isolation, role/outlet authorization, idempotency, transaction rollback, and concurrent/state-conflict behavior. Use [docs/EXECUTION_CHECKLIST.md](docs/EXECUTION_CHECKLIST.md) before opening a PR or reporting Codex completion.
+Every money, stock, or privileged change MUST test: tenant isolation, role/outlet authorization, idempotency, transaction rollback, and concurrent/state-conflict behavior. Track planned and completed work in the story docs before reporting Codex completion.
 
 Before declaring a change done:
 
@@ -132,7 +134,7 @@ Before declaring a change done:
 - [ ] Migration is additive and rollback considered.
 - [ ] Audit exists for privileged/money/stock action.
 - [ ] No client-side money or stock calculation was added.
-- [ ] Docs/PRD/task plan are updated when contract changed.
+- [ ] `PRDPOSJA.md`, story docs, and bug tracker are updated when contract changed.
 
 ## Security And Logging
 
@@ -142,7 +144,7 @@ Do not commit `.env`, database dumps, device tokens, or production credentials. 
 
 ## Current Fix-Forward Exceptions
 
-These are known gaps, not patterns to copy: client-trusted checkout price/rounding, client-trusted cashier context, persistent multi-item checkout outbox, controller-heavy writes, missing policy layer, UTC-only outlet behavior, and incomplete audit/idempotency coverage. P0 production blockers must be fixed before broad feature expansion. Sensitive writes must be tenant-scoped, authorized, idempotent, transactional, row-locked where state can race, and audited inside the same transaction. See [findings](docs/ANALYSIS_FINDINGS.md), [plan](docs/IMPROVEMENT_PLAN.md), and [execution checklist](docs/EXECUTION_CHECKLIST.md).
+These are known gaps, not patterns to copy: client-trusted checkout price/rounding, client-trusted cashier context, persistent multi-item checkout outbox, controller-heavy writes, missing policy layer, UTC-only outlet behavior, and incomplete audit/idempotency coverage. P0 production blockers must be fixed before broad feature expansion. Sensitive writes must be tenant-scoped, authorized, idempotent, transactional, row-locked where state can race, and audited inside the same transaction. Track active gaps in `docs/BUG_TRACKER.md` and the relevant story file.
 
 Final report format:
 

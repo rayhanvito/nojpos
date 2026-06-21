@@ -36,6 +36,63 @@ void main() {
     expect(settings.scope, 'admin');
   });
 
+  test(
+    'ApiSettingsRepository updates outlet, payment method, and security with idempotency',
+    () async {
+      final adapter = _Adapter({
+        'PATCH /settings/outlets/outlet-id': _settingsEnvelope(
+          canUpdate: true,
+          scope: 'admin',
+        ),
+        'PATCH /settings/payment-methods/payment-id': _settingsEnvelope(
+          canUpdate: true,
+          scope: 'admin',
+        ),
+        'PATCH /settings/security': _settingsEnvelope(
+          canUpdate: true,
+          scope: 'admin',
+        ),
+      });
+      final repository = ApiSettingsRepository(
+        apiClient: ApiClient(dio: Dio()..httpClientAdapter = adapter),
+      );
+
+      await repository.updateOutletSettings(
+        outletId: 'outlet-id',
+        taxRate: 10,
+        serviceChargeRate: 3,
+        idempotencyKey: 'outlet-key',
+      );
+      await repository.updatePaymentMethod(
+        configId: 'payment-id',
+        active: false,
+        idempotencyKey: 'payment-key',
+      );
+      await repository.updateSecuritySettings(
+        maxAttempts: 4,
+        lockoutMinutes: 10,
+        idleLockTimeoutSeconds: 120,
+        sessionTimeoutSeconds: 600,
+        sensitiveActionPins: const {'refund': true},
+        idempotencyKey: 'security-key',
+      );
+
+      expect(adapter.idempotencyKeys, [
+        'outlet-key',
+        'payment-key',
+        'security-key',
+      ]);
+      expect(adapter.payloads[0]['tax_rate'], 10);
+      expect(adapter.payloads[0]['service_charge_rate'], 3);
+      expect(adapter.payloads[1]['active'], false);
+      final security = adapter.payloads[2];
+      expect((security['pin_policy'] as Map)['max_attempts'], 4);
+      expect((security['sensitive_actions'] as Map)['refund'], {
+        'requires_pin': true,
+      });
+    },
+  );
+
   testWidgets('cashier settings summary does not expose update action', (
     tester,
   ) async {
@@ -159,6 +216,8 @@ class _Adapter implements HttpClientAdapter {
   _Adapter(this.responses);
 
   final Map<String, Map<String, Object?>> responses;
+  final List<String> idempotencyKeys = [];
+  final List<Map<String, Object?>> payloads = [];
 
   @override
   Future<ResponseBody> fetch(
@@ -166,6 +225,14 @@ class _Adapter implements HttpClientAdapter {
     Stream<Uint8List>? requestStream,
     Future<void>? cancelFuture,
   ) async {
+    final idempotencyKey = options.headers['Idempotency-Key'];
+    if (idempotencyKey is String) idempotencyKeys.add(idempotencyKey);
+    if (requestStream != null) {
+      final body = await utf8.decodeStream(requestStream);
+      if (body.isNotEmpty) {
+        payloads.add(jsonDecode(body) as Map<String, Object?>);
+      }
+    }
     final key = '${options.method} ${options.path}';
     final response = responses[key];
     if (response == null) {

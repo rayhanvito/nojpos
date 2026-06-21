@@ -57,6 +57,7 @@ class ApiShiftRepository implements ShiftRepository {
         'cashier_id': cashierId,
         'opening_cash': openingCash,
       },
+      idempotencyKey: const Uuid().v4(),
     );
     return _shiftFromJson(response.data);
   }
@@ -108,6 +109,7 @@ class ApiShiftRepository implements ShiftRepository {
         'amount': amount,
         ...?(reason == null ? null : {'reason': reason}),
       },
+      idempotencyKey: const Uuid().v4(),
     );
   }
 }

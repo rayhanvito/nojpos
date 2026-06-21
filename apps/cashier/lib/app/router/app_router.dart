@@ -8,7 +8,6 @@ import '../../features/auth/pages/sync_screen.dart';
 import '../../features/pos/screens/operations_screen.dart';
 import '../../features/payment/pages/payment_screen.dart';
 import '../../features/pos/pages/pos_screen.dart';
-import '../../features/shift/pages/shift_gate_screen.dart';
 import '../../features/transactions/pages/success_screen.dart';
 
 final appRouter = GoRouter(
@@ -24,10 +23,7 @@ final appRouter = GoRouter(
     ),
     GoRoute(path: '/pin', builder: (context, state) => const PinScreen()),
     GoRoute(path: '/sync', builder: (context, state) => const SyncScreen()),
-    GoRoute(
-      path: '/shift',
-      builder: (context, state) => const ShiftGateScreen(),
-    ),
+    GoRoute(path: '/shift', redirect: (context, state) => '/pos'),
     GoRoute(path: '/pos', builder: (context, state) => const PosScreen()),
     GoRoute(
       path: '/orders',

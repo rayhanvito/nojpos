@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nojpos_tablet_ui/app/providers/nojpos_session_provider.dart';
 import 'package:nojpos_tablet_ui/features/pos/models/product.dart';
 import 'package:nojpos_tablet_ui/features/pos/providers/pos_providers.dart';
+import 'package:nojpos_tablet_ui/features/pos/providers/sku_entry_provider.dart';
 import 'package:nojpos_tablet_ui/features/pos/repositories/product_repository.dart';
 import 'package:nojpos_tablet_ui/shared/models/nojpos_models.dart';
 
@@ -90,6 +91,45 @@ void main() {
     });
   });
 
+  group('SkuEntryNotifier', () {
+    late _FakeProductRepository repository;
+    late ProviderContainer container;
+
+    setUp(() {
+      repository = _FakeProductRepository();
+      container = ProviderContainer(
+        overrides: [
+          productRepositoryProvider.overrideWith((ref) => repository),
+        ],
+      );
+    });
+
+    tearDown(() {
+      container.dispose();
+    });
+
+    test('searches catalog and exposes results for cart entry', () async {
+      await container.read(skuEntryProvider.notifier).search('899100');
+
+      final state = container.read(skuEntryProvider);
+      expect(repository.lastSearch, '899100');
+      expect(state.hasSearched, true);
+      expect(state.isLoading, false);
+      expect(state.results.single.name, 'Keripik');
+      expect(state.results.single.badge, '899100000001');
+    });
+
+    test('empty query resets SKU entry state', () async {
+      await container.read(skuEntryProvider.notifier).search('Keripik');
+      await container.read(skuEntryProvider.notifier).search('   ');
+
+      final state = container.read(skuEntryProvider);
+      expect(state.hasSearched, false);
+      expect(state.results, isEmpty);
+      expect(state.query, '');
+    });
+  });
+
   group('NojposSessionState RBAC', () {
     test(
       'should allow owner account to manage while active cashier is cashier',
@@ -131,10 +171,12 @@ class _FakeProductRepository implements ProductRepository {
   String? createdCategoryId;
   String? updatedCategoryId;
   String? updatedCategoryName;
+  String? lastSearch;
 
   @override
   Future<ProductCatalog> getCatalog({String? search, String? category}) async {
     loadCalls += 1;
+    lastSearch = search;
     return const ProductCatalog(
       categoryItems: [
         ProductCategory(id: '__system_all', name: 'Semua'),
@@ -150,6 +192,7 @@ class _FakeProductRepository implements ProductRepository {
           categoryId: 'snack-id',
           price: 12000,
           imageUrl: '',
+          badge: '899100000001',
         ),
       ],
     );

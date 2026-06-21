@@ -3,13 +3,18 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreCustomerRequest;
+use App\Http\Requests\UpdateCustomerRequest;
 use App\Models\Customer;
+use App\Services\CustomerService;
 use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class CustomerController extends Controller
 {
+    public function __construct(private readonly CustomerService $customers) {}
+
     public function index(Request $request): JsonResponse
     {
         $query = Customer::query()->where('business_id', $request->user()->business_id);
@@ -35,27 +40,34 @@ class CustomerController extends Controller
         ]);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(StoreCustomerRequest $request): JsonResponse
     {
-        $data = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:50'],
-            'group' => ['nullable', 'string', 'max:100'],
-        ]);
+        return ApiResponse::success(
+            $this->customers->create($request, $request->validated()),
+            [],
+            201,
+        );
+    }
 
-        $customer = Customer::query()->create([
-            'business_id' => $request->user()->business_id,
-            'name' => $data['name'],
-            'phone' => $data['phone'] ?? null,
-            'group' => $data['group'] ?? 'Tanpa Grup',
-        ]);
+    public function update(UpdateCustomerRequest $request, Customer $customer): JsonResponse
+    {
+        $payload = $this->customers->update($request, $customer, $request->validated());
 
-        return ApiResponse::success($customer->only([
-            'id',
-            'business_id',
-            'name',
-            'phone',
-            'group',
-        ]), [], 201);
+        if (! $payload) {
+            return ApiResponse::error('FORBIDDEN', 'Resource is outside the current business scope.', [], 403);
+        }
+
+        return ApiResponse::success($payload);
+    }
+
+    public function destroy(Request $request, Customer $customer): JsonResponse
+    {
+        $payload = $this->customers->archive($request, $customer);
+
+        if (! $payload) {
+            return ApiResponse::error('FORBIDDEN', 'Resource is outside the current business scope.', [], 403);
+        }
+
+        return ApiResponse::success(['archived' => true]);
     }
 }

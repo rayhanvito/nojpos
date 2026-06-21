@@ -203,7 +203,7 @@ Outlet _outletFromJson(Object? value) {
   return Outlet(
     id: (json['id'] as String?) ?? '',
     name: (json['name'] as String?) ?? 'Outlet',
-    isOnline: true,
+    isOnline: json['is_online'] as bool? ?? json['online'] as bool? ?? false,
     timezone: (json['timezone'] as String?) ?? 'Asia/Jakarta',
     paymentMethods: [
       for (final method in json['payment_methods'] as List? ?? const [])

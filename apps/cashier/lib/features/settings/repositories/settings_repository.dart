@@ -8,6 +8,28 @@ final settingsRepositoryProvider = Provider<SettingsRepository>(
 
 abstract interface class SettingsRepository {
   Future<SettingsAggregate> fetchSettings();
+
+  Future<SettingsAggregate> updateOutletSettings({
+    required String outletId,
+    required int taxRate,
+    required int serviceChargeRate,
+    required String idempotencyKey,
+  });
+
+  Future<SettingsAggregate> updatePaymentMethod({
+    required String configId,
+    required bool active,
+    required String idempotencyKey,
+  });
+
+  Future<SettingsAggregate> updateSecuritySettings({
+    required int maxAttempts,
+    required int lockoutMinutes,
+    required int idleLockTimeoutSeconds,
+    required int sessionTimeoutSeconds,
+    required Map<String, bool> sensitiveActionPins,
+    required String idempotencyKey,
+  });
 }
 
 class ApiSettingsRepository implements SettingsRepository {
@@ -19,6 +41,65 @@ class ApiSettingsRepository implements SettingsRepository {
   @override
   Future<SettingsAggregate> fetchSettings() async {
     final response = await _apiClient.get<Map<String, Object?>>('/settings');
+    return SettingsAggregate.fromJson(response.data, response.meta);
+  }
+
+  @override
+  Future<SettingsAggregate> updateOutletSettings({
+    required String outletId,
+    required int taxRate,
+    required int serviceChargeRate,
+    required String idempotencyKey,
+  }) async {
+    final response = await _apiClient.patch<Map<String, Object?>>(
+      '/settings/outlets/$outletId',
+      data: {'tax_rate': taxRate, 'service_charge_rate': serviceChargeRate},
+      idempotencyKey: idempotencyKey,
+    );
+    return SettingsAggregate.fromJson(response.data, response.meta);
+  }
+
+  @override
+  Future<SettingsAggregate> updatePaymentMethod({
+    required String configId,
+    required bool active,
+    required String idempotencyKey,
+  }) async {
+    final response = await _apiClient.patch<Map<String, Object?>>(
+      '/settings/payment-methods/$configId',
+      data: {'active': active},
+      idempotencyKey: idempotencyKey,
+    );
+    return SettingsAggregate.fromJson(response.data, response.meta);
+  }
+
+  @override
+  Future<SettingsAggregate> updateSecuritySettings({
+    required int maxAttempts,
+    required int lockoutMinutes,
+    required int idleLockTimeoutSeconds,
+    required int sessionTimeoutSeconds,
+    required Map<String, bool> sensitiveActionPins,
+    required String idempotencyKey,
+  }) async {
+    final response = await _apiClient.patch<Map<String, Object?>>(
+      '/settings/security',
+      data: {
+        'pin_policy': {
+          'max_attempts': maxAttempts,
+          'lockout_minutes': lockoutMinutes,
+        },
+        'terminal_policy': {
+          'idle_lock_timeout_seconds': idleLockTimeoutSeconds,
+          'session_timeout_seconds': sessionTimeoutSeconds,
+        },
+        'sensitive_actions': {
+          for (final entry in sensitiveActionPins.entries)
+            entry.key: {'requires_pin': entry.value},
+        },
+      },
+      idempotencyKey: idempotencyKey,
+    );
     return SettingsAggregate.fromJson(response.data, response.meta);
   }
 }

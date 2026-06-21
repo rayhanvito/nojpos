@@ -58,6 +58,11 @@ abstract interface class TransactionRepository {
     required String idempotencyKey,
   });
 
+  Future<RefundResult> createRefund({
+    required String transactionId,
+    required RefundRequest request,
+  });
+
   SalesTransaction createLocalTransaction({
     required SalesOrder order,
     required List<PaymentLine> payments,
@@ -206,13 +211,14 @@ class CheckoutItem {
     required this.name,
     required this.quantity,
     required this.unitPrice,
+    this.transactionItemId,
     this.discount = 0,
   });
 
   factory CheckoutItem.fromJson(Map<String, Object?> json) {
     return CheckoutItem(
-      productId: (json['product_id'] ?? json['productId'] ?? json['id'] ?? '')
-          .toString(),
+      productId: (json['product_id'] ?? json['productId'] ?? '').toString(),
+      transactionItemId: json['id'] as String?,
       name: (json['name'] as String?) ?? '',
       quantity: (json['quantity'] as num? ?? json['qty'] as num? ?? 0).toInt(),
       unitPrice:
@@ -226,6 +232,7 @@ class CheckoutItem {
   }
 
   final String productId;
+  final String? transactionItemId;
   final String name;
   final int quantity;
   final int unitPrice;
@@ -651,6 +658,191 @@ class VoidResult {
   final String reason;
 }
 
+class RefundRequest {
+  const RefundRequest({
+    required this.idempotencyKey,
+    required this.reason,
+    required this.refundMethod,
+    required this.lines,
+    this.authorizationPin,
+    this.notes,
+  });
+
+  final String idempotencyKey;
+  final String reason;
+  final String refundMethod;
+  final String? authorizationPin;
+  final String? notes;
+  final List<RefundLineRequest> lines;
+
+  Map<String, Object?> toJson() {
+    return {
+      'reason': reason,
+      'refund_method': refundMethod,
+      if (authorizationPin != null && authorizationPin!.isNotEmpty)
+        'authorization_pin': authorizationPin,
+      if (notes != null && notes!.isNotEmpty) 'notes': notes,
+      'lines': [for (final line in lines) line.toJson()],
+    };
+  }
+}
+
+class RefundLineRequest {
+  const RefundLineRequest({
+    required this.transactionItemId,
+    required this.quantity,
+    this.restock = true,
+    this.nonRestockReason,
+  });
+
+  final String transactionItemId;
+  final int quantity;
+  final bool restock;
+  final String? nonRestockReason;
+
+  Map<String, Object?> toJson() {
+    return {
+      'transaction_item_id': transactionItemId,
+      'quantity': quantity,
+      'restock': restock,
+      if (!restock && nonRestockReason != null)
+        'non_restock_reason': nonRestockReason,
+    };
+  }
+}
+
+class RefundResult {
+  const RefundResult({
+    required this.id,
+    required this.transactionId,
+    required this.transactionStatus,
+    required this.status,
+    required this.refundMethod,
+    required this.totalRefundAmount,
+    required this.remainingRefundableAmount,
+    this.reason = '',
+    this.refundedLines = const [],
+    this.stockMovements = const [],
+    this.cashMovement,
+    this.serverTime = '',
+  });
+
+  factory RefundResult.fromJson(Object? value) {
+    final json = _asMap(value);
+    return RefundResult(
+      id: (json['id'] as String?) ?? '',
+      transactionId: (json['transaction_id'] as String?) ?? '',
+      transactionStatus: (json['transaction_status'] as String?) ?? '',
+      status: (json['status'] as String?) ?? '',
+      refundMethod: (json['refund_method'] as String?) ?? '',
+      totalRefundAmount: (json['total_refund_amount'] as num?)?.toInt() ?? 0,
+      remainingRefundableAmount:
+          (json['remaining_refundable_amount'] as num?)?.toInt() ?? 0,
+      reason: (json['reason'] as String?) ?? '',
+      refundedLines: [
+        for (final line in json['refunded_lines'] as List? ?? const [])
+          RefundLineResult.fromJson(line),
+      ],
+      stockMovements: [
+        for (final movement in json['stock_movements'] as List? ?? const [])
+          RefundStockMovement.fromJson(movement),
+      ],
+      cashMovement: json['cash_movement'] == null
+          ? null
+          : RefundCashMovement.fromJson(json['cash_movement']),
+      serverTime: (json['server_time'] as String?) ?? '',
+    );
+  }
+
+  final String id;
+  final String transactionId;
+  final String transactionStatus;
+  final String status;
+  final String refundMethod;
+  final int totalRefundAmount;
+  final int remainingRefundableAmount;
+  final String reason;
+  final List<RefundLineResult> refundedLines;
+  final List<RefundStockMovement> stockMovements;
+  final RefundCashMovement? cashMovement;
+  final String serverTime;
+}
+
+class RefundLineResult {
+  const RefundLineResult({
+    required this.transactionItemId,
+    required this.productId,
+    required this.quantity,
+    required this.amount,
+    required this.restock,
+    this.nonRestockReason,
+  });
+
+  factory RefundLineResult.fromJson(Object? value) {
+    final json = _asMap(value);
+    return RefundLineResult(
+      transactionItemId: (json['transaction_item_id'] as String?) ?? '',
+      productId: (json['product_id'] as String?) ?? '',
+      quantity: (json['quantity'] as num?)?.toInt() ?? 0,
+      amount: (json['amount'] as num?)?.toInt() ?? 0,
+      restock: json['restock'] as bool? ?? true,
+      nonRestockReason: json['non_restock_reason'] as String?,
+    );
+  }
+
+  final String transactionItemId;
+  final String productId;
+  final int quantity;
+  final int amount;
+  final bool restock;
+  final String? nonRestockReason;
+}
+
+class RefundStockMovement {
+  const RefundStockMovement({
+    required this.movementId,
+    required this.productId,
+    required this.quantityDelta,
+    required this.type,
+  });
+
+  factory RefundStockMovement.fromJson(Object? value) {
+    final json = _asMap(value);
+    return RefundStockMovement(
+      movementId: (json['movement_id'] as String?) ?? '',
+      productId: (json['product_id'] as String?) ?? '',
+      quantityDelta: (json['quantity_delta'] as num?)?.toInt() ?? 0,
+      type: (json['type'] as String?) ?? '',
+    );
+  }
+
+  final String movementId;
+  final String productId;
+  final int quantityDelta;
+  final String type;
+}
+
+class RefundCashMovement {
+  const RefundCashMovement({
+    required this.movementId,
+    required this.type,
+    required this.amount,
+  });
+
+  factory RefundCashMovement.fromJson(Object? value) {
+    final json = _asMap(value);
+    return RefundCashMovement(
+      movementId: (json['movement_id'] as String?) ?? '',
+      type: (json['type'] as String?) ?? '',
+      amount: (json['amount'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  final String movementId;
+  final String type;
+  final int amount;
+}
+
 class ApiTransactionRepository implements TransactionRepository {
   const ApiTransactionRepository({required ApiClient apiClient})
     : _apiClient = apiClient;
@@ -819,6 +1011,19 @@ class ApiTransactionRepository implements TransactionRepository {
       idempotencyKey: idempotencyKey,
     );
     return VoidResult.fromJson(response.data);
+  }
+
+  @override
+  Future<RefundResult> createRefund({
+    required String transactionId,
+    required RefundRequest request,
+  }) async {
+    final response = await _apiClient.post<Map<String, Object?>>(
+      '/transactions/$transactionId/refund',
+      data: request.toJson(),
+      idempotencyKey: request.idempotencyKey,
+    );
+    return RefundResult.fromJson(response.data);
   }
 
   @override

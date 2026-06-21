@@ -35,39 +35,45 @@ class SuperadminCoreTest extends TestCase
     {
         $token = $this->tokenFor($this->superadmin());
 
-        $created = $this->withToken($token)->postJson('/api/v1/superadmin/plans', [
-            'name' => 'Starter',
-            'code' => 'starter',
-            'price' => 99000,
-            'billing_period' => 'monthly',
-            'max_outlets' => 1,
-            'max_devices' => 2,
-            'max_users' => 3,
-            'max_products' => 100,
-        ])->assertCreated()
+        $created = $this->withToken($token)
+            ->withHeaders(['Idempotency-Key' => (string) Str::uuid()])
+            ->postJson('/api/v1/superadmin/plans', [
+                'name' => 'Starter',
+                'code' => 'starter',
+                'price' => 99000,
+                'billing_period' => 'monthly',
+                'max_outlets' => 1,
+                'max_devices' => 2,
+                'max_users' => 3,
+                'max_products' => 100,
+            ])->assertCreated()
             ->assertJsonPath('data.code', 'starter')
             ->assertJsonPath('data.price', 99000)
             ->assertJsonPath('data.is_active', true);
 
         $planId = $created->json('data.id');
 
-        $this->withToken($token)->putJson("/api/v1/superadmin/plans/{$planId}", [
-            'name' => 'Starter Plus',
-            'code' => 'starter-plus',
-            'price' => 149000,
-            'billing_period' => 'monthly',
-            'max_outlets' => 2,
-            'max_devices' => 4,
-            'max_users' => 6,
-            'max_products' => 250,
-        ])->assertOk()
+        $this->withToken($token)
+            ->withHeaders(['Idempotency-Key' => (string) Str::uuid()])
+            ->putJson("/api/v1/superadmin/plans/{$planId}", [
+                'name' => 'Starter Plus',
+                'code' => 'starter-plus',
+                'price' => 149000,
+                'billing_period' => 'monthly',
+                'max_outlets' => 2,
+                'max_devices' => 4,
+                'max_users' => 6,
+                'max_products' => 250,
+            ])->assertOk()
             ->assertJsonPath('data.name', 'Starter Plus')
             ->assertJsonPath('data.code', 'starter-plus')
             ->assertJsonPath('data.price', 149000);
 
-        $this->withToken($token)->patchJson("/api/v1/superadmin/plans/{$planId}/status", [
-            'is_active' => false,
-        ])->assertOk()
+        $this->withToken($token)
+            ->withHeaders(['Idempotency-Key' => (string) Str::uuid()])
+            ->patchJson("/api/v1/superadmin/plans/{$planId}/status", [
+                'is_active' => false,
+            ])->assertOk()
             ->assertJsonPath('data.is_active', false);
 
         $this->assertDatabaseHas('audit_logs', [
@@ -84,6 +90,104 @@ class SuperadminCoreTest extends TestCase
             ->where('action', 'superadmin.plan.status_updated')
             ->where('entity_id', $planId)
             ->value('after'));
+    }
+
+    public function test_superadmin_plan_writes_require_idempotency_and_replay_saved_response(): void
+    {
+        $token = $this->tokenFor($this->superadmin());
+        $key = (string) Str::uuid();
+        $payload = [
+            'name' => 'Growth',
+            'code' => 'growth',
+            'price' => 199000,
+            'billing_period' => 'monthly',
+            'max_outlets' => 2,
+            'max_devices' => 4,
+            'max_users' => 8,
+            'max_products' => 250,
+        ];
+
+        $this->withToken($token)
+            ->postJson('/api/v1/superadmin/plans', $payload)
+            ->assertUnprocessable()
+            ->assertJsonPath('error.code', 'IDEMPOTENCY_KEY_REQUIRED');
+
+        $first = $this->withToken($token)
+            ->withHeaders(['Idempotency-Key' => $key])
+            ->postJson('/api/v1/superadmin/plans', $payload)
+            ->assertCreated()
+            ->assertJsonPath('data.code', 'growth');
+
+        $planId = $first->json('data.id');
+
+        $this->withToken($token)
+            ->withHeaders(['Idempotency-Key' => $key])
+            ->postJson('/api/v1/superadmin/plans', $payload)
+            ->assertCreated()
+            ->assertExactJson($first->json());
+
+        $this->assertSame(1, DB::table('plans')->where('code', 'growth')->whereNull('deleted_at')->count());
+        $this->assertSame(1, DB::table('audit_logs')
+            ->where('action', 'superadmin.plan.created')
+            ->where('entity_id', $planId)
+            ->where('idempotency_key', $key)
+            ->count());
+
+        $payload['price'] = 299000;
+        $this->withToken($token)
+            ->withHeaders(['Idempotency-Key' => $key])
+            ->postJson('/api/v1/superadmin/plans', $payload)
+            ->assertConflict()
+            ->assertJsonPath('error.code', 'IDEMPOTENCY_MISMATCH');
+    }
+
+    public function test_superadmin_plan_update_and_status_are_idempotent(): void
+    {
+        $token = $this->tokenFor($this->superadmin());
+        $planId = $this->plan('starter');
+        $updateKey = (string) Str::uuid();
+        $statusKey = (string) Str::uuid();
+
+        $updated = $this->withToken($token)
+            ->withHeaders(['Idempotency-Key' => $updateKey])
+            ->putJson("/api/v1/superadmin/plans/{$planId}", [
+                'name' => 'Starter Plus',
+                'code' => 'starter-plus',
+                'price' => 149000,
+            ])->assertOk()
+            ->assertJsonPath('data.code', 'starter-plus');
+
+        $this->withToken($token)
+            ->withHeaders(['Idempotency-Key' => $updateKey])
+            ->putJson("/api/v1/superadmin/plans/{$planId}", [
+                'name' => 'Starter Plus',
+                'code' => 'starter-plus',
+                'price' => 149000,
+            ])->assertOk()
+            ->assertExactJson($updated->json());
+
+        $disabled = $this->withToken($token)
+            ->withHeaders(['Idempotency-Key' => $statusKey])
+            ->patchJson("/api/v1/superadmin/plans/{$planId}/status", ['is_active' => false])
+            ->assertOk()
+            ->assertJsonPath('data.is_active', false);
+
+        $this->withToken($token)
+            ->withHeaders(['Idempotency-Key' => $statusKey])
+            ->patchJson("/api/v1/superadmin/plans/{$planId}/status", ['is_active' => false])
+            ->assertOk()
+            ->assertExactJson($disabled->json());
+
+        $this->assertSame(1, DB::table('audit_logs')
+            ->where('action', 'superadmin.plan.updated')
+            ->where('entity_id', $planId)
+            ->where('idempotency_key', $updateKey)
+            ->count());
+        $this->assertSame(1, DB::table('audit_logs')
+            ->where('action', 'superadmin.plan.status_updated')
+            ->where('entity_id', $planId)
+            ->where('idempotency_key', $statusKey)
+            ->count());
     }
 
     public function test_superadmin_provisions_business_owner_outlet_subscription_and_idempotency_deduplicates(): void

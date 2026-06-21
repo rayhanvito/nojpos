@@ -23,7 +23,7 @@ class IdempotencyService
         $businessId = $this->businessId($request);
         $endpoint = $this->endpoint($request);
         $key = (string) $request->header('Idempotency-Key');
-        $hash = $this->hashPayload($request->all());
+        $hash = $this->hashPayload($this->fingerprintPayload($request));
 
         try {
             return DB::transaction(function () use ($businessId, $endpoint, $key, $hash): array {
@@ -88,6 +88,22 @@ class IdempotencyService
         $this->sortRecursive($payload);
 
         return hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION));
+    }
+
+    /**
+     * @return array{context: array<string, mixed>, payload: array<string, mixed>}
+     */
+    public function fingerprintPayload(Request $request): array
+    {
+        return [
+            'context' => [
+                'user_id' => $request->user()?->id,
+                'outlet_id' => $request->input('outlet_id') ?: $request->route('outlet'),
+                'device_id' => $request->input('device_id'),
+                'cashier_id' => $request->input('cashier_id'),
+            ],
+            'payload' => $request->all(),
+        ];
     }
 
     public function endpoint(Request $request): string

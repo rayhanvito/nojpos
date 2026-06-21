@@ -19,6 +19,20 @@ apps/backend/storage/framework/views/*.php
 
 # JavaScript dependencies
 **/node_modules/
+**/.next/
+**/tsconfig.tsbuildinfo
+
+# Legacy/local workspace folders not part of active monorepo
+/nojpos_admin_web/
+/Asset NOJPOS/
+/Flow dan Contoh UI/
+
+# Root-local tooling/noise
+/package.json
+/package-lock.json
+/window.xml
+/nul
+**/nul
 
 # Environment/secrets
 .env

@@ -28,6 +28,8 @@ class UpdateOutletSettingsRequest extends FormRequest
             'receipt_config.footer_note' => ['sometimes', 'nullable', 'string', 'max:500'],
             'receipt_config.show_logo' => ['sometimes', 'boolean'],
             'receipt_config.show_qris_info' => ['sometimes', 'boolean'],
+            'operational_config' => ['sometimes', 'required', 'array'],
+            'operational_config.store_open_close_enabled' => ['sometimes', 'boolean'],
         ];
     }
 }

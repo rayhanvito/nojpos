@@ -2,14 +2,16 @@
 
 namespace App\Services;
 
-use App\Support\Nojpos;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class InventoryService
 {
-    public function __construct(private readonly BusinessClock $clock) {}
+    public function __construct(
+        private readonly BusinessClock $clock,
+        private readonly AuditLogService $audit,
+    ) {}
 
     /**
      * @param  array<string, mixed>  $filters
@@ -217,7 +219,16 @@ class InventoryService
                 }
             }
 
-            Nojpos::audit($businessId, $actorId, 'inventory.count.finalize', 'inventory_count', $countId, null, ['id' => $countId, 'outlet_id' => $outletId, 'line_count' => count($data['lines'])]);
+            $this->audit->record(
+                $businessId,
+                $actorId,
+                'inventory.count.finalize',
+                'inventory_count',
+                $countId,
+                null,
+                ['id' => $countId, 'outlet_id' => $outletId, 'line_count' => count($data['lines'])],
+                ['outlet_id' => $outletId],
+            );
 
             return $this->countPayload($businessId, $countId);
         });
@@ -234,6 +245,7 @@ class InventoryService
 
         return DB::transaction(function () use ($businessId, $actorId, $data): array {
             $now = now();
+            $this->lockProduct($businessId, $data['product_id']);
             $before = $this->stockOnHand($businessId, $data['outlet_id'], $data['product_id']);
             $quantity = (int) $data['quantity'];
 
@@ -264,7 +276,16 @@ class InventoryService
                 'after_quantity' => $before - $quantity,
             ]);
 
-            Nojpos::audit($businessId, $actorId, 'inventory.waste.finalize', 'inventory_waste', $wasteId, ['quantity' => $before], ['quantity' => $before - $quantity, 'reason' => $data['reason']]);
+            $this->audit->record(
+                $businessId,
+                $actorId,
+                'inventory.waste.finalize',
+                'inventory_waste',
+                $wasteId,
+                ['quantity' => $before],
+                ['quantity' => $before - $quantity, 'reason' => $data['reason']],
+                ['outlet_id' => $data['outlet_id']],
+            );
 
             return $this->wastePayload($businessId, $wasteId);
         });
@@ -314,7 +335,16 @@ class InventoryService
                 ]);
             }
 
-            Nojpos::audit($businessId, $actorId, 'inventory.transfer.create', 'inventory_transfer', $transferId, null, ['id' => $transferId, 'status' => 'requested']);
+            $this->audit->record(
+                $businessId,
+                $actorId,
+                'inventory.transfer.create',
+                'inventory_transfer',
+                $transferId,
+                null,
+                ['id' => $transferId, 'status' => 'requested'],
+                ['outlet_id' => $data['source_outlet_id']],
+            );
 
             return $this->transferPayload($businessId, $transferId);
         });
@@ -331,7 +361,7 @@ class InventoryService
                 throw new InventoryOperationException('TRANSFER_STATE_INVALID', 'Transfer cannot be sent from its current state.', ['status' => $transfer->status], 409);
             }
 
-            $lines = $this->transferLines($businessId, $transferId);
+            $lines = $this->transferLines($businessId, $transferId, lock: true);
             foreach ($lines as $line) {
                 $this->lockProduct($businessId, $line->product_id);
                 $before = $this->stockOnHand($businessId, $transfer->source_outlet_id, $line->product_id);
@@ -357,7 +387,16 @@ class InventoryService
                 ->where('id', $transferId)
                 ->update(['status' => 'in_transit', 'sent_at' => now(), 'updated_at' => now()]);
 
-            Nojpos::audit($businessId, $actorId, 'inventory.transfer.dispatch', 'inventory_transfer', $transferId, ['status' => 'requested'], ['status' => 'in_transit']);
+            $this->audit->record(
+                $businessId,
+                $actorId,
+                'inventory.transfer.dispatch',
+                'inventory_transfer',
+                $transferId,
+                ['status' => 'requested'],
+                ['status' => 'in_transit'],
+                ['outlet_id' => $transfer->source_outlet_id],
+            );
 
             return $this->transferPayload($businessId, $transferId);
         });
@@ -374,7 +413,7 @@ class InventoryService
                 throw new InventoryOperationException('TRANSFER_STATE_INVALID', 'Transfer cannot be received from its current state.', ['status' => $transfer->status], 409);
             }
 
-            $lines = $this->transferLines($businessId, $transferId);
+            $lines = $this->transferLines($businessId, $transferId, lock: true);
             foreach ($lines as $line) {
                 $quantity = (int) $line->sent_quantity - (int) $line->received_quantity;
                 if ($quantity <= 0) {
@@ -400,7 +439,16 @@ class InventoryService
                 ->where('id', $transferId)
                 ->update(['status' => 'received', 'received_at' => now(), 'updated_at' => now()]);
 
-            Nojpos::audit($businessId, $actorId, 'inventory.transfer.receive', 'inventory_transfer', $transferId, ['status' => 'in_transit'], ['status' => 'received']);
+            $this->audit->record(
+                $businessId,
+                $actorId,
+                'inventory.transfer.receive',
+                'inventory_transfer',
+                $transferId,
+                ['status' => 'in_transit'],
+                ['status' => 'received'],
+                ['outlet_id' => $transfer->destination_outlet_id],
+            );
 
             return $this->transferPayload($businessId, $transferId);
         });
@@ -422,7 +470,16 @@ class InventoryService
                 ->where('id', $transferId)
                 ->update(['status' => 'cancelled', 'cancelled_at' => now(), 'updated_at' => now()]);
 
-            Nojpos::audit($businessId, $actorId, 'inventory.transfer.cancel', 'inventory_transfer', $transferId, ['status' => 'requested'], ['status' => 'cancelled']);
+            $this->audit->record(
+                $businessId,
+                $actorId,
+                'inventory.transfer.cancel',
+                'inventory_transfer',
+                $transferId,
+                ['status' => 'requested'],
+                ['status' => 'cancelled'],
+                ['outlet_id' => $transfer->source_outlet_id],
+            );
 
             return $this->transferPayload($businessId, $transferId);
         });
@@ -496,6 +553,7 @@ class InventoryService
             ]);
 
             foreach ($data['items'] as $item) {
+                $this->lockProduct($businessId, $item['product_id']);
                 $before = $this->stockOnHand($businessId, $data['outlet_id'], $item['product_id']);
                 $subtotal = (int) $item['quantity'] * (int) $item['unit_cost'];
                 DB::table('inventory_purchase_items')->insert([
@@ -517,7 +575,16 @@ class InventoryService
                 ]);
             }
 
-            Nojpos::audit($businessId, $actorId, 'inventory.purchase.finalize', 'inventory_purchase', $purchaseId, null, ['id' => $purchaseId, 'total' => $total]);
+            $this->audit->record(
+                $businessId,
+                $actorId,
+                'inventory.purchase.finalize',
+                'inventory_purchase',
+                $purchaseId,
+                null,
+                ['id' => $purchaseId, 'total' => $total],
+                ['outlet_id' => $data['outlet_id']],
+            );
 
             return $this->purchasePayload($businessId, $purchaseId);
         });
@@ -621,14 +688,19 @@ class InventoryService
     /**
      * @return Collection<int, object>
      */
-    private function transferLines(string $businessId, string $transferId): Collection
+    private function transferLines(string $businessId, string $transferId, bool $lock = false): Collection
     {
-        return DB::table('inventory_transfer_lines')
+        $query = DB::table('inventory_transfer_lines')
             ->where('business_id', $businessId)
             ->where('inventory_transfer_id', $transferId)
             ->whereNull('deleted_at')
-            ->orderBy('created_at')
-            ->get();
+            ->orderBy('created_at');
+
+        if ($lock) {
+            $query->lockForUpdate();
+        }
+
+        return $query->get();
     }
 
     /**

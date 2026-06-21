@@ -79,18 +79,43 @@ class ApiClient {
     String path, {
     Object? data,
     Map<String, Object?>? queryParameters,
+    String? idempotencyKey,
   }) {
     return _request<T>(
       () => _dio.put<Object?>(
         path,
         data: data,
         queryParameters: queryParameters,
-        options: Options(headers: _authHeaders),
+        options: Options(headers: _headers(idempotencyKey)),
+      ),
+    );
+  }
+
+  Future<ApiEnvelope<T>> patch<T>(
+    String path, {
+    Object? data,
+    Map<String, Object?>? queryParameters,
+    String? idempotencyKey,
+  }) {
+    return _request<T>(
+      () => _dio.patch<Object?>(
+        path,
+        data: data,
+        queryParameters: queryParameters,
+        options: Options(headers: _headers(idempotencyKey)),
       ),
     );
   }
 
   Map<String, Object?> get _authHeaders => {'Accept': 'application/json'};
+
+  Map<String, Object?> _headers(String? idempotencyKey) {
+    final headers = <String, Object?>{..._authHeaders};
+    if (idempotencyKey != null) {
+      headers['Idempotency-Key'] = idempotencyKey;
+    }
+    return headers;
+  }
 
   Future<ApiEnvelope<T>> _request<T>(
     Future<Response<Object?>> Function() send,

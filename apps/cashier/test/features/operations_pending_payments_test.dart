@@ -36,9 +36,9 @@ void main() {
     expect(find.text('QR-001'), findsOneWidget);
     expect(find.text('Tandai sudah diterima'), findsOneWidget);
 
-    await tester.tap(find.text('Tandai sudah diterima'));
+    await tester.tap(find.byKey(const ValueKey('pending_payment_payment-pending')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Tandai sudah diterima').last);
+    await tester.tap(find.text('Tandai diterima'));
     await tester.pumpAndSettle();
 
     expect(transactions.lastConfirmedPaymentId, 'payment-pending');

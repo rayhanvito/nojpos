@@ -3,21 +3,31 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../app/nojpos_assets.dart';
 import '../../../app/theme.dart';
 import '../../../app/providers/nojpos_session_provider.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/printing/printer_settings_store.dart';
 import '../../../core/printing/receipt_printing_service.dart';
 import '../../../features/attendance/providers/attendance_controller.dart';
+import '../../../features/connectivity/widgets/connectivity_status_chip.dart';
 import '../../../features/inventory/providers/inventory_operations_provider.dart';
+import '../../../features/inventory/repositories/inventory_repository.dart';
 import '../../../features/inventory/widgets/inventory_operation_panels.dart';
 import '../../../features/reports/providers/report_providers.dart';
 import '../../../features/reports/repositories/report_repository.dart';
 import '../../../features/reports/widgets/report_panels.dart';
+import '../../../features/screen_lock/providers/terminal_lock_controller.dart';
 import '../../../features/settings/providers/settings_providers.dart';
+import '../../../features/settings/widgets/settings_detail_panels.dart';
 import '../../../features/settings/widgets/settings_summary_panel.dart';
 import '../../../features/staff/widgets/staff_settings_panel.dart';
+import '../../../features/store/widgets/store_state_panel.dart';
+import '../../../features/transactions/repositories/transaction_repository.dart';
 import '../../../shared/models/nojpos_models.dart';
+import '../../../shared/widgets/nojpos_dialog.dart';
+import '../../../shared/widgets/nojpos_state_view.dart';
+import '../../../shared/widgets/nojpos_toast.dart';
 import '../formatters.dart';
 import '../models/cart_item.dart';
 import '../models/product.dart';
@@ -124,15 +134,9 @@ class _OpsTopBar extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 1),
-              const Row(
-                children: [
-                  _OnlineDot(),
-                  SizedBox(width: 5),
-                  Text(
-                    'Status: Online',
-                    style: TextStyle(color: Color(0xE6FFFFFF), fontSize: 11),
-                  ),
-                ],
+              const ConnectivityStatusChip(
+                textStyle: TextStyle(color: Color(0xE6FFFFFF), fontSize: 11),
+                dotSize: 8,
               ),
             ],
           ),
@@ -186,9 +190,11 @@ class _OpsTopBar extends ConsumerWidget {
             unitCost: result.unitCost,
           );
       if (!context.mounted || purchase == null) return;
-      ScaffoldMessenger.of(
+      NojposToast.success(
         context,
-      ).showSnackBar(SnackBar(content: Text('${purchase.number} ditambahkan')));
+        '${purchase.number} ditambahkan',
+        description: 'Faktur pembelian berhasil dicatat.',
+      );
       return;
     }
 
@@ -198,22 +204,6 @@ class _OpsTopBar extends ConsumerWidget {
         builder: (context) => const _AttendanceListDialog(),
       );
     }
-  }
-}
-
-class _OnlineDot extends StatelessWidget {
-  const _OnlineDot();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 8,
-      height: 8,
-      decoration: const BoxDecoration(
-        color: Color(0xFF70E06D),
-        shape: BoxShape.circle,
-      ),
-    );
   }
 }
 
@@ -270,14 +260,8 @@ class _OrdersBodyState extends ConsumerState<_OrdersBody> {
       children: [
         _LeftList(
           title: 'Kategori Order',
-          items: [
-            'Semua (${orders.length})',
-            'Kasir (${orders.length})',
-            'Order Online (0)',
-            'Faktur Penjualan (0)',
-          ],
+          items: ['Semua (${orders.length})', 'Kasir (${orders.length})'],
           activeIndex: 0,
-          comingSoonIndexes: const {2, 3},
         ),
         Expanded(
           child: Column(
@@ -292,6 +276,7 @@ class _OrdersBodyState extends ConsumerState<_OrdersBody> {
                   'Tagihan',
                 ],
               ),
+              const _OrdersScopeNotice(),
               Expanded(
                 child: isBusy
                     ? const Center(child: CircularProgressIndicator())
@@ -330,9 +315,7 @@ class _OrdersBodyState extends ConsumerState<_OrdersBody> {
                                         )
                                         .errorMessage ??
                                     'Order tidak bisa dibuka.';
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text(message)),
-                                );
+                                NojposToast.error(context, message);
                                 return;
                               }
                               final products = ref.read(productsProvider);
@@ -341,12 +324,9 @@ class _OrdersBodyState extends ConsumerState<_OrdersBody> {
                                   .replaceWith(
                                     _cartItemsFromOrder(activated, products),
                                   );
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    '${activated.number} dibuka ke cart',
-                                  ),
-                                ),
+                              NojposToast.success(
+                                context,
+                                '${activated.number} dibuka ke cart',
                               );
                               context.go('/pos');
                             },
@@ -366,6 +346,41 @@ class _OrdersBodyState extends ConsumerState<_OrdersBody> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _OrdersScopeNotice extends StatelessWidget {
+  const _OrdersScopeNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAF9),
+        border: Border.all(color: MokposColors.line),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: const Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(LucideIcons.info, size: 18, color: MokposColors.primary),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Daftar ini menampilkan order tersimpan kasir dari server. Kanal order lain nonaktif di terminal kasir preview.',
+              style: TextStyle(
+                color: MokposColors.muted,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                height: 1.35,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -553,12 +568,56 @@ class _SalesBodyState extends ConsumerState<_SalesBody> {
                       ],
                       onTap: transaction.status == 'voided'
                           ? null
-                          : () => _showVoidDialog(context, ref, transaction),
+                          : () => _showTransactionActionsDialog(
+                              context,
+                              ref,
+                              transaction,
+                            ),
                     );
                   },
                 ),
         ),
       ],
+    );
+  }
+}
+
+class _DialogInfoRow extends StatelessWidget {
+  const _DialogInfoRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 96,
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: MokposColors.muted,
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                color: MokposColors.text,
+                fontSize: 13,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -573,23 +632,229 @@ Future<void> _showConfirmPaymentDialog(
   return showDialog<void>(
     context: context,
     barrierColor: Colors.black54,
-    builder: (context) => AlertDialog(
+    builder: (context) => NojposWarningDialog(
+      title: 'Konfirmasi Pembayaran',
+      subtitle:
+          'Pastikan dana benar-benar sudah diterima sebelum menandai pembayaran.',
+      confirmLabel: 'Tandai diterima',
+      cancelLabel: 'Batal',
+      confirmEnabled: paymentId != null,
+      content: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _DialogInfoRow(label: 'Transaksi', value: transaction.number),
+          _DialogInfoRow(label: 'Metode', value: payment.methodName),
+          _DialogInfoRow(label: 'Nominal', value: rupiah(payment.amount)),
+          _DialogInfoRow(label: 'Reference', value: payment.reference ?? '-'),
+        ],
+      ),
+      onConfirm: () async {
+        await ref
+            .read(nojposSessionProvider.notifier)
+            .confirmPaymentLine(paymentId!);
+        if (!context.mounted) return;
+        Navigator.of(context).pop();
+        final updated = ref
+            .read(nojposSessionProvider)
+            .transactions
+            .where((item) => item.id == transaction.id)
+            .firstOrNull;
+        NojposToast.success(
+          context,
+          'Pembayaran dikonfirmasi',
+          description: 'Status transaksi: ${updated?.status ?? payment.status}',
+        );
+      },
+    ),
+  );
+}
+
+Future<void> _showTransactionActionsDialog(
+  BuildContext context,
+  WidgetRef ref,
+  SalesTransaction transaction,
+) {
+  final canManage = ref.read(nojposSessionProvider).canManageMasterData;
+  final canRefund = canManage && _canRefundTransaction(transaction);
+  return showDialog<void>(
+    context: context,
+    barrierColor: Colors.black54,
+    builder: (dialogContext) => AlertDialog(
       backgroundColor: Colors.white,
-      title: const Text('Konfirmasi Pembayaran'),
+      title: Text('Aksi ${transaction.number}'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Transaksi: ${transaction.number}'),
-          Text('Metode: ${payment.methodName}'),
-          Text('Nominal: ${rupiah(payment.amount)}'),
-          Text('Reference: ${payment.reference ?? '-'}'),
-          const SizedBox(height: 12),
+          Text('Status: ${transaction.status}'),
+          Text('Total server: ${rupiah(transaction.total)}'),
+          const SizedBox(height: 8),
           const Text(
-            'Pastikan dana benar-benar sudah diterima sebelum menandai pembayaran.',
+            'Refund hanya untuk owner/admin dan tetap dihitung oleh server.',
             style: TextStyle(color: MokposColors.muted),
           ),
         ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(),
+          child: const Text('Tutup'),
+        ),
+        OutlinedButton(
+          key: const ValueKey('transaction_void_action'),
+          onPressed: () {
+            Navigator.of(dialogContext).pop();
+            _showVoidDialog(context, ref, transaction);
+          },
+          child: const Text('Void'),
+        ),
+        FilledButton(
+          key: const ValueKey('transaction_refund_action'),
+          onPressed: canRefund
+              ? () {
+                  Navigator.of(dialogContext).pop();
+                  _showRefundDialog(context, ref, transaction);
+                }
+              : null,
+          child: Text(canManage ? 'Refund' : 'Refund owner/admin'),
+        ),
+      ],
+    ),
+  );
+}
+
+bool _canRefundTransaction(SalesTransaction transaction) {
+  return transaction.status == 'paid' ||
+      transaction.status == 'partially_refunded';
+}
+
+Future<void> _showRefundDialog(
+  BuildContext context,
+  WidgetRef ref,
+  SalesTransaction transaction,
+) {
+  return showDialog<void>(
+    context: context,
+    barrierColor: Colors.black54,
+    builder: (dialogContext) => _RefundTransactionDialog(
+      parentContext: context,
+      ref: ref,
+      transaction: transaction,
+    ),
+  );
+}
+
+class _RefundTransactionDialog extends StatefulWidget {
+  const _RefundTransactionDialog({
+    required this.parentContext,
+    required this.ref,
+    required this.transaction,
+  });
+
+  final BuildContext parentContext;
+  final WidgetRef ref;
+  final SalesTransaction transaction;
+
+  @override
+  State<_RefundTransactionDialog> createState() =>
+      _RefundTransactionDialogState();
+}
+
+class _RefundTransactionDialogState extends State<_RefundTransactionDialog> {
+  final reasonController = TextEditingController();
+  final authController = TextEditingController();
+  final nonRestockReasonController = TextEditingController();
+  String method = 'cash';
+  bool restock = true;
+
+  @override
+  void dispose() {
+    reasonController.dispose();
+    authController.dispose();
+    nonRestockReasonController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasRefundableLines = widget.transaction.order.lines.any(
+      (line) => line.transactionItemId != null,
+    );
+    return AlertDialog(
+      backgroundColor: Colors.white,
+      title: Text('Refund ${widget.transaction.number}'),
+      content: SizedBox(
+        width: 420,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Total server: ${rupiah(widget.transaction.total)}'),
+              const SizedBox(height: 8),
+              TextField(
+                key: const ValueKey('refund_reason'),
+                controller: reasonController,
+                maxLines: 2,
+                decoration: const InputDecoration(
+                  labelText: 'Alasan refund',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 10),
+              DropdownButtonFormField<String>(
+                key: const ValueKey('refund_method'),
+                initialValue: method,
+                items: const [
+                  DropdownMenuItem(value: 'cash', child: Text('Cash drawer')),
+                  DropdownMenuItem(
+                    value: 'original_method',
+                    child: Text('Metode asal'),
+                  ),
+                ],
+                onChanged: (value) => setState(() => method = value ?? 'cash'),
+                decoration: const InputDecoration(
+                  labelText: 'Metode refund',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                key: const ValueKey('refund_authorization_pin'),
+                controller: authController,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'PIN otorisasi',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              SwitchListTile(
+                key: const ValueKey('refund_restock_toggle'),
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Restock item yang dikembalikan'),
+                value: restock,
+                onChanged: (value) => setState(() => restock = value),
+              ),
+              if (!restock)
+                TextField(
+                  key: const ValueKey('refund_non_restock_reason'),
+                  controller: nonRestockReasonController,
+                  decoration: const InputDecoration(
+                    labelText: 'Alasan tidak restock',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              if (!hasRefundableLines) ...[
+                const SizedBox(height: 10),
+                const Text(
+                  'Transaksi ini belum memuat ID line server. Muat ulang daftar transaksi sebelum refund.',
+                  style: TextStyle(color: MokposColors.danger),
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
       actions: [
         TextButton(
@@ -597,33 +862,62 @@ Future<void> _showConfirmPaymentDialog(
           child: const Text('Batal'),
         ),
         FilledButton(
-          key: const ValueKey('confirm_payment_submit'),
-          onPressed: paymentId == null
-              ? null
-              : () async {
-                  await ref
-                      .read(nojposSessionProvider.notifier)
-                      .confirmPaymentLine(paymentId);
-                  if (!context.mounted) return;
-                  Navigator.of(context).pop();
-                  final updated = ref
-                      .read(nojposSessionProvider)
-                      .transactions
-                      .where((item) => item.id == transaction.id)
-                      .firstOrNull;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'Pembayaran dikonfirmasi. Status transaksi: ${updated?.status ?? payment.status}',
-                      ),
-                    ),
-                  );
-                },
-          child: const Text('Tandai sudah diterima'),
+          key: const ValueKey('refund_submit'),
+          onPressed: hasRefundableLines ? _submit : null,
+          child: const Text('Konfirmasi Refund'),
         ),
       ],
-    ),
-  );
+    );
+  }
+
+  Future<void> _submit() async {
+    final reason = reasonController.text.trim();
+    final nonRestockReason = nonRestockReasonController.text.trim();
+    if (reason.isEmpty) return;
+    if (!restock && nonRestockReason.isEmpty) {
+      NojposToast.warning(
+        widget.parentContext,
+        'Alasan tidak restock wajib diisi.',
+      );
+      return;
+    }
+    final lines = [
+      for (final line in widget.transaction.order.lines)
+        if (line.transactionItemId != null)
+          RefundLineRequest(
+            transactionItemId: line.transactionItemId!,
+            quantity: line.quantity,
+            restock: restock,
+            nonRestockReason: restock ? null : nonRestockReason,
+          ),
+    ];
+    final result = await widget.ref
+        .read(nojposSessionProvider.notifier)
+        .createRefund(
+          transaction: widget.transaction,
+          reason: reason,
+          refundMethod: method,
+          authorizationCode: authController.text.trim(),
+          lines: lines,
+        );
+    authController.clear();
+    if (!mounted) return;
+    Navigator.of(context).pop();
+    final message = result == null
+        ? widget.ref.read(nojposSessionProvider).errorMessage ??
+              'Refund ditolak'
+        : 'Refund berhasil. Status: ${result.transactionStatus}';
+    if (!widget.parentContext.mounted) return;
+    if (result == null) {
+      NojposToast.error(widget.parentContext, message);
+    } else {
+      NojposToast.success(
+        widget.parentContext,
+        'Refund berhasil',
+        description: message,
+      );
+    }
+  }
 }
 
 Future<void> _showVoidDialog(
@@ -668,9 +962,12 @@ class _VoidTransactionDialogState extends State<_VoidTransactionDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      backgroundColor: Colors.white,
-      title: Text('Void ${widget.transaction.number}'),
+    return NojposDangerDialog(
+      title: 'Void ${widget.transaction.number}',
+      subtitle:
+          'Tindakan ini membatalkan transaksi penuh. Masukkan alasan yang jelas untuk audit.',
+      confirmLabel: 'Void Penuh',
+      cancelLabel: 'Batal',
       content: TextField(
         key: const ValueKey('void_reason'),
         controller: controller,
@@ -681,54 +978,49 @@ class _VoidTransactionDialogState extends State<_VoidTransactionDialog> {
           border: OutlineInputBorder(),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Batal'),
-        ),
-        FilledButton(
-          key: const ValueKey('void_submit'),
-          onPressed: () async {
-            final reason = controller.text.trim();
-            if (reason.isEmpty) return;
-            final ok = await widget.ref
-                .read(nojposSessionProvider.notifier)
-                .voidTransaction(
-                  transaction: widget.transaction,
-                  reason: reason,
-                );
-            if (!context.mounted) return;
-            Navigator.of(context).pop();
-            final error = widget.ref.read(nojposSessionProvider).errorMessage;
-            if (!widget.parentContext.mounted) return;
-            ScaffoldMessenger.of(widget.parentContext).showSnackBar(
-              SnackBar(
-                content: Text(
-                  ok ? 'Transaksi berhasil di-void' : error ?? 'Void ditolak',
-                ),
-              ),
-            );
-          },
-          child: const Text('Void Penuh'),
-        ),
-      ],
+      onConfirm: () async {
+        final reason = controller.text.trim();
+        if (reason.isEmpty) return;
+        final ok = await widget.ref
+            .read(nojposSessionProvider.notifier)
+            .voidTransaction(transaction: widget.transaction, reason: reason);
+        if (!context.mounted) return;
+        Navigator.of(context).pop();
+        final error = widget.ref.read(nojposSessionProvider).errorMessage;
+        if (!widget.parentContext.mounted) return;
+        if (ok) {
+          NojposToast.success(
+            widget.parentContext,
+            'Transaksi berhasil di-void',
+          );
+        } else {
+          NojposToast.error(widget.parentContext, error ?? 'Void ditolak');
+        }
+      },
     );
   }
 }
 
-class _ReportsBody extends ConsumerWidget {
+class _ReportsBody extends ConsumerStatefulWidget {
   const _ReportsBody();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_ReportsBody> createState() => _ReportsBodyState();
+}
+
+class _ReportsBodyState extends ConsumerState<_ReportsBody> {
+  int _activeSection = 0;
+
+  @override
+  Widget build(BuildContext context) {
     final dashboard = ref.watch(reportsDashboardProvider);
     final session = ref.watch(nojposSessionProvider);
     final isCashier = !session.canManageMasterData;
     return Row(
       children: [
-        const _LeftList(
+        _LeftList(
           title: 'Kategori Laporan',
-          items: [
+          items: const [
             'Ringkasan Penjualan',
             'Produk Terjual',
             'Jenis Bayar',
@@ -736,7 +1028,8 @@ class _ReportsBody extends ConsumerWidget {
             'Void / Refund',
             'Top 10',
           ],
-          activeIndex: 0,
+          activeIndex: _activeSection,
+          onSelected: (index) => setState(() => _activeSection = index),
         ),
         Expanded(
           child: Padding(
@@ -755,8 +1048,10 @@ class _ReportsBody extends ConsumerWidget {
                       message: error.toString(),
                       onRetry: () => ref.invalidate(reportsDashboardProvider),
                     ),
-                    data: (dashboard) =>
-                        _ReportsDashboardView(dashboard: dashboard),
+                    data: (dashboard) => _ReportsSectionContent(
+                      activeSection: _activeSection,
+                      dashboard: dashboard,
+                    ),
                   ),
                 ),
               ],
@@ -764,6 +1059,96 @@ class _ReportsBody extends ConsumerWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ReportsSectionContent extends StatelessWidget {
+  const _ReportsSectionContent({
+    required this.activeSection,
+    required this.dashboard,
+  });
+
+  final int activeSection;
+  final ReportsDashboard dashboard;
+
+  @override
+  Widget build(BuildContext context) {
+    return switch (activeSection) {
+      0 => _ReportsDashboardView(dashboard: dashboard),
+      1 => _SingleReportPanel(
+        title: 'Produk Terjual',
+        subtitle: 'Daftar produk yang terjual pada scope laporan aktif.',
+        child: SoldProductsReportPanel(report: dashboard.soldProducts),
+      ),
+      2 => _SingleReportPanel(
+        title: 'Jenis Bayar',
+        subtitle: 'Ringkasan metode pembayaran dari transaksi terkonfirmasi.',
+        child: PaymentMethodsReportPanel(report: dashboard.paymentMethods),
+      ),
+      3 => _SingleReportPanel(
+        title: 'Shift Kasir',
+        subtitle: 'Ringkasan shift kasir, kas tunai, dan selisih kas.',
+        child: CashierShiftsReportPanel(report: dashboard.cashierShifts),
+      ),
+      4 => _SingleReportPanel(
+        title: 'Void / Refund',
+        subtitle: 'Audit void dan refund yang tercatat di server.',
+        child: VoidRefundAuditReportPanel(report: dashboard.voidRefundAudit),
+      ),
+      5 => _SingleReportPanel(
+        title: 'Top 10',
+        subtitle: 'Peringkat produk terlaris dari data laporan server.',
+        child: TopTenReportPanel(report: dashboard.topTen),
+      ),
+      _ => const SizedBox.shrink(),
+    };
+  }
+}
+
+class _SingleReportPanel extends StatelessWidget {
+  const _SingleReportPanel({
+    required this.title,
+    required this.subtitle,
+    required this.child,
+  });
+
+  final String title;
+  final String subtitle;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      child: Align(
+        alignment: Alignment.topLeft,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 760),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  color: MokposColors.text,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 22,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                subtitle,
+                style: const TextStyle(
+                  color: MokposColors.muted,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 16),
+              child,
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -906,6 +1291,8 @@ class _InventoryBody extends ConsumerStatefulWidget {
 }
 
 class _InventoryBodyState extends ConsumerState<_InventoryBody> {
+  int _activeSection = 0;
+
   @override
   void initState() {
     super.initState();
@@ -934,15 +1321,16 @@ class _InventoryBodyState extends ConsumerState<_InventoryBody> {
     final inTransit = operations.inTransit?.items ?? const [];
     return Row(
       children: [
-        const _LeftList(
+        _LeftList(
           title: 'Kategori Inventori',
-          items: [
+          items: const [
             'Faktur Pembelian',
             'Stok Opname',
             'Transfer In-Transit',
             'Stok Terbuang',
           ],
-          activeIndex: 0,
+          activeIndex: _activeSection,
+          onSelected: (index) => setState(() => _activeSection = index),
         ),
         Expanded(
           child: Column(
@@ -989,25 +1377,15 @@ class _InventoryBodyState extends ConsumerState<_InventoryBody> {
               Expanded(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      InventoryActionPanel(
-                        canManage: session.canManageMasterData,
-                        outletId: session.outlet.id,
-                        outlets: session.outlets,
-                        items: inventory?.items ?? const [],
-                        onChanged: _reloadInventoryFeature,
-                      ),
-                      const SizedBox(height: 12),
-                      InTransitTransfersPanel(
-                        canManage: session.canManageMasterData,
-                        transfers: inTransit,
-                        onChanged: _reloadInventoryFeature,
-                      ),
-                      const SizedBox(height: 12),
-                      InventoryMovementPanel(movements: movements),
-                    ],
+                  child: _InventorySectionContent(
+                    activeSection: _activeSection,
+                    canManage: session.canManageMasterData,
+                    outletId: session.outlet.id,
+                    outlets: session.outlets,
+                    items: inventory?.items ?? const [],
+                    movements: movements,
+                    inTransit: inTransit,
+                    onChanged: _reloadInventoryFeature,
                   ),
                 ),
               ),
@@ -1019,85 +1397,504 @@ class _InventoryBodyState extends ConsumerState<_InventoryBody> {
   }
 }
 
-class _SettingsBody extends ConsumerWidget {
+class _InventorySectionContent extends StatelessWidget {
+  const _InventorySectionContent({
+    required this.activeSection,
+    required this.canManage,
+    required this.outletId,
+    required this.outlets,
+    required this.items,
+    required this.movements,
+    required this.inTransit,
+    required this.onChanged,
+  });
+
+  final int activeSection;
+  final bool canManage;
+  final String outletId;
+  final List<Outlet> outlets;
+  final List<InventoryStockItem> items;
+  final List<StockMovement> movements;
+  final List<InventoryTransferResult> inTransit;
+  final Future<void> Function() onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return switch (activeSection) {
+      0 => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          InventoryActionPanel(
+            canManage: canManage,
+            outletId: outletId,
+            outlets: outlets,
+            items: items,
+            onChanged: onChanged,
+          ),
+          const SizedBox(height: 12),
+          InventoryMovementPanel(movements: movements),
+        ],
+      ),
+      1 => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          InventoryActionPanel(
+            canManage: canManage,
+            outletId: outletId,
+            outlets: outlets,
+            items: items,
+            onChanged: onChanged,
+          ),
+          const SizedBox(height: 12),
+          InventoryMovementPanel(
+            movements: movements
+                .where((movement) => movement.type.contains('opname'))
+                .toList(),
+          ),
+        ],
+      ),
+      2 => InTransitTransfersPanel(
+        canManage: canManage,
+        transfers: inTransit,
+        onChanged: onChanged,
+      ),
+      3 => InventoryMovementPanel(
+        movements: movements
+            .where(
+              (movement) =>
+                  movement.type.contains('waste') ||
+                  movement.type.contains('damage') ||
+                  movement.type.contains('discard'),
+            )
+            .toList(),
+      ),
+      _ => const SizedBox.shrink(),
+    };
+  }
+}
+
+class _SettingsBody extends ConsumerStatefulWidget {
   const _SettingsBody();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_SettingsBody> createState() => _SettingsBodyState();
+}
+
+class _SettingsBodyState extends ConsumerState<_SettingsBody> {
+  int _activeSection = 0;
+
+  @override
+  Widget build(BuildContext context) {
     final catalog = ref.watch(posCatalogProvider);
     final session = ref.watch(nojposSessionProvider);
     final canManage = session.canManageMasterData;
     return Row(
       children: [
-        const _SettingsMenu(),
+        _SettingsMenu(
+          activeIndex: _activeSection,
+          onSelected: (index) => setState(() => _activeSection = index),
+        ),
         Expanded(
-          child: Column(
-            children: [
-              Container(
-                height: 56,
-                decoration: const BoxDecoration(
-                  border: Border(bottom: BorderSide(color: MokposColors.line)),
-                ),
-                child: const Row(
-                  children: [
-                    Expanded(
-                      child: Center(
-                        child: _TabText(text: 'Produk', active: true),
-                      ),
-                    ),
-                    Expanded(
-                      child: Center(child: _TabText(text: 'Kategori')),
-                    ),
-                  ],
-                ),
+          child: _SettingsSectionContent(
+            activeSection: _activeSection,
+            catalog: catalog,
+            canManage: canManage,
+            onSearchProducts: (value) =>
+                ref.read(posCatalogProvider.notifier).load(search: value),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SettingsSectionContent extends StatelessWidget {
+  const _SettingsSectionContent({
+    required this.activeSection,
+    required this.catalog,
+    required this.canManage,
+    required this.onSearchProducts,
+  });
+
+  final int activeSection;
+  final PosCatalogState catalog;
+  final bool canManage;
+  final ValueChanged<String> onSearchProducts;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        _SettingsHeader(activeSection: activeSection),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: switch (activeSection) {
+              0 => _ProductSettingsSection(
+                catalog: catalog,
+                canManage: canManage,
+                onSearchProducts: onSearchProducts,
               ),
+              1 => const _ReceiptAndFeeSettingsSection(),
+              2 => const TaxServiceSettingsPanel(),
+              3 => const StaffSettingsPanel(),
+              4 => const _DeviceSettingsSection(),
+              5 => const PaymentMethodSettingsPanel(),
+              6 => const RefundSettingsPanel(),
+              7 => const _LogoutSettingsSection(),
+              _ => _RoadmapStatePanel(
+                title: _settingsItems[activeSection],
+                subtitle:
+                    'Pengaturan ini nonaktif di terminal kasir. Gunakan panel owner/admin yang berwenang untuk mengelola konfigurasi tersebut.',
+              ),
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SettingsHeader extends StatelessWidget {
+  const _SettingsHeader({required this.activeSection});
+
+  final int activeSection;
+
+  @override
+  Widget build(BuildContext context) {
+    final title = _settingsItems[activeSection];
+    return Container(
+      height: 56,
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: MokposColors.line)),
+      ),
+      child: Row(
+        children: [
+          const SizedBox(width: 24),
+          Text(
+            title,
+            style: const TextStyle(
+              color: MokposColors.text,
+              fontWeight: FontWeight.w900,
+              fontSize: 16,
+            ),
+          ),
+          const Spacer(),
+          if (activeSection == 0) ...[
+            const _TabText(text: 'Produk', active: true),
+            const SizedBox(width: 28),
+            const _TabText(text: 'Kategori'),
+            const SizedBox(width: 24),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ProductSettingsSection extends StatelessWidget {
+  const _ProductSettingsSection({
+    required this.catalog,
+    required this.canManage,
+    required this.onSearchProducts,
+  });
+
+  final PosCatalogState catalog;
+  final bool canManage;
+  final ValueChanged<String> onSearchProducts;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        const _BackendSettingsSummary(),
+        const SizedBox(height: 24),
+        _SearchLine(onChanged: onSearchProducts),
+        const SizedBox(height: 16),
+        if (canManage) const _AddProductButton(),
+        if (!canManage) const _ReadOnlyNotice(),
+        const SizedBox(height: 14),
+        _CategoryStrip(categories: catalog.categoryItems, canManage: canManage),
+        const SizedBox(height: 14),
+        SizedBox(
+          height: 360,
+          child: ListView.separated(
+            itemCount: catalog.products.length,
+            separatorBuilder: (context, index) =>
+                const Divider(height: 1, color: MokposColors.line),
+            itemBuilder: (context, index) => _ProductSettingRow(
+              product: catalog.products[index],
+              canManage: canManage,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ReceiptAndFeeSettingsSection extends StatelessWidget {
+  const _ReceiptAndFeeSettingsSection();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _BackendSettingsSummary(),
+        SizedBox(height: 24),
+        _PrinterSettingsPanel(),
+      ],
+    );
+  }
+}
+
+class _DeviceSettingsSection extends StatelessWidget {
+  const _DeviceSettingsSection();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _TerminalRegisteredPanel(),
+        SizedBox(height: 24),
+        SecuritySettingsPanel(),
+        SizedBox(height: 24),
+        StoreStatePanel(),
+      ],
+    );
+  }
+}
+
+class _TerminalRegisteredPanel extends ConsumerStatefulWidget {
+  const _TerminalRegisteredPanel();
+
+  @override
+  ConsumerState<_TerminalRegisteredPanel> createState() =>
+      _TerminalRegisteredPanelState();
+}
+
+class _TerminalRegisteredPanelState
+    extends ConsumerState<_TerminalRegisteredPanel> {
+  @override
+  void initState() {
+    super.initState();
+    Future<void>.microtask(
+      () => ref.read(terminalLockControllerProvider.notifier).load(),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final session = ref.watch(nojposSessionProvider);
+    final lockState = ref.watch(terminalLockControllerProvider);
+    final deviceId = session.deviceId;
+    final deviceUuid = session.deviceUuid;
+    final hasRegisteredTerminal = deviceId != null && deviceId.isNotEmpty;
+    final activeShift = session.activeShift;
+    final backendLock = lockState.lockState;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: MokposColors.line),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Row(
+            children: [
+              Icon(LucideIcons.tabletSmartphone, color: MokposColors.primary),
+              SizedBox(width: 10),
               Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    children: [
-                      const _BackendSettingsSummary(),
-                      const SizedBox(height: 24),
-                      _SearchLine(
-                        onChanged: (value) => ref
-                            .read(posCatalogProvider.notifier)
-                            .load(search: value),
-                      ),
-                      const SizedBox(height: 16),
-                      if (canManage) const _AddProductButton(),
-                      if (!canManage) const _ReadOnlyNotice(),
-                      const SizedBox(height: 14),
-                      _CategoryStrip(
-                        categories: catalog.categoryItems,
-                        canManage: canManage,
-                      ),
-                      const SizedBox(height: 14),
-                      SizedBox(
-                        height: 360,
-                        child: ListView.separated(
-                          itemCount: catalog.products.length,
-                          separatorBuilder: (context, index) => const Divider(
-                            height: 1,
-                            color: MokposColors.line,
-                          ),
-                          itemBuilder: (context, index) => _ProductSettingRow(
-                            product: catalog.products[index],
-                            canManage: canManage,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      const _PrinterSettingsPanel(),
-                      const SizedBox(height: 24),
-                      const StaffSettingsPanel(),
-                    ],
+                child: Text(
+                  'Terminal terdaftar',
+                  style: TextStyle(
+                    color: MokposColors.text,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 16,
                   ),
                 ),
               ),
             ],
           ),
-        ),
-      ],
+          const SizedBox(height: 8),
+          Text(
+            hasRegisteredTerminal
+                ? 'Informasi terminal diverifikasi server. Panel ini read-only di aplikasi kasir agar enrollment perangkat tetap dikendalikan owner/admin.'
+                : 'Terminal belum terdaftar untuk session ini. Login ulang atau minta owner/admin mengecek enrollment perangkat.',
+            style: const TextStyle(
+              color: MokposColors.muted,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 14),
+          _PrinterStatusLine(
+            label: 'Status enrollment',
+            value: hasRegisteredTerminal
+                ? 'Terdaftar di backend'
+                : 'Belum ada device_id backend',
+          ),
+          _PrinterStatusLine(
+            label: 'Device ID',
+            value: hasRegisteredTerminal ? deviceId : 'Tidak tersedia',
+          ),
+          _PrinterStatusLine(
+            label: 'Device UUID lokal',
+            value: (deviceUuid == null || deviceUuid.isEmpty)
+                ? 'Tidak tersedia'
+                : deviceUuid,
+          ),
+          _PrinterStatusLine(
+            label: 'Outlet session',
+            value: session.outlet.id.isEmpty
+                ? 'Belum memilih outlet'
+                : session.outlet.name,
+          ),
+          _PrinterStatusLine(
+            label: 'Kasir aktif',
+            value: session.cashier.id.isEmpty
+                ? 'Belum PIN kasir'
+                : '${session.cashier.name} (${session.cashier.role})',
+          ),
+          _PrinterStatusLine(
+            label: 'Shift',
+            value: activeShift == null
+                ? 'Belum ada shift aktif'
+                : '${activeShift.status} — ${activeShift.id}',
+          ),
+          const Divider(height: 24, color: MokposColors.line),
+          if (lockState.isBusy && backendLock == null)
+            const Row(
+              children: [
+                SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                SizedBox(width: 10),
+                Text(
+                  'Memuat status lock terminal...',
+                  style: TextStyle(
+                    color: MokposColors.muted,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            )
+          else ...[
+            _PrinterStatusLine(
+              label: 'Lock terminal',
+              value: backendLock == null
+                  ? 'Status lock belum dimuat'
+                  : backendLock.locked
+                  ? 'Terkunci${backendLock.lockReason == null ? '' : ' (${backendLock.lockReason})'}'
+                  : 'Tidak terkunci',
+            ),
+            if (backendLock?.cashier != null)
+              _PrinterStatusLine(
+                label: 'Lock oleh',
+                value:
+                    '${backendLock!.cashier!.name} (${backendLock.cashier!.role})',
+              ),
+            if (backendLock?.unlockedBy != null)
+              _PrinterStatusLine(
+                label: 'Terakhir dibuka',
+                value:
+                    '${backendLock!.unlockedBy!.name} (${backendLock.unlockedBy!.role})',
+              ),
+            _PrinterStatusLine(
+              label: 'Idle/session policy',
+              value: backendLock == null
+                  ? 'Mengikuti pengaturan keamanan saat tersedia'
+                  : '${backendLock.idleTimeoutSeconds}s / ${backendLock.sessionTimeoutSeconds}s',
+            ),
+          ],
+          if (lockState.errorMessage != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              'Status lock gagal dimuat: ${lockState.errorMessage}',
+              style: const TextStyle(
+                color: MokposColors.danger,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _LogoutSettingsSection extends ConsumerWidget {
+  const _LogoutSettingsSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final canLogoutApp = ref.watch(
+      nojposSessionProvider.select((session) => session.canManageMasterData),
+    );
+    return _RoadmapStatePanel(
+      title: 'Keluar',
+      subtitle: canLogoutApp
+          ? 'Keluar akun aplikasi dari perangkat ini.'
+          : 'Keluar akun hanya bisa dilakukan owner/admin.',
+      action: FilledButton.icon(
+        onPressed: canLogoutApp ? () => _confirmAppLogout(context, ref) : null,
+        icon: const Icon(LucideIcons.logOut, size: 16),
+        label: const Text('Keluar Akun'),
+      ),
+    );
+  }
+}
+
+class _RoadmapStatePanel extends StatelessWidget {
+  const _RoadmapStatePanel({
+    required this.title,
+    required this.subtitle,
+    this.action,
+  });
+
+  final String title;
+  final String subtitle;
+  final Widget? action;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: MokposColors.line),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              color: MokposColors.text,
+              fontWeight: FontWeight.w900,
+              fontSize: 18,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            subtitle,
+            style: const TextStyle(
+              color: MokposColors.muted,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          if (action != null) ...[const SizedBox(height: 16), action!],
+        ],
+      ),
     );
   }
 }
@@ -1191,7 +1988,8 @@ class _PrinterSettingsPanelState extends ConsumerState<_PrinterSettingsPanel> {
   Future<void> _scan() async {
     setState(() {
       loading = true;
-      statusMessage = 'Mencari printer Bluetooth paired...';
+      statusMessage =
+          'Mencari printer Bluetooth yang sudah paired di perangkat ini...';
     });
     try {
       final result = await ref
@@ -1201,8 +1999,8 @@ class _PrinterSettingsPanelState extends ConsumerState<_PrinterSettingsPanel> {
       setState(() {
         devices = result;
         statusMessage = result.isEmpty
-            ? 'Tidak ada printer paired. Pairing printer dari setting Android dulu.'
-            : 'Ditemukan ${result.length} perangkat.';
+            ? 'Belum ada printer paired di perangkat ini. Pairing dari Settings Android dulu, lalu scan ulang.'
+            : 'Ditemukan ${result.length} perangkat paired. Pilih salah satu untuk disimpan sebagai printer lokal perangkat ini.';
       });
     } catch (error) {
       if (!mounted) return;
@@ -1285,7 +2083,7 @@ class _PrinterSettingsPanelState extends ConsumerState<_PrinterSettingsPanel> {
               const SizedBox(width: 10),
               const Expanded(
                 child: Text(
-                  'Manajemen Printer',
+                  'Printer lokal perangkat ini',
                   style: TextStyle(
                     color: MokposColors.text,
                     fontWeight: FontWeight.w900,
@@ -1301,22 +2099,48 @@ class _PrinterSettingsPanelState extends ConsumerState<_PrinterSettingsPanel> {
             ],
           ),
           const SizedBox(height: 12),
+          Text(
+            'Pengaturan ini hanya menyimpan pilihan printer Bluetooth di perangkat kasir ini. Ini terpisah dari terminal terdaftar di backend dan tidak berarti printer sedang connected.',
+            style: const TextStyle(
+              color: MokposColors.muted,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 12),
           _PrinterStatusLine(
-            label: 'Printer default',
+            label: 'Printer lokal',
             value: printer == null
-                ? 'Belum disimpan'
+                ? 'Belum ada printer disimpan'
                 : '${printer.name} (${printer.address})',
           ),
           _PrinterStatusLine(
             label: 'Status koneksi',
             value: printer == null
-                ? 'Tidak ada printer default. Cetak tetap best-effort dan tidak blokir penjualan.'
-                : 'Siap dicoba. Aplikasi akan connect ulang saat cetak.',
+                ? 'Tidak ada printer lokal. Cetak tetap best-effort dan transaksi tidak diblokir.'
+                : 'Belum diverifikasi connected. Aplikasi akan mencoba connect ulang saat test/cetak.',
           ),
+          if (!loading && printer == null && devices.isEmpty) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: MokposColors.primarySoft,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: MokposColors.line),
+              ),
+              child: const Text(
+                'Belum ada device paired yang ditampilkan. Gunakan Scan Bluetooth setelah printer dipairing dari Settings Android.',
+                style: TextStyle(
+                  color: MokposColors.text,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           if (devices.isNotEmpty) ...[
             const Text(
-              'Perangkat ditemukan',
+              'Printer paired ditemukan',
               style: TextStyle(
                 color: MokposColors.muted,
                 fontWeight: FontWeight.w900,
@@ -1554,13 +2378,13 @@ class _LeftList extends StatelessWidget {
     required this.title,
     required this.items,
     required this.activeIndex,
-    this.comingSoonIndexes = const {},
+    this.onSelected,
   });
 
   final String title;
   final List<String> items;
   final int activeIndex;
-  final Set<int> comingSoonIndexes;
+  final ValueChanged<int>? onSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -1597,10 +2421,8 @@ class _LeftList extends StatelessWidget {
             ),
           ),
           for (final (index, item) in items.indexed)
-            Tooltip(
-              message: comingSoonIndexes.contains(index)
-                  ? '$item segera hadir'
-                  : '',
+            InkWell(
+              onTap: () => onSelected?.call(index),
               child: Container(
                 height: 48,
                 padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -1636,38 +2458,11 @@ class _LeftList extends StatelessWidget {
                         ),
                       ),
                     ),
-                    if (comingSoonIndexes.contains(index))
-                      const _OpsSoonBadge(),
                   ],
                 ),
               ),
             ),
         ],
-      ),
-    );
-  }
-}
-
-class _OpsSoonBadge extends StatelessWidget {
-  const _OpsSoonBadge();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(left: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF5F7F6),
-        border: Border.all(color: MokposColors.line),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: const Text(
-        'Segera hadir',
-        style: TextStyle(
-          color: MokposColors.muted,
-          fontSize: 8,
-          fontWeight: FontWeight.w900,
-        ),
       ),
     );
   }
@@ -1940,6 +2735,18 @@ class _SimpleChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (points.isEmpty) {
+      return SizedBox(
+        height: 280,
+        child: NojposStateView.empty(
+          title: 'Belum ada data chart',
+          subtitle:
+              'Laporan akan muncul setelah ada transaksi pada periode ini.',
+          illustrationAsset: NojposAssets.emptyReports,
+          compact: true,
+        ),
+      );
+    }
     final maxAmount = points.fold<int>(
       0,
       (max, point) => point.amount > max ? point.amount : max,
@@ -1962,9 +2769,7 @@ class _SimpleChart extends StatelessWidget {
             child: Align(
               alignment: Alignment.bottomLeft,
               child: Text(
-                points.isEmpty
-                    ? 'Belum ada data chart'
-                    : points.map((point) => point.label).take(4).join('      '),
+                points.map((point) => point.label).take(4).join('      '),
                 style: const TextStyle(color: MokposColors.muted, fontSize: 11),
               ),
             ),
@@ -1975,26 +2780,27 @@ class _SimpleChart extends StatelessWidget {
   }
 }
 
+const _settingsItems = [
+  'Produk & Kategori',
+  'Struk & Biaya',
+  'Pajak',
+  'Kasir',
+  'Perangkat',
+  'Pembayaran Nontunai',
+  'Refund',
+  'Keluar',
+];
+
 class _SettingsMenu extends ConsumerWidget {
-  const _SettingsMenu();
+  const _SettingsMenu({required this.activeIndex, required this.onSelected});
+
+  final int activeIndex;
+  final ValueChanged<int> onSelected;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(nojposSessionProvider);
     final canLogoutApp = session.canManageMasterData;
-    final items = [
-      'Produk & Kategori',
-      'Order Online',
-      'Struk & Biaya',
-      'Pajak',
-      'Kasir',
-      'Perangkat',
-      'Notifikasi Suara',
-      'Pembayaran Nontunai',
-      'Promo',
-      'Refund',
-      'Keluar',
-    ];
     return Container(
       width: 330,
       decoration: const BoxDecoration(
@@ -2013,15 +2819,23 @@ class _SettingsMenu extends ConsumerWidget {
               ),
             ),
           ),
-          for (final (index, item) in items.indexed)
+          for (final (index, item) in _settingsItems.indexed)
             ListTile(
               dense: true,
+              selected: index == activeIndex,
               enabled: item != 'Keluar' || canLogoutApp,
-              onTap: item == 'Keluar'
-                  ? canLogoutApp
-                        ? () => _confirmAppLogout(context, ref)
-                        : null
-                  : null,
+              onTap: () {
+                if (item == 'Keluar' && !canLogoutApp) {
+                  NojposToast.info(
+                    context,
+                    'Keluar akun hanya untuk owner/admin',
+                    description:
+                        'Minta owner atau admin untuk mengeluarkan akun aplikasi dari perangkat ini.',
+                  );
+                  return;
+                }
+                onSelected(index);
+              },
               leading: Icon(
                 index == 0
                     ? LucideIcons.boxes
@@ -2029,13 +2843,19 @@ class _SettingsMenu extends ConsumerWidget {
                     ? LucideIcons.logOut
                     : LucideIcons.settings,
                 size: 18,
-                color: index == 0 ? MokposColors.primary : MokposColors.muted,
+                color: index == activeIndex
+                    ? MokposColors.primary
+                    : MokposColors.muted,
               ),
               title: Text(
                 item,
                 style: TextStyle(
-                  color: index == 0 ? MokposColors.primary : MokposColors.text,
-                  fontWeight: FontWeight.w800,
+                  color: index == activeIndex
+                      ? MokposColors.primary
+                      : MokposColors.text,
+                  fontWeight: index == activeIndex
+                      ? FontWeight.w900
+                      : FontWeight.w800,
                   fontSize: 13,
                 ),
               ),
@@ -2051,32 +2871,13 @@ class _SettingsMenu extends ConsumerWidget {
 
 Future<void> _confirmAppLogout(BuildContext context, WidgetRef ref) async {
   final confirmed =
-      await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          backgroundColor: Colors.white,
-          title: const Text(
-            'Konfirmasi Keluar',
-            style: TextStyle(fontWeight: FontWeight.w900),
-          ),
-          content: const Text(
+      await showNojposDangerDialog(
+        context,
+        title: 'Keluar Akun?',
+        subtitle:
             'Akun aplikasi POS akan dikeluarkan dari perangkat ini. Setelah keluar, Anda perlu login ulang memakai email dan password.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Batal'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              style: FilledButton.styleFrom(
-                backgroundColor: MokposColors.danger,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Keluar Akun'),
-            ),
-          ],
-        ),
+        confirmLabel: 'Keluar Akun',
+        cancelLabel: 'Batal',
       ) ??
       false;
   if (!context.mounted || !confirmed) return;
@@ -2106,8 +2907,8 @@ class _TabText extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: const TextStyle(
-          color: Colors.white,
+        style: TextStyle(
+          color: active ? MokposColors.primary : MokposColors.muted,
           fontWeight: FontWeight.w900,
         ),
       ),
@@ -2192,9 +2993,7 @@ class _AddProductButton extends ConsumerWidget {
                 price: result.price,
               );
           if (!context.mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('${product.name} ditambahkan')),
-          );
+          NojposToast.success(context, '${product.name} ditambahkan');
         } catch (error) {
           if (!context.mounted) return;
           _showErrorSnackBar(context, _messageForUi(error));
@@ -2299,9 +3098,7 @@ class _CategoryStrip extends ConsumerWidget {
                       name: name.trim(),
                     );
                 if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('${name.trim()} disimpan')),
-                );
+                NojposToast.success(context, '${name.trim()} disimpan');
               } catch (error) {
                 if (!context.mounted) return;
                 _showErrorSnackBar(context, _messageForUi(error));
@@ -2344,9 +3141,7 @@ class _ProductSettingRow extends StatelessWidget {
                         price: result.price,
                       );
                   if (!context.mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('${result.name} diperbarui')),
-                  );
+                  NojposToast.success(context, '${result.name} diperbarui');
                 } catch (error) {
                   if (!context.mounted) return;
                   _showErrorSnackBar(context, _messageForUi(error));
@@ -2432,7 +3227,7 @@ Future<String?> _promptText(
 }
 
 void _showErrorSnackBar(BuildContext context, String message) {
-  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  NojposToast.error(context, 'Operasi belum berhasil', description: message);
 }
 
 String _messageForUi(Object error) {
@@ -2889,14 +3684,11 @@ class _AttendancePinPanelState extends ConsumerState<_AttendancePinPanel> {
                         .clockAttendance(employee: employee, pin: pin);
                     if (!context.mounted || record == null) return;
                     setState(() => pin = '');
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          record.isOpen
-                              ? 'Clock in berhasil'
-                              : 'Clock out berhasil',
-                        ),
-                      ),
+                    NojposToast.success(
+                      context,
+                      record.isOpen
+                          ? 'Clock in berhasil'
+                          : 'Clock out berhasil',
                     );
                   },
             style: FilledButton.styleFrom(

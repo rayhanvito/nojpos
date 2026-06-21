@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "source": [
       "Flow dan Contoh UI/*.pdf",
-      "NOJPOS_POS_FLUTTER_BACKEND_PRD.md v2.0"
+      "PRDPOSJA.md v3.0"
     ],
     "notes": "Token values are derived from the existing teal/neutral visual concept and PRD rules. Semantic warning/danger/info colors are proposals to fill gaps not fully specified by the examples."
   },

@@ -133,11 +133,13 @@ class OrderLine {
     required this.name,
     required this.quantity,
     required this.unitPrice,
+    this.transactionItemId,
     this.discount = 0,
     this.note = '',
   });
 
   final String productId;
+  final String? transactionItemId;
   final String name;
   final int quantity;
   final int unitPrice;

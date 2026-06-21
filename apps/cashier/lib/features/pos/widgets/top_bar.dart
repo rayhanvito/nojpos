@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../app/providers/nojpos_session_provider.dart';
 import '../../../app/theme.dart';
 import '../../../core/outbox/checkout_outbox.dart';
+import '../../connectivity/widgets/connectivity_status_chip.dart';
 import '../../notifications/widgets/checkout_outbox_center.dart';
+import '../../screen_lock/providers/terminal_lock_controller.dart';
+import '../../screen_lock/repositories/terminal_lock_repository.dart';
 
 class PosTopBar extends ConsumerWidget {
   const PosTopBar({
@@ -29,139 +31,114 @@ class PosTopBar extends ConsumerWidget {
     final blockingOutboxCount = outboxItems
         .where((item) => item.blocksClose)
         .length;
-    return Container(
-      height: 64,
-      color: MokposColors.primary,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      child: Row(
-        children: [
-          _TopIconButton(
-            icon: LucideIcons.menu,
-            label: 'Menu',
-            onTap: onOpenMenu,
-          ),
-          const SizedBox(width: 10),
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(MokposRadius.md),
-            ),
-            child: const Icon(
-              LucideIcons.store,
-              color: MokposColors.primary,
-              size: 25,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 720;
+        final medium = constraints.maxWidth < 980;
+        final title = '${session.outlet.name} - ${session.cashier.name}';
+
+        return Container(
+          height: compact ? 58 : 64,
+          color: NojposColors.primary,
+          padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 14),
+          child: Row(
             children: [
-              Text(
-                '${session.outlet.name} - ${session.cashier.name}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 16,
-                ),
+              _TopIconButton(
+                icon: LucideIcons.menu,
+                label: 'Menu',
+                compact: compact,
+                onTap: onOpenMenu,
               ),
-              const SizedBox(height: 2),
-              Row(
-                children: [
-                  const _OnlineDot(),
-                  const SizedBox(width: 6),
-                  Text(
-                    session.hasOpenShift
-                        ? 'Status: Online · Shift Aktif'
-                        : 'Status: Online · Shift belum dibuka',
-                    style: const TextStyle(
-                      color: MokposColors.onPrimaryMuted,
-                      fontSize: 12,
-                    ),
+              SizedBox(width: compact ? 6 : 10),
+              if (!compact) ...[
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(NojposRadius.md),
                   ),
-                ],
-              ),
-            ],
-          ),
-          const Spacer(),
-          const Text(
-            'NojPOS',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 26,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const Spacer(),
-          _TopIconButton(
-            icon: LucideIcons.bell,
-            label: 'Notifikasi',
-            badge: blockingOutboxCount,
-            onTap: () => showCheckoutOutboxDialog(context, ref),
-          ),
-          _TopIconButton(
-            icon: LucideIcons.layoutGrid,
-            label: 'Mode order',
-            onTap: onOpenMode,
-          ),
-          _TopIconButton(
-            icon: LucideIcons.lockKeyhole,
-            label: 'Lock: kembali ke PIN',
-            onTap: () {
-              ref.read(nojposSessionProvider.notifier).lock();
-              context.go('/pin');
-            },
-          ),
-          const SizedBox(width: 10),
-          GestureDetector(
-            key: const ValueKey('topbar_orders'),
-            behavior: HitTestBehavior.opaque,
-            onTap: onOpenOrders,
-            child: Container(
-              height: 48,
-              width: 210,
-              padding: const EdgeInsets.symmetric(horizontal: 18),
-              decoration: BoxDecoration(
-                color: MokposColors.primaryDark,
-                borderRadius: BorderRadius.circular(MokposRadius.sm),
-              ),
-              child: const Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Daftar Order',
+                  child: const Icon(
+                    LucideIcons.store,
+                    color: NojposColors.primary,
+                    size: 25,
+                  ),
+                ),
+                const SizedBox(width: 12),
+              ],
+              Expanded(
+                flex: medium ? 2 : 1,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      compact ? session.outlet.name : title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w900,
-                        fontSize: 16,
+                        fontSize: compact ? 14 : 16,
                       ),
                     ),
-                  ),
-                  Icon(LucideIcons.chevronRight, color: Colors.white, size: 21),
-                ],
+                    const SizedBox(height: 2),
+                    ConnectivityStatusChip(
+                      suffix: compact
+                          ? null
+                          : session.hasOpenShift
+                          ? 'Shift Aktif'
+                          : 'Shift belum dibuka',
+                      textStyle: const TextStyle(
+                        color: NojposColors.onPrimaryMuted,
+                        fontSize: 12,
+                      ),
+                      dotSize: compact ? 7 : 8,
+                    ),
+                  ],
+                ),
               ),
-            ),
+              if (!medium) ...[
+                const Spacer(),
+                const Text(
+                  'NojPOS',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 26,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const Spacer(),
+              ],
+              _TopIconButton(
+                icon: LucideIcons.bell,
+                label: 'Notifikasi',
+                badge: blockingOutboxCount,
+                compact: compact,
+                onTap: () => showCheckoutOutboxDialog(context, ref),
+              ),
+              if (!compact)
+                _TopIconButton(
+                  icon: LucideIcons.layoutGrid,
+                  label: 'Mode order',
+                  onTap: onOpenMode,
+                ),
+              _TopIconButton(
+                icon: LucideIcons.lockKeyhole,
+                label: 'Kunci layar',
+                compact: compact,
+                onTap: () {
+                  ref
+                      .read(terminalLockControllerProvider.notifier)
+                      .lock(reason: TerminalLockReason.manual);
+                },
+              ),
+              SizedBox(width: compact ? 6 : 10),
+              _OrdersButton(compact: compact, onTap: onOpenOrders),
+            ],
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _OnlineDot extends StatelessWidget {
-  const _OnlineDot();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 10,
-      height: 10,
-      decoration: const BoxDecoration(
-        color: MokposColors.success,
-        shape: BoxShape.circle,
-      ),
+        );
+      },
     );
   }
 }
@@ -172,15 +149,18 @@ class _TopIconButton extends StatelessWidget {
     required this.onTap,
     required this.label,
     this.badge = 0,
+    this.compact = false,
   });
 
   final IconData icon;
   final VoidCallback onTap;
   final String label;
   final int badge;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
+    final size = compact ? 40.0 : 46.0;
     return Tooltip(
       message: label,
       child: IconButton(
@@ -194,13 +174,62 @@ class _TopIconButton extends StatelessWidget {
           child: Icon(icon),
         ),
         color: Colors.white,
-        iconSize: 23,
+        iconSize: compact ? 21 : 23,
         style: IconButton.styleFrom(
-          fixedSize: const Size(46, 46),
-          backgroundColor: Colors.white.withValues(alpha: .08),
+          fixedSize: Size(size, size),
+          backgroundColor: Colors.white.withValues(alpha: .10),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(MokposRadius.sm),
+            borderRadius: BorderRadius.circular(NojposRadius.sm),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _OrdersButton extends StatelessWidget {
+  const _OrdersButton({required this.compact, required this.onTap});
+
+  final bool compact;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: 'Daftar Order',
+      child: GestureDetector(
+        key: const ValueKey('topbar_orders'),
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Container(
+          height: compact ? 40 : 48,
+          width: compact ? 44 : 210,
+          padding: EdgeInsets.symmetric(horizontal: compact ? 0 : 18),
+          decoration: BoxDecoration(
+            color: NojposColors.primaryDark,
+            borderRadius: BorderRadius.circular(NojposRadius.sm),
+          ),
+          child: compact
+              ? const Icon(LucideIcons.listOrdered, color: Colors.white, size: 21)
+              : const Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Daftar Order',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                    Icon(
+                      LucideIcons.chevronRight,
+                      color: Colors.white,
+                      size: 21,
+                    ),
+                  ],
+                ),
         ),
       ),
     );

@@ -14,6 +14,13 @@ class NojposWave1ApiTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        config()->set('nojpos.checkout.require_quote_for_checkout', false);
+    }
+
     public function test_demo_seeder_supports_flutter_wave_1_smoke_flow(): void
     {
         $this->seed(DemoSeeder::class);
@@ -127,11 +134,142 @@ class NojposWave1ApiTest extends TestCase
         ])->assertOk()
             ->assertJsonPath('data.cashier.id', $cashier);
 
+        $this->withToken($token)->postJson('/api/v1/shifts/open', [
+            'outlet_id' => $outletId,
+            'device_id' => $deviceId,
+            'cashier_id' => $cashier,
+            'opening_cash' => 100000,
+        ])->assertCreated()
+            ->assertJsonPath('data.cashier_id', $cashier);
+
         $this->assertDatabaseHas('audit_logs', [
             'business_id' => $businessId,
             'action' => 'auth.pin_switch',
             'actor_id' => $owner,
         ]);
+        $this->assertDatabaseHas('terminal_sessions', [
+            'business_id' => $businessId,
+            'outlet_id' => $outletId,
+            'device_id' => $deviceId,
+            'user_id' => $owner,
+            'cashier_id' => $cashier,
+            'status' => 'active',
+        ]);
+        $this->assertDatabaseHas('audit_logs', [
+            'business_id' => $businessId,
+            'action' => 'terminal_session.started',
+            'actor_id' => $owner,
+            'entity_type' => 'terminal_session',
+        ]);
+    }
+
+    public function test_terminal_session_resolves_context_without_token_ability_and_rejects_other_device(): void
+    {
+        $businessId = $this->business();
+        $outletId = $this->outlet($businessId);
+        $deviceId = $this->device($businessId, $outletId, 'tablet-session-a');
+        $otherOutletId = $this->outlet($businessId, 'Outlet B');
+        $otherDeviceId = $this->device($businessId, $otherOutletId, 'tablet-session-b');
+        $owner = $this->user($businessId, 'terminal-owner@example.test', 'owner');
+        $cashier = $this->user($businessId, 'terminal-cashier@example.test', 'cashier', '1234');
+        $token = $this->tokenFor($owner);
+
+        $this->withToken($token)->postJson('/api/v1/auth/pin-switch', [
+            'pin' => '1234',
+            'device_id' => $deviceId,
+            'outlet_id' => $outletId,
+        ])->assertOk()
+            ->assertJsonPath('data.terminal_session.cashier_id', $cashier)
+            ->assertJsonPath('data.terminal_session.status', 'active');
+
+        DB::table('personal_access_tokens')
+            ->where('token', hash('sha256', $token))
+            ->update(['abilities' => json_encode(['*'])]);
+
+        $this->withToken($token)->postJson('/api/v1/shifts/open', [
+            'outlet_id' => $outletId,
+            'device_id' => $deviceId,
+            'cashier_id' => $cashier,
+            'opening_cash' => 100000,
+        ])->assertCreated()
+            ->assertJsonPath('data.cashier_id', $cashier);
+
+        $this->withToken($token)->postJson('/api/v1/shifts/open', [
+            'outlet_id' => $otherOutletId,
+            'device_id' => $otherDeviceId,
+            'cashier_id' => $cashier,
+            'opening_cash' => 100000,
+        ])->assertForbidden()
+            ->assertJsonPath('error.code', 'TERMINAL_CONTEXT_MISMATCH');
+    }
+
+    public function test_terminal_session_expired_is_rejected(): void
+    {
+        $businessId = $this->business();
+        $outletId = $this->outlet($businessId);
+        $deviceId = $this->device($businessId, $outletId, 'tablet-expired');
+        $owner = $this->user($businessId, 'expired-owner@example.test', 'owner');
+        $cashier = $this->user($businessId, 'expired-cashier@example.test', 'cashier', '1234');
+        $token = $this->tokenFor($owner);
+
+        $this->withToken($token)->postJson('/api/v1/auth/pin-switch', [
+            'pin' => '1234',
+            'device_id' => $deviceId,
+            'outlet_id' => $outletId,
+        ])->assertOk();
+
+        DB::table('personal_access_tokens')
+            ->where('token', hash('sha256', $token))
+            ->update(['abilities' => json_encode(['*'])]);
+        DB::table('terminal_sessions')
+            ->where('business_id', $businessId)
+            ->update(['expires_at' => now()->subMinute(), 'updated_at' => now()]);
+
+        $this->withToken($token)->postJson('/api/v1/shifts/open', [
+            'outlet_id' => $outletId,
+            'device_id' => $deviceId,
+            'cashier_id' => $cashier,
+            'opening_cash' => 100000,
+        ])->assertForbidden()
+            ->assertJsonPath('error.code', 'TERMINAL_SESSION_EXPIRED');
+    }
+
+    public function test_terminal_session_revoked_is_rejected(): void
+    {
+        $businessId = $this->business('Revoked Tenant');
+        $outletId = $this->outlet($businessId);
+        $deviceId = $this->device($businessId, $outletId, 'tablet-revoked');
+        $owner = $this->user($businessId, 'revoked-owner@example.test', 'owner');
+        $cashier = $this->user($businessId, 'revoked-cashier@example.test', 'cashier', '1234');
+        $token = $this->tokenFor($owner);
+
+        DB::table('personal_access_tokens')
+            ->where('token', hash('sha256', $token))
+            ->update(['abilities' => json_encode(['*'])]);
+        DB::table('terminal_sessions')->insert([
+            'id' => (string) Str::uuid(),
+            'business_id' => $businessId,
+            'outlet_id' => $outletId,
+            'device_id' => $deviceId,
+            'user_id' => $owner,
+            'cashier_id' => $cashier,
+            'token_id' => null,
+            'status' => 'revoked',
+            'opened_at' => now()->subMinutes(10),
+            'last_seen_at' => now()->subMinutes(5),
+            'expires_at' => now()->addMinutes(10),
+            'revoked_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->withToken($token)->postJson('/api/v1/shifts/open', [
+            'outlet_id' => $outletId,
+            'device_id' => $deviceId,
+            'cashier_id' => $cashier,
+            'opening_cash' => 100000,
+        ])->assertForbidden()
+            ->assertJsonPath('error.code', 'TERMINAL_SESSION_INVALID');
     }
 
     public function test_tenant_scope_blocks_cross_business_operational_write(): void
@@ -158,6 +296,7 @@ class NojposWave1ApiTest extends TestCase
         $businessA = $this->business('A');
         $outletA = $this->outlet($businessA);
         $userA = $this->user($businessA, 'a@example.test', 'cashier');
+        $tokenA = $this->tokenFor($userA);
         $categoryA = $this->category($businessA, 'Minuman');
         $this->product($businessA, $outletA, $categoryA, 'Teh Manis', 8000, 'TEH-1');
 
@@ -166,29 +305,47 @@ class NojposWave1ApiTest extends TestCase
         $categoryB = $this->category($businessB, 'Makanan');
         $this->product($businessB, $outletB, $categoryB, 'Nasi Rahasia', 12000, 'NASI-1');
 
-        $this->withToken($this->tokenFor($userA))->getJson('/api/v1/products?search=Teh&category=Minuman')
+        $this->withToken($tokenA)->getJson('/api/v1/products?search=Teh&category=Minuman')
+            ->assertOk()
+            ->assertJsonCount(1, 'data.products')
+            ->assertJsonPath('data.products.0.name', 'Teh Manis');
+
+        $this->withToken($tokenA)->getJson('/api/v1/products?search=TEH-1')
             ->assertOk()
             ->assertJsonCount(1, 'data.products')
             ->assertJsonPath('data.products.0.name', 'Teh Manis');
     }
 
-    public function test_customers_can_be_created_searched_group_filtered_and_are_tenant_scoped(): void
+    public function test_customers_can_be_created_updated_archived_idempotently_and_are_tenant_scoped(): void
     {
         $businessA = $this->business('A');
         $cashierA = $this->user($businessA, 'cashier-a@example.test', 'cashier');
         $tokenA = $this->tokenFor($cashierA);
 
         $businessB = $this->business('B');
-        $this->customer($businessB, 'Budi Rahasia', '0812999999', 'VIP');
+        $customerB = $this->customer($businessB, 'Budi Rahasia', '0812999999', 'VIP');
 
-        $created = $this->withToken($tokenA)->postJson('/api/v1/customers', [
+        $createKey = (string) Str::uuid();
+        $payload = [
             'name' => 'Ani Pelanggan',
             'phone' => '0812345678',
             'group' => 'VIP',
-        ])->assertCreated()
+        ];
+
+        $created = $this->withToken($tokenA)->withHeaders(['Idempotency-Key' => $createKey])->postJson('/api/v1/customers', $payload)
+            ->assertCreated()
             ->assertJsonPath('data.name', 'Ani Pelanggan')
             ->assertJsonPath('data.business_id', $businessA);
 
+        $this->withToken($tokenA)->withHeaders(['Idempotency-Key' => $createKey])->postJson('/api/v1/customers', $payload)
+            ->assertCreated()
+            ->assertJsonPath('data.id', $created->json('data.id'));
+
+        $this->withToken($tokenA)->withHeaders(['Idempotency-Key' => $createKey])->postJson('/api/v1/customers', array_merge($payload, ['name' => 'Ani Berbeda']))
+            ->assertStatus(409)
+            ->assertJsonPath('error.code', 'IDEMPOTENCY_MISMATCH');
+
+        $this->assertSame(1, DB::table('customers')->where('business_id', $businessA)->where('name', 'Ani Pelanggan')->count());
         $this->assertDatabaseHas('customers', [
             'id' => $created->json('data.id'),
             'business_id' => $businessA,
@@ -196,11 +353,44 @@ class NojposWave1ApiTest extends TestCase
             'phone' => '0812345678',
             'group' => 'VIP',
         ]);
+        $this->assertDatabaseHas('audit_logs', [
+            'business_id' => $businessA,
+            'action' => 'customer.created',
+            'entity_id' => $created->json('data.id'),
+        ]);
 
         $this->withToken($tokenA)->getJson('/api/v1/customers?search=081234&group=VIP')
             ->assertOk()
             ->assertJsonCount(1, 'data.customers')
             ->assertJsonPath('data.customers.0.name', 'Ani Pelanggan');
+
+        $this->withToken($tokenA)->withHeaders(['Idempotency-Key' => (string) Str::uuid()])->putJson('/api/v1/customers/'.$customerB, ['name' => 'Tidak Boleh'])
+            ->assertNotFound();
+
+        $updated = $this->withToken($tokenA)->withHeaders(['Idempotency-Key' => (string) Str::uuid()])->putJson('/api/v1/customers/'.$created->json('data.id'), [
+            'name' => 'Ani Updated',
+            'phone' => '0812000000',
+            'group' => 'Regular',
+        ])->assertOk()
+            ->assertJsonPath('data.name', 'Ani Updated')
+            ->assertJsonPath('data.group', 'Regular');
+
+        $this->assertDatabaseHas('audit_logs', [
+            'business_id' => $businessA,
+            'action' => 'customer.updated',
+            'entity_id' => $updated->json('data.id'),
+        ]);
+        $auditAfter = DB::table('audit_logs')->where('action', 'customer.updated')->where('entity_id', $updated->json('data.id'))->value('after');
+        $this->assertStringNotContainsString('0812000000', (string) $auditAfter);
+
+        $this->withToken($tokenA)->withHeaders(['Idempotency-Key' => (string) Str::uuid()])->postJson('/api/v1/customers', ['phone' => '0812'])
+            ->assertStatus(422)
+            ->assertJsonPath('error.code', 'VALIDATION_ERROR');
+
+        $this->withToken($tokenA)->withHeaders(['Idempotency-Key' => (string) Str::uuid()])->deleteJson('/api/v1/customers/'.$created->json('data.id'))
+            ->assertOk()
+            ->assertJsonPath('data.archived', true);
+        $this->assertNotNull(DB::table('customers')->where('id', $created->json('data.id'))->value('deleted_at'));
     }
 
     public function test_shift_lifecycle_cash_movements_expected_cash_and_double_close_guard(): void
@@ -302,6 +492,42 @@ class NojposWave1ApiTest extends TestCase
             'business_id' => $businessId,
             'action' => 'shift.cash_movement',
         ]);
+    }
+
+    public function test_shift_open_retries_with_same_key_return_saved_response_and_mismatch_is_rejected(): void
+    {
+        [$businessId, $outletId, $deviceId, $cashierId, $token] = $this->cashierContext();
+        $key = (string) Str::uuid();
+        $payload = [
+            'outlet_id' => $outletId,
+            'device_id' => $deviceId,
+            'cashier_id' => $cashierId,
+            'opening_cash' => 100000,
+        ];
+
+        $first = $this->withToken($token)
+            ->withHeaders(['Idempotency-Key' => $key])
+            ->postJson('/api/v1/shifts/open', $payload)
+            ->assertCreated();
+
+        $this->withToken($token)
+            ->withHeaders(['Idempotency-Key' => $key])
+            ->postJson('/api/v1/shifts/open', $payload)
+            ->assertCreated()
+            ->assertExactJson($first->json());
+
+        $this->assertSame(1, DB::table('shift_sessions')
+            ->where('business_id', $businessId)
+            ->where('outlet_id', $outletId)
+            ->where('device_id', $deviceId)
+            ->where('status', 'open')
+            ->count());
+
+        $this->withToken($token)
+            ->withHeaders(['Idempotency-Key' => $key])
+            ->postJson('/api/v1/shifts/open', [...$payload, 'opening_cash' => 200000])
+            ->assertConflict()
+            ->assertJsonPath('error.code', 'IDEMPOTENCY_MISMATCH');
     }
 
     public function test_close_shift_requires_variance_reason_and_preserves_first_close_report(): void
@@ -1101,6 +1327,94 @@ SQL);
             ->assertJsonPath('data.payment_totals.1.amount', 40000);
     }
 
+    public function test_receipt_payload_uses_immutable_sale_rows_and_reflects_payment_status(): void
+    {
+        [$businessId, $outletId, $deviceId, $cashierId, $token] = $this->cashierContext();
+        $categoryId = $this->category($businessId, 'Minuman');
+        $productId = $this->product($businessId, $outletId, $categoryId, 'Es Kopi Original', 15000);
+        $this->paymentMethod($businessId, $outletId, 'Tunai', true);
+        $this->paymentMethod($businessId, $outletId, 'QRIS Statis', false);
+
+        $shiftId = $this->withToken($token)->postJson('/api/v1/shifts/open', [
+            'outlet_id' => $outletId,
+            'device_id' => $deviceId,
+            'cashier_id' => $cashierId,
+            'opening_cash' => 100000,
+        ])->json('data.id');
+
+        $created = $this->withToken($token)->withHeaders([
+            'Idempotency-Key' => (string) Str::uuid(),
+        ])->postJson('/api/v1/transactions', [
+            'outlet_id' => $outletId,
+            'device_id' => $deviceId,
+            'cashier_id' => $cashierId,
+            'shift_id' => $shiftId,
+            'items' => [[
+                'product_id' => $productId,
+                'quantity' => 2,
+                'unit_price' => 1,
+            ]],
+            'payments' => [
+                ['method' => 'Tunai', 'amount' => 10000],
+                ['method' => 'QRIS Statis', 'amount' => 20000, 'reference' => 'QR-RECEIPT'],
+            ],
+        ])->assertCreated()
+            ->assertJsonPath('data.receipt.transaction_number', fn ($number): bool => is_string($number) && str_starts_with($number, 'TRX-'))
+            ->assertJsonPath('data.receipt.status', 'partial')
+            ->assertJsonPath('data.receipt.outlet.id', $outletId)
+            ->assertJsonPath('data.receipt.cashier.id', $cashierId)
+            ->assertJsonPath('data.receipt.items.0.name', 'Es Kopi Original')
+            ->assertJsonPath('data.receipt.items.0.quantity', 2)
+            ->assertJsonPath('data.receipt.items.0.unit_price', 15000)
+            ->assertJsonPath('data.receipt.items.0.subtotal', 30000)
+            ->assertJsonPath('data.receipt.totals.grand_total', 30000)
+            ->assertJsonPath('data.receipt.payments.0.method', 'Tunai')
+            ->assertJsonPath('data.receipt.payments.0.amount', 10000)
+            ->assertJsonPath('data.receipt.payments.1.method', 'QRIS Statis')
+            ->assertJsonPath('data.receipt.payments.1.amount', 20000)
+            ->assertJsonMissingPath('data.receipt.payments.1.provider_reference');
+
+        $transactionId = $created->json('data.id');
+        $qrisPaymentId = DB::table('payments')
+            ->where('transaction_id', $transactionId)
+            ->where('method', 'QRIS Statis')
+            ->value('id');
+
+        DB::table('products')->where('id', $productId)->update([
+            'name' => 'Es Kopi Rename',
+            'price' => 1,
+            'updated_at' => now(),
+        ]);
+
+        $afterProductMutation = $this->withToken($token)
+            ->getJson('/api/v1/transactions/'.$transactionId)
+            ->assertOk()
+            ->assertJsonPath('data.items.0.name', 'Es Kopi Original')
+            ->assertJsonPath('data.items.0.unit_price', 15000)
+            ->assertJsonPath('data.receipt.items.0.name', 'Es Kopi Original')
+            ->assertJsonPath('data.receipt.items.0.unit_price', 15000)
+            ->assertJsonPath('data.receipt.totals.grand_total', 30000);
+
+        $this->assertSame($created->json('data.receipt.items.0.name'), $afterProductMutation->json('data.receipt.items.0.name'));
+        $this->assertSame($created->json('data.receipt.items.0.unit_price'), $afterProductMutation->json('data.receipt.items.0.unit_price'));
+
+        $this->withToken($token)->withHeaders([
+            'Idempotency-Key' => (string) Str::uuid(),
+        ])->postJson('/api/v1/payments', [
+            'payment_id' => $qrisPaymentId,
+            'confirm' => true,
+        ])->assertOk();
+
+        $this->withToken($token)
+            ->getJson('/api/v1/transactions/'.$transactionId)
+            ->assertOk()
+            ->assertJsonPath('data.status', 'paid')
+            ->assertJsonPath('data.receipt.status', 'paid')
+            ->assertJsonPath('data.receipt.items.0.name', 'Es Kopi Original')
+            ->assertJsonPath('data.receipt.items.0.unit_price', 15000)
+            ->assertJsonPath('data.receipt.payments.1.status', 'confirmed');
+    }
+
     public function test_payment_cannot_be_added_to_voided_transaction(): void
     {
         [$businessId, $outletId, $deviceId, $cashierId, $token] = $this->cashierContext();
@@ -1369,7 +1683,7 @@ SQL);
         $this->assertDatabaseHas('audit_logs', [
             'business_id' => $businessId,
             'actor_id' => $cashierId,
-            'action' => 'void',
+            'action' => 'transaction.void',
             'entity_type' => 'transaction',
             'entity_id' => $transaction->json('data.id'),
         ]);
@@ -1384,6 +1698,47 @@ SQL);
             ->assertExactJson($void->json());
 
         $this->withToken($token)->withHeaders([
+            'Idempotency-Key' => $key,
+        ])->postJson('/api/v1/voids', [
+            'transaction_id' => $transaction->json('data.id'),
+            'shift_id' => $shiftId,
+            'reason' => 'Payload berbeda',
+        ])->assertStatus(409)
+            ->assertJsonPath('error.code', 'IDEMPOTENCY_MISMATCH');
+
+        $this->withToken($token)->withHeaders([
+            'Idempotency-Key' => (string) Str::uuid(),
+        ])->postJson('/api/v1/voids', [
+            'transaction_id' => $transaction->json('data.id'),
+            'shift_id' => $shiftId,
+            'reason' => 'Void kedua',
+        ])->assertStatus(422)
+            ->assertJsonPath('error.code', 'TRANSACTION_ALREADY_VOIDED');
+
+        $this->assertSame(1, DB::table('stock_movements')
+            ->where('business_id', $businessId)
+            ->where('transaction_id', $transaction->json('data.id'))
+            ->where('type', 'void')
+            ->count());
+        $this->assertSame(1, DB::table('cash_movements')
+            ->where('business_id', $businessId)
+            ->where('shift_id', $shiftId)
+            ->where('reason', 'Void: Salah input item')
+            ->count());
+        $this->assertSame(1, DB::table('audit_logs')
+            ->where('business_id', $businessId)
+            ->where('entity_id', $transaction->json('data.id'))
+            ->where('action', 'transaction.void')
+            ->count());
+
+        $this->withToken($token)
+            ->getJson('/api/v1/transactions/'.$transaction->json('data.id'))
+            ->assertOk()
+            ->assertJsonPath('data.receipt.status', 'voided')
+            ->assertJsonPath('data.receipt.items.0.name', 'Sate Ayam')
+            ->assertJsonPath('data.receipt.items.0.unit_price', 50000);
+
+        $this->withToken($token)->withHeaders([
             'Idempotency-Key' => (string) Str::uuid(),
         ])->postJson("/api/v1/shifts/{$shiftId}/close", [
             'actual_cash' => 100000,
@@ -1391,6 +1746,20 @@ SQL);
         ])->assertOk()
             ->assertJsonPath('data.expected_cash', 100000)
             ->assertJsonPath('data.cash_difference', 0);
+    }
+
+    public function test_void_requires_authorized_role(): void
+    {
+        [, , , , $token] = $this->cashierContext('cashier');
+
+        $this->withToken($token)->withHeaders([
+            'Idempotency-Key' => (string) Str::uuid(),
+        ])->postJson('/api/v1/voids', [
+            'transaction_id' => (string) Str::uuid(),
+            'shift_id' => (string) Str::uuid(),
+            'reason' => 'Kasir tidak boleh void',
+        ])->assertForbidden()
+            ->assertJsonPath('error.code', 'FORBIDDEN');
     }
 
     public function test_void_cross_shift_and_missing_reason_are_rejected(): void
@@ -1752,6 +2121,58 @@ SQL);
             ->assertJsonPath('error.code', 'FORBIDDEN');
     }
 
+    public function test_inventory_purchase_retries_with_same_key_do_not_duplicate_purchase_or_stock_movement(): void
+    {
+        [$businessId, $outletId, $deviceId, $ownerId, $token] = $this->cashierContext('owner');
+        $categoryId = $this->category($businessId, 'Minuman');
+        $productId = $this->product($businessId, $outletId, $categoryId, 'Kopi Robusta', 18000);
+        $key = (string) Str::uuid();
+        $payload = [
+            'outlet_id' => $outletId,
+            'number' => 'INV-PO-IDEMPOTENT-001',
+            'supplier_name' => 'Supplier Kopi',
+            'items' => [[
+                'product_id' => $productId,
+                'quantity' => 5,
+                'unit_cost' => 9000,
+            ]],
+        ];
+
+        $first = $this->withToken($token)
+            ->withHeaders(['Idempotency-Key' => $key])
+            ->postJson('/api/v1/inventory/purchases', $payload)
+            ->assertCreated();
+
+        $this->withToken($token)
+            ->withHeaders(['Idempotency-Key' => $key])
+            ->postJson('/api/v1/inventory/purchases', $payload)
+            ->assertCreated()
+            ->assertExactJson($first->json());
+
+        $this->assertSame(1, DB::table('inventory_purchases')
+            ->where('business_id', $businessId)
+            ->where('number', 'INV-PO-IDEMPOTENT-001')
+            ->count());
+        $this->assertSame(1, DB::table('stock_movements')
+            ->where('business_id', $businessId)
+            ->where('purchase_id', $first->json('data.id'))
+            ->where('type', 'purchase')
+            ->count());
+
+        $this->withToken($token)
+            ->withHeaders(['Idempotency-Key' => $key])
+            ->postJson('/api/v1/inventory/purchases', [
+                ...$payload,
+                'items' => [[
+                    'product_id' => $productId,
+                    'quantity' => 6,
+                    'unit_cost' => 9000,
+                ]],
+            ])
+            ->assertConflict()
+            ->assertJsonPath('error.code', 'IDEMPOTENCY_MISMATCH');
+    }
+
     public function test_negative_stock_is_allowed_and_reported_with_warning(): void
     {
         [$businessId, $outletId, $deviceId, $cashierId, $token] = $this->cashierContext();
@@ -1799,31 +2220,52 @@ SQL);
         $cashierId = $this->user($businessId, 'readonly-cashier@example.test', 'cashier');
         $cashierToken = $this->tokenFor($cashierId);
 
-        $category = $this->withToken($ownerToken)->postJson('/api/v1/categories', [
+        $categoryKey = (string) Str::uuid();
+        $category = $this->withToken($ownerToken)->withHeaders(['Idempotency-Key' => $categoryKey])->postJson('/api/v1/categories', [
             'name' => 'Snack',
         ])->assertCreated()
             ->assertJsonPath('data.business_id', $businessId)
             ->assertJsonPath('data.name', 'Snack');
+
+        $this->withToken($ownerToken)->withHeaders(['Idempotency-Key' => $categoryKey])->postJson('/api/v1/categories', [
+            'name' => 'Snack',
+        ])->assertCreated()
+            ->assertJsonPath('data.id', $category->json('data.id'));
+        $this->assertSame(1, DB::table('product_categories')->where('business_id', $businessId)->where('name', 'Snack')->count());
+
+        $this->withToken($ownerToken)->withHeaders(['Idempotency-Key' => $categoryKey])->postJson('/api/v1/categories', [
+            'name' => 'Snack Beda',
+        ])->assertStatus(409)
+            ->assertJsonPath('error.code', 'IDEMPOTENCY_MISMATCH');
 
         $this->withToken($ownerToken)->putJson('/api/v1/categories/'.$category->json('data.id'), [
             'name' => 'Camilan',
         ])->assertOk()
             ->assertJsonPath('data.name', 'Camilan');
 
-        $product = $this->withToken($ownerToken)->postJson('/api/v1/products', [
+        $productPayload = [
             'outlet_id' => $outletId,
             'product_category_id' => $category->json('data.id'),
             'name' => 'Keripik Singkong',
             'barcode' => '899100000001',
             'price' => 15000,
             'track_stock' => true,
-        ])->assertCreated()
+        ];
+        $productKey = (string) Str::uuid();
+        $product = $this->withToken($ownerToken)->withHeaders(['Idempotency-Key' => $productKey])->postJson('/api/v1/products', $productPayload)->assertCreated()
             ->assertJsonPath('data.business_id', $businessId)
             ->assertJsonPath('data.outlet_id', $outletId)
             ->assertJsonPath('data.name', 'Keripik Singkong')
             ->assertJsonPath('data.price', 15000);
 
         $this->assertIsInt($product->json('data.price'));
+
+        $this->withToken($ownerToken)->withHeaders(['Idempotency-Key' => $productKey])->postJson('/api/v1/products', $productPayload)->assertCreated()
+            ->assertJsonPath('data.id', $product->json('data.id'));
+        $this->assertSame(1, DB::table('products')->where('business_id', $businessId)->where('barcode', '899100000001')->count());
+
+        $this->withToken($ownerToken)->withHeaders(['Idempotency-Key' => $productKey])->postJson('/api/v1/products', array_merge($productPayload, ['name' => 'Payload Beda']))->assertStatus(409)
+            ->assertJsonPath('error.code', 'IDEMPOTENCY_MISMATCH');
 
         $this->withToken($ownerToken)->putJson('/api/v1/products/'.$product->json('data.id'), [
             'outlet_id' => $outletId,
@@ -1837,12 +2279,18 @@ SQL);
             ->assertJsonPath('data.price', 17000)
             ->assertJsonPath('data.track_stock', false);
 
+        $this->assertDatabaseHas('audit_logs', [
+            'business_id' => $businessId,
+            'action' => 'product.updated',
+            'entity_id' => $product->json('data.id'),
+        ]);
+
         $this->withToken($cashierToken)->getJson('/api/v1/products?search=Balado')
             ->assertOk()
             ->assertJsonPath('data.products.0.id', $product->json('data.id'));
 
         $this->app['auth']->forgetGuards();
-        $this->withToken($cashierToken)->postJson('/api/v1/products', [
+        $this->withToken($cashierToken)->withHeaders(['Idempotency-Key' => (string) Str::uuid()])->postJson('/api/v1/products', [
             'outlet_id' => $outletId,
             'product_category_id' => $category->json('data.id'),
             'name' => 'Tidak Boleh',
@@ -1851,10 +2299,100 @@ SQL);
             ->assertJsonPath('error.code', 'FORBIDDEN');
 
         $this->app['auth']->forgetGuards();
-        $this->withToken($cashierToken)->putJson('/api/v1/categories/'.$category->json('data.id'), [
+        $this->withToken($cashierToken)->withHeaders(['Idempotency-Key' => (string) Str::uuid()])->putJson('/api/v1/categories/'.$category->json('data.id'), [
             'name' => 'Tidak Boleh',
         ])->assertStatus(403)
             ->assertJsonPath('error.code', 'FORBIDDEN');
+    }
+
+    public function test_product_category_validation_tenant_scope_archive_and_historical_transaction_snapshot(): void
+    {
+        [$businessId, $outletId, $deviceId, $ownerId, $token] = $this->cashierContext('owner');
+        $categoryId = $this->category($businessId, 'Minuman');
+        $productId = $this->product($businessId, $outletId, $categoryId, 'Es Teh', 5000, 'BAR-TEH');
+        $shiftId = $this->shift($businessId, $outletId, $deviceId, $ownerId, 'open', now());
+        $transactionId = $this->reportTransaction($businessId, $outletId, $deviceId, $ownerId, $shiftId, 5000);
+
+        DB::table('transaction_items')->insert([
+            'id' => (string) Str::uuid(),
+            'business_id' => $businessId,
+            'transaction_id' => $transactionId,
+            'product_id' => $productId,
+            'name' => 'Es Teh Snapshot',
+            'quantity' => 1,
+            'unit_price' => 5000,
+            'discount' => 0,
+            'subtotal' => 5000,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $otherBusinessId = $this->business('Tenant Kategori Lain');
+        $otherCategoryId = $this->category($otherBusinessId, 'Kategori Lain');
+
+        $this->withToken($token)->postJson('/api/v1/products', [
+            'outlet_id' => $outletId,
+            'product_category_id' => $otherCategoryId,
+            'name' => 'Produk Bocor',
+            'price' => 1000,
+        ])->assertStatus(403)
+            ->assertJsonPath('error.code', 'FORBIDDEN');
+
+        $this->withToken($token)->postJson('/api/v1/products', [
+            'outlet_id' => $outletId,
+            'product_category_id' => $categoryId,
+            'name' => '',
+            'price' => -1,
+        ])->assertStatus(422);
+
+        $this->withToken($token)->postJson('/api/v1/products', [
+            'outlet_id' => $outletId,
+            'product_category_id' => $categoryId,
+            'name' => 'Barcode Duplikat',
+            'barcode' => 'BAR-TEH',
+            'price' => 6000,
+        ])->assertStatus(422)
+            ->assertJsonPath('error.code', 'DUPLICATE_BARCODE');
+
+        $this->withToken($token)->putJson('/api/v1/products/'.$productId, [
+            'outlet_id' => $outletId,
+            'product_category_id' => $categoryId,
+            'name' => 'Es Teh Baru',
+            'barcode' => 'BAR-TEH-NEW',
+            'price' => 7000,
+            'track_stock' => true,
+        ])->assertOk();
+
+        $this->withToken($token)->deleteJson('/api/v1/products/'.$productId)
+            ->assertOk()
+            ->assertJsonPath('data.archived', true);
+
+        $this->assertDatabaseHas('products', [
+            'id' => $productId,
+            'business_id' => $businessId,
+            'deleted_at' => DB::table('products')->where('id', $productId)->value('deleted_at'),
+        ]);
+        $this->assertNotNull(DB::table('products')->where('id', $productId)->value('deleted_at'));
+        $this->assertDatabaseHas('transaction_items', [
+            'transaction_id' => $transactionId,
+            'product_id' => $productId,
+            'name' => 'Es Teh Snapshot',
+            'unit_price' => 5000,
+            'subtotal' => 5000,
+        ]);
+        $this->assertDatabaseHas('audit_logs', [
+            'business_id' => $businessId,
+            'action' => 'product.archived',
+            'entity_id' => $productId,
+        ]);
+
+        $createdCategory = $this->withToken($token)->postJson('/api/v1/categories', [
+            'name' => 'Akan Diarsipkan',
+        ])->assertCreated();
+        $this->withToken($token)->deleteJson('/api/v1/categories/'.$createdCategory->json('data.id'))
+            ->assertOk()
+            ->assertJsonPath('data.archived', true);
+        $this->assertNotNull(DB::table('product_categories')->where('id', $createdCategory->json('data.id'))->value('deleted_at'));
     }
 
     public function test_staff_list_is_scoped_to_business_and_outlet_payload_has_receipt_config(): void
@@ -1887,6 +2425,113 @@ SQL);
             ->assertJsonPath('data.outlets.0.receipt_config.footer_note', 'Terima kasih')
             ->assertJsonPath('data.outlets.0.receipt_config.show_logo', true)
             ->assertJsonPath('data.outlets.0.receipt_config.show_qris_info', false);
+    }
+
+    public function test_cashier_cannot_manage_staff(): void
+    {
+        [, , , , $cashierToken] = $this->cashierContext('cashier');
+
+        $this->withToken($cashierToken)->postJson('/api/v1/staff', [
+            'name' => 'Unauthorized',
+            'role' => 'cashier',
+            'pin' => '1234',
+        ])->assertStatus(403)
+            ->assertJsonPath('error.code', 'FORBIDDEN');
+    }
+
+    public function test_staff_management_is_transactional_audited_idempotent_and_protects_pin_and_roles(): void
+    {
+        [$businessId, , , $ownerId, $ownerToken] = $this->cashierContext('owner');
+        $adminId = $this->user($businessId, 'staff-admin@example.test', 'admin', '2468');
+        $adminToken = $this->tokenFor($adminId);
+        $cashierId = $this->user($businessId, 'staff-update-cashier@example.test', 'cashier', '1357');
+
+        $otherBusinessId = $this->business('Tenant Staff Lain');
+        $otherStaffId = $this->user($otherBusinessId, 'other-staff@example.test', 'cashier', '1357');
+
+        $createKey = (string) Str::uuid();
+        $payload = [
+            'name' => 'Kasir Baru',
+            'email' => 'kasir-baru@example.test',
+            'role' => 'cashier',
+            'pin' => '1122',
+        ];
+
+        $created = $this->withToken($ownerToken)->withHeaders(['Idempotency-Key' => $createKey])->postJson('/api/v1/staff', $payload)
+            ->assertCreated()
+            ->assertJsonPath('data.staff.name', 'Kasir Baru')
+            ->assertJsonPath('data.staff.role', 'cashier')
+            ->assertJsonMissing(['pin' => '1122'])
+            ->assertJsonMissing(['pin_hash' => true]);
+
+        $this->withToken($ownerToken)->withHeaders(['Idempotency-Key' => $createKey])->postJson('/api/v1/staff', $payload)
+            ->assertCreated()
+            ->assertJsonPath('data.staff.id', $created->json('data.staff.id'));
+
+        $this->withToken($ownerToken)->withHeaders(['Idempotency-Key' => $createKey])->postJson('/api/v1/staff', array_merge($payload, ['name' => 'Kasir Beda']))
+            ->assertStatus(409)
+            ->assertJsonPath('error.code', 'IDEMPOTENCY_MISMATCH');
+
+        $this->assertSame(1, DB::table('users')->where('business_id', $businessId)->where('email', 'kasir-baru@example.test')->count());
+        $this->assertDatabaseHas('audit_logs', [
+            'business_id' => $businessId,
+            'action' => 'staff.created',
+            'entity_id' => $created->json('data.staff.id'),
+        ]);
+        $this->assertDatabaseHas('audit_logs', [
+            'business_id' => $businessId,
+            'action' => 'staff.pin_updated',
+            'entity_id' => $created->json('data.staff.id'),
+        ]);
+
+        $this->withToken($adminToken)->withHeaders(['Idempotency-Key' => (string) Str::uuid()])->postJson('/api/v1/staff', [
+            'name' => 'Owner Palsu',
+            'email' => 'owner-palsu@example.test',
+            'role' => 'owner',
+            'pin' => '1234',
+        ])->assertStatus(422)
+            ->assertJsonPath('error.code', 'VALIDATION_ERROR');
+
+        $updated = $this->withToken($adminToken)->withHeaders(['Idempotency-Key' => (string) Str::uuid()])->putJson('/api/v1/staff/'.$cashierId, [
+            'name' => 'Cashier Updated',
+            'role' => 'admin',
+            'pin' => '7788',
+        ])->assertOk()
+            ->assertJsonPath('data.staff.name', 'Cashier Updated')
+            ->assertJsonPath('data.staff.role', 'admin')
+            ->assertJsonMissing(['pin' => '7788'])
+            ->assertJsonMissing(['pin_hash' => true]);
+
+        $this->assertTrue(Hash::check('7788', (string) DB::table('users')->where('id', $cashierId)->value('pin_hash')));
+        $this->assertDatabaseHas('audit_logs', [
+            'business_id' => $businessId,
+            'action' => 'staff.updated',
+            'entity_id' => $updated->json('data.staff.id'),
+        ]);
+        $this->assertDatabaseHas('audit_logs', [
+            'business_id' => $businessId,
+            'action' => 'staff.pin_updated',
+            'entity_id' => $updated->json('data.staff.id'),
+        ]);
+
+        $this->withToken($ownerToken)->withHeaders(['Idempotency-Key' => (string) Str::uuid()])->putJson('/api/v1/staff/'.$otherStaffId, ['name' => 'Leak'])
+            ->assertNotFound();
+        $this->withToken($ownerToken)->withHeaders(['Idempotency-Key' => (string) Str::uuid()])->deleteJson('/api/v1/staff/'.$otherStaffId)
+            ->assertNotFound();
+
+        $this->withToken($ownerToken)->withHeaders(['Idempotency-Key' => (string) Str::uuid()])->deleteJson('/api/v1/staff/'.$created->json('data.staff.id'))
+            ->assertOk()
+            ->assertJsonPath('data.deleted', true);
+        $this->assertNotNull(DB::table('users')->where('id', $created->json('data.staff.id'))->value('deleted_at'));
+        $this->assertDatabaseHas('audit_logs', [
+            'business_id' => $businessId,
+            'action' => 'staff.deactivated',
+            'entity_id' => $created->json('data.staff.id'),
+        ]);
+
+        $audit = DB::table('audit_logs')->where('action', 'staff.pin_updated')->where('entity_id', $updated->json('data.staff.id'))->latest('created_at')->first();
+        $this->assertStringNotContainsString('7788', (string) $audit->after);
+        $this->assertStringNotContainsString('staff-update-cashier@example.test', (string) $audit->after);
     }
 
     public function test_attendance_clock_in_out_pin_validation_history_and_audit(): void
@@ -1923,6 +2568,7 @@ SQL);
         $this->assertDatabaseHas('audit_logs', [
             'business_id' => $businessId,
             'actor_id' => $staffId,
+            'outlet_id' => $outletId,
             'action' => 'attendance.clock_in',
             'entity_type' => 'attendance',
             'entity_id' => $attendanceId,
@@ -1941,6 +2587,7 @@ SQL);
         $this->assertDatabaseHas('audit_logs', [
             'business_id' => $businessId,
             'actor_id' => $staffId,
+            'outlet_id' => $outletId,
             'action' => 'attendance.clock_out',
             'entity_type' => 'attendance',
             'entity_id' => $attendanceId,
@@ -1951,6 +2598,73 @@ SQL);
             ->assertJsonCount(1, 'data.attendance')
             ->assertJsonPath('data.attendance.0.id', $attendanceId)
             ->assertJsonPath('data.attendance.0.status', 'clocked_out');
+    }
+
+    public function test_attendance_is_idempotent_rejects_mismatch_and_blocks_double_open_record(): void
+    {
+        [$businessId, $outletId, $deviceId, $ownerId, $token] = $this->cashierContext('owner');
+        $staffId = $this->user($businessId, 'attendance-idempotent@example.test', 'cashier', '2468');
+        $clockInKey = (string) Str::uuid();
+        $clockOutKey = (string) Str::uuid();
+        $clockInPayload = [
+            'outlet_id' => $outletId,
+            'staff_id' => $staffId,
+            'pin' => '2468',
+            'action' => 'clock_in',
+        ];
+
+        $first = $this->withToken($token)->withHeaders(['Idempotency-Key' => $clockInKey])
+            ->postJson('/api/v1/attendance', $clockInPayload)
+            ->assertCreated()
+            ->assertJsonPath('data.status', 'clocked_in');
+
+        $attendanceId = $first->json('data.id');
+
+        $this->withToken($token)->withHeaders(['Idempotency-Key' => $clockInKey])
+            ->postJson('/api/v1/attendance', $clockInPayload)
+            ->assertCreated()
+            ->assertJsonPath('data.id', $attendanceId)
+            ->assertJsonPath('data.status', 'clocked_in');
+
+        $this->withToken($token)->withHeaders(['Idempotency-Key' => $clockInKey])
+            ->postJson('/api/v1/attendance', array_merge($clockInPayload, ['action' => 'clock_out']))
+            ->assertStatus(409)
+            ->assertJsonPath('error.code', 'IDEMPOTENCY_MISMATCH');
+
+        $this->withToken($token)->withHeaders(['Idempotency-Key' => (string) Str::uuid()])
+            ->postJson('/api/v1/attendance', $clockInPayload)
+            ->assertStatus(422)
+            ->assertJsonPath('error.code', 'ATTENDANCE_ALREADY_OPEN');
+
+        $this->assertSame(1, DB::table('attendance_records')->where('staff_id', $staffId)->count());
+        $this->assertSame(1, DB::table('audit_logs')->where('entity_id', $attendanceId)->where('action', 'attendance.clock_in')->count());
+        $this->assertDatabaseHas('audit_logs', [
+            'entity_id' => $attendanceId,
+            'action' => 'attendance.clock_in',
+            'idempotency_key' => $clockInKey,
+            'outlet_id' => $outletId,
+        ]);
+
+        $clockOutPayload = array_merge($clockInPayload, ['action' => 'clock_out']);
+        $this->withToken($token)->withHeaders(['Idempotency-Key' => $clockOutKey])
+            ->postJson('/api/v1/attendance', $clockOutPayload)
+            ->assertOk()
+            ->assertJsonPath('data.id', $attendanceId)
+            ->assertJsonPath('data.status', 'clocked_out');
+
+        $this->withToken($token)->withHeaders(['Idempotency-Key' => $clockOutKey])
+            ->postJson('/api/v1/attendance', $clockOutPayload)
+            ->assertOk()
+            ->assertJsonPath('data.id', $attendanceId)
+            ->assertJsonPath('data.status', 'clocked_out');
+
+        $this->assertSame(1, DB::table('audit_logs')->where('entity_id', $attendanceId)->where('action', 'attendance.clock_out')->count());
+        $this->assertDatabaseHas('audit_logs', [
+            'entity_id' => $attendanceId,
+            'action' => 'attendance.clock_out',
+            'idempotency_key' => $clockOutKey,
+            'outlet_id' => $outletId,
+        ]);
     }
 
     private function cashierContext(string $role = 'cashier'): array

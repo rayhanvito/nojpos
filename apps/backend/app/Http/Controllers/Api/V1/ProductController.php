@@ -3,7 +3,11 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreProductRequest;
+use App\Http\Requests\UpdateProductRequest;
 use App\Models\Product;
+use App\Services\ProductService;
+use App\Services\ProductServiceException;
 use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -11,6 +15,8 @@ use Illuminate\Support\Facades\DB;
 
 class ProductController extends Controller
 {
+    public function __construct(private readonly ProductService $products) {}
+
     public function index(Request $request): JsonResponse
     {
         $query = Product::query();
@@ -27,7 +33,11 @@ class ProductController extends Controller
         }
 
         if ($request->filled('search')) {
-            $query->where('name', 'like', '%'.$request->query('search').'%');
+            $search = $request->query('search');
+            $query->where(function ($query) use ($search): void {
+                $query->where('name', 'like', '%'.$search.'%')
+                    ->orWhere('barcode', 'like', '%'.$search.'%');
+            });
         }
 
         if ($request->filled('barcode')) {
@@ -37,6 +47,7 @@ class ProductController extends Controller
         if ($request->filled('category')) {
             $categoryIds = DB::table('product_categories')
                 ->where('business_id', $request->user()->business_id)
+                ->whereNull('deleted_at')
                 ->where('name', $request->query('category'))
                 ->pluck('id');
 
@@ -46,6 +57,7 @@ class ProductController extends Controller
         return ApiResponse::success([
             'categories' => DB::table('product_categories')
                 ->where('business_id', $request->user()->business_id)
+                ->whereNull('deleted_at')
                 ->orderBy('name')
                 ->get(['id', 'business_id', 'name'])
                 ->values()
@@ -58,82 +70,51 @@ class ProductController extends Controller
         ]);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(StoreProductRequest $request): JsonResponse
     {
         if (! $this->canManage($request)) {
             return ApiResponse::error('FORBIDDEN', 'Only owner or admin can manage products.', [], 403);
         }
 
-        $data = $request->validate($this->rules());
-        $businessId = $request->user()->business_id;
-
-        if (! $this->relationsAreValid($businessId, $data)) {
-            return ApiResponse::error('FORBIDDEN', 'Resource is outside the current business scope.', [], 403);
+        try {
+            return ApiResponse::success($this->products->create($request, $request->validated()), [], 201);
+        } catch (ProductServiceException $exception) {
+            return ApiResponse::error($exception->errorCode, $exception->getMessage(), $exception->details, $exception->status);
         }
-
-        $product = Product::query()->create([
-            'business_id' => $businessId,
-            'outlet_id' => $data['outlet_id'] ?? null,
-            'product_category_id' => $data['product_category_id'] ?? null,
-            'name' => $data['name'],
-            'barcode' => $data['barcode'] ?? null,
-            'price' => $data['price'],
-            'track_stock' => $data['track_stock'] ?? false,
-        ]);
-
-        return ApiResponse::success($this->productPayload($product->id), [], 201);
     }
 
-    public function update(Request $request, string $product): JsonResponse
+    public function update(UpdateProductRequest $request, string $product): JsonResponse
     {
         if (! $this->canManage($request)) {
             return ApiResponse::error('FORBIDDEN', 'Only owner or admin can manage products.', [], 403);
         }
 
-        $data = $request->validate($this->rules(false));
-        $businessId = $request->user()->business_id;
+        try {
+            $payload = $this->products->update($request, $product, $request->validated());
+        } catch (ProductServiceException $exception) {
+            return ApiResponse::error($exception->errorCode, $exception->getMessage(), $exception->details, $exception->status);
+        }
 
-        $existing = Product::query()
-            ->where('business_id', $businessId)
-            ->where('id', $product)
-            ->first();
-
-        if (! $existing) {
+        if (! $payload) {
             return ApiResponse::error('NOT_FOUND', 'Product not found.', [], 404);
         }
 
-        if (! $this->relationsAreValid($businessId, $data)) {
-            return ApiResponse::error('FORBIDDEN', 'Resource is outside the current business scope.', [], 403);
-        }
-
-        $existing->update(array_filter([
-            'outlet_id' => $data['outlet_id'] ?? null,
-            'product_category_id' => $data['product_category_id'] ?? null,
-            'name' => $data['name'] ?? null,
-            'barcode' => array_key_exists('barcode', $data) ? $data['barcode'] : null,
-            'price' => $data['price'] ?? null,
-            'track_stock' => array_key_exists('track_stock', $data) ? $data['track_stock'] : null,
-        ], fn ($value): bool => $value !== null));
-
-        if (array_key_exists('barcode', $data) && $data['barcode'] === null) {
-            $existing->update(['barcode' => null]);
-        }
-
-        return ApiResponse::success($this->productPayload($product));
+        return ApiResponse::success($payload);
     }
 
-    private function rules(bool $creating = true): array
+    public function destroy(Request $request, string $product): JsonResponse
     {
-        $required = $creating ? 'required' : 'sometimes';
+        if (! $this->canManage($request)) {
+            return ApiResponse::error('FORBIDDEN', 'Only owner or admin can manage products.', [], 403);
+        }
 
-        return [
-            'outlet_id' => [$creating ? 'required' : 'sometimes', 'uuid'],
-            'product_category_id' => ['nullable', 'uuid'],
-            'name' => [$required, 'string', 'max:255'],
-            'barcode' => ['nullable', 'string', 'max:100'],
-            'price' => [$required, 'integer', 'min:0'],
-            'track_stock' => ['sometimes', 'boolean'],
-        ];
+        $payload = $this->products->archive($request, $product);
+
+        if (! $payload) {
+            return ApiResponse::error('NOT_FOUND', 'Product not found.', [], 404);
+        }
+
+        return ApiResponse::success($payload);
     }
 
     private function canManage(Request $request): bool
@@ -141,42 +122,12 @@ class ProductController extends Controller
         return in_array($request->user()->role, ['owner', 'admin'], true);
     }
 
-    private function relationsAreValid(string $businessId, array $data): bool
-    {
-        if (($data['outlet_id'] ?? null) && ! $this->belongsToBusiness('outlets', $businessId, $data['outlet_id'])) {
-            return false;
-        }
-
-        if (($data['product_category_id'] ?? null) && ! $this->belongsToBusiness('product_categories', $businessId, $data['product_category_id'])) {
-            return false;
-        }
-
-        return true;
-    }
-
     private function belongsToBusiness(string $table, string $businessId, string $id): bool
     {
         return DB::table($table)
             ->where('business_id', $businessId)
             ->where('id', $id)
+            ->whereNull('deleted_at')
             ->exists();
-    }
-
-    private function productPayload(string $id): array
-    {
-        $product = Product::query()
-            ->where('id', $id)
-            ->firstOrFail(['id', 'business_id', 'outlet_id', 'product_category_id', 'name', 'barcode', 'price', 'track_stock']);
-
-        return [
-            'id' => $product->id,
-            'business_id' => $product->business_id,
-            'outlet_id' => $product->outlet_id,
-            'product_category_id' => $product->product_category_id,
-            'name' => $product->name,
-            'barcode' => $product->barcode,
-            'price' => (int) $product->price,
-            'track_stock' => (bool) $product->track_stock,
-        ];
     }
 }

@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\DB;
 
 class TerminalContextService
 {
+    public function __construct(private readonly TerminalSessionService $terminalSessions) {}
+
     public function fromPayload(Request $request, array $data, bool $requireOpenShift = false): TerminalContext
     {
         foreach (['outlet_id', 'device_id', 'cashier_id'] as $field) {
@@ -37,7 +39,9 @@ class TerminalContextService
 
         $this->assertOutlet($businessId, $shift->outlet_id);
         $this->assertDevice($businessId, $shift->outlet_id, $shift->device_id);
-        $this->assertPrivilegedOrSelf($request, $shift->cashier_id);
+        if (! $this->hasValidTerminalSession($request, $businessId, $shift->outlet_id, $shift->device_id, $shift->cashier_id)) {
+            $this->assertPrivilegedOrSelf($request, $shift->cashier_id);
+        }
 
         if ($requireOpenShift && ($shift->status ?? null) !== 'open') {
             $this->fail('SHIFT_NOT_OPEN', 'Shift must be open for this terminal action.', 422);
@@ -55,10 +59,12 @@ class TerminalContextService
         $this->assertOutlet($businessId, $transaction->outlet_id);
         $this->assertDevice($businessId, $transaction->outlet_id, $transaction->device_id);
 
-        if ($allowPrivilegedActor) {
-            $this->assertPrivilegedOrSelf($request, $transaction->cashier_id);
-        } else {
-            $this->assertCashier($request, $businessId, $transaction->cashier_id);
+        if (! $this->hasValidTerminalSession($request, $businessId, $transaction->outlet_id, $transaction->device_id, $transaction->cashier_id)) {
+            if ($allowPrivilegedActor) {
+                $this->assertPrivilegedOrSelf($request, $transaction->cashier_id);
+            } else {
+                $this->assertCashier($request, $businessId, $transaction->cashier_id);
+            }
         }
 
         $this->assertShiftTuple(
@@ -124,14 +130,32 @@ class TerminalContextService
             $this->failMismatch();
         }
 
-        if ($request->user()->id !== $cashierId) {
-            $this->failMismatch();
+        if ($this->hasValidTerminalSession($request, $businessId, $this->contextOutletId($request), $this->contextDeviceId($request), $cashierId)) {
+            return;
         }
+
+        if ($request->user()->id === $cashierId) {
+            return;
+        }
+
+        if ($this->hasExactTokenAbility($request, 'acting_cashier:'.$cashierId)) {
+            return;
+        }
+
+        $this->failMismatch();
     }
 
     private function assertPrivilegedOrSelf(Request $request, string $cashierId): void
     {
+        if ($this->hasValidTerminalSession($request, $this->businessId($request), $this->contextOutletId($request), $this->contextDeviceId($request), $cashierId)) {
+            return;
+        }
+
         if ($request->user()->id === $cashierId) {
+            return;
+        }
+
+        if ($this->hasExactTokenAbility($request, 'acting_cashier:'.$cashierId)) {
             return;
         }
 
@@ -140,6 +164,40 @@ class TerminalContextService
         }
 
         $this->failMismatch();
+    }
+
+    private function hasExactTokenAbility(Request $request, string $ability): bool
+    {
+        $token = $request->user()?->currentAccessToken();
+        $abilities = is_object($token) ? ($token->abilities ?? []) : [];
+
+        return in_array($ability, is_array($abilities) ? $abilities : [], true);
+    }
+
+    private function hasValidTerminalSession(Request $request, string $businessId, ?string $outletId, ?string $deviceId, string $cashierId): bool
+    {
+        if (! $outletId || ! $deviceId) {
+            return false;
+        }
+
+        try {
+            return $this->terminalSessions->activeSessionForContext($request, $businessId, $outletId, $deviceId, $cashierId) !== null;
+        } catch (TerminalSessionException $error) {
+            throw new TerminalContextException($error->errorCode, $error->getMessage(), $error->status, $error->details);
+        }
+    }
+
+    private function contextOutletId(Request $request): ?string
+    {
+        return $request->input('outlet_id')
+            ?? $request->route('outlet')
+            ?? $request->query('outlet_id');
+    }
+
+    private function contextDeviceId(Request $request): ?string
+    {
+        return $request->input('device_id')
+            ?? $request->query('device_id');
     }
 
     private function assertShiftTuple(string $businessId, string $outletId, string $deviceId, string $cashierId, string $shiftId, bool $requireOpenShift): void

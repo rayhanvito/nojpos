@@ -12,6 +12,13 @@ class InventoryOperationsTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        config()->set('nojpos.checkout.require_quote_for_checkout', false);
+    }
+
     public function test_owner_can_list_inventory_and_movements_for_own_tenant(): void
     {
         $ctx = $this->inventoryContext();
@@ -94,6 +101,40 @@ class InventoryOperationsTest extends TestCase
         $this->assertSame(1, DB::table('audit_logs')->where('business_id', $ctx['business'])->where('action', 'inventory.count.finalize')->count());
     }
 
+    public function test_finalized_stock_count_is_immutable_after_completion(): void
+    {
+        $ctx = $this->inventoryContext();
+        $this->seedStock($ctx, 10);
+
+        $count = $this->withToken($ctx['token'])->postJson('/api/v1/inventory/counts', [
+            'outlet_id' => $ctx['source_outlet'],
+            'lines' => [[
+                'product_id' => $ctx['product'],
+                'counted_quantity' => 8,
+                'reason' => 'Selisih opname',
+            ]],
+        ], $this->idempotencyHeader())->assertCreated();
+
+        $this->withToken($ctx['token'])->putJson('/api/v1/inventory/counts/'.$count->json('data.id'), [
+            'notes' => 'Attempted edit',
+            'lines' => [[
+                'product_id' => $ctx['product'],
+                'counted_quantity' => 12,
+                'reason' => 'Tidak boleh',
+            ]],
+        ], $this->idempotencyHeader())->assertNotFound();
+
+        $this->assertDatabaseHas('inventory_counts', [
+            'business_id' => $ctx['business'],
+            'id' => $count->json('data.id'),
+            'status' => 'completed',
+            'notes' => null,
+        ]);
+        $this->assertSame(8, $this->stock($ctx, $ctx['source_outlet']));
+        $this->assertSame(1, DB::table('stock_movements')->where('business_id', $ctx['business'])->where('type', 'adjustment')->count());
+        $this->assertSame(1, DB::table('audit_logs')->where('business_id', $ctx['business'])->where('action', 'inventory.count.finalize')->count());
+    }
+
     public function test_waste_reduces_stock_requires_reason_and_rejects_shortage(): void
     {
         $ctx = $this->inventoryContext();
@@ -121,6 +162,28 @@ class InventoryOperationsTest extends TestCase
 
         $this->assertSame(3, $this->stock($ctx, $ctx['source_outlet']));
         $this->assertDatabaseHas('stock_movements', ['business_id' => $ctx['business'], 'product_id' => $ctx['product'], 'type' => 'waste', 'quantity_delta' => -2, 'reason' => 'Kadaluarsa']);
+        $this->assertSame(1, DB::table('audit_logs')->where('business_id', $ctx['business'])->where('action', 'inventory.waste.finalize')->count());
+    }
+
+    public function test_waste_idempotent_retry_does_not_double_create_movement_or_audit(): void
+    {
+        $ctx = $this->inventoryContext();
+        $this->seedStock($ctx, 5);
+        $headers = $this->idempotencyHeader();
+        $payload = [
+            'outlet_id' => $ctx['source_outlet'],
+            'product_id' => $ctx['product'],
+            'quantity' => 2,
+            'reason' => 'Kadaluarsa',
+        ];
+
+        $first = $this->withToken($ctx['token'])->postJson('/api/v1/inventory/waste', $payload, $headers)->assertCreated();
+        $second = $this->withToken($ctx['token'])->postJson('/api/v1/inventory/waste', $payload, $headers)->assertCreated();
+
+        $this->assertSame($first->json('data.id'), $second->json('data.id'));
+        $this->assertSame(3, $this->stock($ctx, $ctx['source_outlet']));
+        $this->assertSame(1, DB::table('inventory_waste_records')->where('business_id', $ctx['business'])->count());
+        $this->assertSame(1, DB::table('stock_movements')->where('business_id', $ctx['business'])->where('type', 'waste')->count());
         $this->assertSame(1, DB::table('audit_logs')->where('business_id', $ctx['business'])->where('action', 'inventory.waste.finalize')->count());
     }
 
@@ -179,6 +242,29 @@ class InventoryOperationsTest extends TestCase
         $this->withToken($ctx['token'])->postJson('/api/v1/inventory/transfers/'.$transferId.'/receive', [], $this->idempotencyHeader())->assertConflict()->assertJsonPath('error.code', 'TRANSFER_STATE_INVALID');
     }
 
+    public function test_transfer_receive_idempotent_retry_does_not_double_create_movement_or_audit_and_cancel_after_received_is_rejected(): void
+    {
+        $ctx = $this->inventoryContext();
+        $this->seedStock($ctx, 10);
+        $transferId = $this->createTransfer($ctx, quantity: 3)->json('data.id');
+
+        $this->withToken($ctx['token'])->postJson('/api/v1/inventory/transfers/'.$transferId.'/send', [], $this->idempotencyHeader())->assertOk();
+
+        $headers = $this->idempotencyHeader();
+        $first = $this->withToken($ctx['token'])->postJson('/api/v1/inventory/transfers/'.$transferId.'/receive', [], $headers)->assertOk();
+        $second = $this->withToken($ctx['token'])->postJson('/api/v1/inventory/transfers/'.$transferId.'/receive', [], $headers)->assertOk();
+
+        $this->assertSame($first->json('data.id'), $second->json('data.id'));
+        $this->assertSame(7, $this->stock($ctx, $ctx['source_outlet']));
+        $this->assertSame(3, $this->stock($ctx, $ctx['destination_outlet']));
+        $this->assertSame(1, DB::table('stock_movements')->where('business_id', $ctx['business'])->where('type', 'transfer_in')->count());
+        $this->assertSame(1, DB::table('audit_logs')->where('business_id', $ctx['business'])->where('action', 'inventory.transfer.receive')->count());
+
+        $this->withToken($ctx['token'])->postJson('/api/v1/inventory/transfers/'.$transferId.'/cancel', [], $this->idempotencyHeader())
+            ->assertConflict()
+            ->assertJsonPath('error.code', 'TRANSFER_STATE_INVALID');
+    }
+
     public function test_cancel_before_send_works_without_stock_effect(): void
     {
         $ctx = $this->inventoryContext();
@@ -192,6 +278,30 @@ class InventoryOperationsTest extends TestCase
         $this->assertSame(5, $this->stock($ctx, $ctx['source_outlet']));
         $this->assertSame(0, DB::table('stock_movements')->where('business_id', $ctx['business'])->where('type', 'transfer_out')->count());
         $this->assertSame(1, DB::table('audit_logs')->where('business_id', $ctx['business'])->where('action', 'inventory.transfer.cancel')->count());
+    }
+
+    public function test_purchase_retry_still_does_not_duplicate_stock_movement_or_audit(): void
+    {
+        $ctx = $this->inventoryContext();
+        $headers = $this->idempotencyHeader();
+        $payload = [
+            'outlet_id' => $ctx['source_outlet'],
+            'supplier_name' => 'Supplier A',
+            'items' => [[
+                'product_id' => $ctx['product'],
+                'quantity' => 4,
+                'unit_cost' => 7500,
+            ]],
+        ];
+
+        $first = $this->withToken($ctx['token'])->postJson('/api/v1/inventory/purchases', $payload, $headers)->assertCreated();
+        $second = $this->withToken($ctx['token'])->postJson('/api/v1/inventory/purchases', $payload, $headers)->assertCreated();
+
+        $this->assertSame($first->json('data.id'), $second->json('data.id'));
+        $this->assertSame(4, $this->stock($ctx, $ctx['source_outlet']));
+        $this->assertSame(1, DB::table('inventory_purchases')->where('business_id', $ctx['business'])->count());
+        $this->assertSame(1, DB::table('stock_movements')->where('business_id', $ctx['business'])->where('type', 'purchase')->count());
+        $this->assertSame(1, DB::table('audit_logs')->where('business_id', $ctx['business'])->where('action', 'inventory.purchase.finalize')->count());
     }
 
     public function test_idempotency_mismatch_rejects_same_key_different_body(): void

@@ -18,6 +18,16 @@ abstract interface class TokenStorage {
   Future<String?> readOutletId();
 
   Future<void> writeOutletId(String outletId);
+
+  Future<bool> readInitialSyncCompleted({
+    required String outletId,
+    required String deviceId,
+  });
+
+  Future<void> writeInitialSyncCompleted({
+    required String outletId,
+    required String deviceId,
+  });
 }
 
 class SecureTokenStorage implements TokenStorage {
@@ -61,6 +71,35 @@ class SecureTokenStorage implements TokenStorage {
   @override
   Future<void> writeOutletId(String outletId) =>
       _secureStorage.write(key: _outletIdKey, value: outletId);
+
+  @override
+  Future<bool> readInitialSyncCompleted({
+    required String outletId,
+    required String deviceId,
+  }) async {
+    final value = await _secureStorage.read(
+      key: _initialSyncKey(outletId: outletId, deviceId: deviceId),
+    );
+    return value == '1';
+  }
+
+  @override
+  Future<void> writeInitialSyncCompleted({
+    required String outletId,
+    required String deviceId,
+  }) {
+    return _secureStorage.write(
+      key: _initialSyncKey(outletId: outletId, deviceId: deviceId),
+      value: '1',
+    );
+  }
+
+  static String _initialSyncKey({
+    required String outletId,
+    required String deviceId,
+  }) {
+    return 'nojpos.initial_sync_completed.$outletId.$deviceId';
+  }
 }
 
 class InMemoryTokenStorage implements TokenStorage {
@@ -68,6 +107,7 @@ class InMemoryTokenStorage implements TokenStorage {
   String? _deviceUuid;
   String? _deviceId;
   String? _outletId;
+  final Set<String> _completedInitialSyncKeys = <String>{};
 
   @override
   Future<String?> readToken() async => _token;
@@ -104,5 +144,21 @@ class InMemoryTokenStorage implements TokenStorage {
   @override
   Future<void> writeOutletId(String outletId) async {
     _outletId = outletId;
+  }
+
+  @override
+  Future<bool> readInitialSyncCompleted({
+    required String outletId,
+    required String deviceId,
+  }) async {
+    return _completedInitialSyncKeys.contains('$outletId::$deviceId');
+  }
+
+  @override
+  Future<void> writeInitialSyncCompleted({
+    required String outletId,
+    required String deviceId,
+  }) async {
+    _completedInitialSyncKeys.add('$outletId::$deviceId');
   }
 }

@@ -77,16 +77,17 @@ class ReceiptPrintingService {
       final connected = await _adapter.connect(printer);
       return connected
           ? ReceiptPrintResult.success(
-              message: 'Printer default disimpan dan tersambung: ${printer.name}.',
+              message:
+                  'Printer lokal perangkat ini disimpan dan tersambung: ${printer.name}.',
             )
           : ReceiptPrintResult.failure(
               message:
-                  'Printer default disimpan, tetapi belum tersambung. Transaksi tetap tidak diblokir.',
+                  'Printer lokal perangkat ini disimpan, tetapi belum tersambung. Transaksi tetap tidak diblokir.',
             );
     } catch (error) {
       return ReceiptPrintResult.failure(
         message:
-            'Printer default disimpan, tetapi koneksi gagal: ${_messageFor(error)}. Transaksi tetap tidak diblokir.',
+            'Printer lokal perangkat ini disimpan, tetapi koneksi gagal: ${_messageFor(error)}. Transaksi tetap tidak diblokir.',
       );
     }
   }
@@ -114,7 +115,7 @@ class ReceiptPrintingService {
       if (printer == null) {
         return const ReceiptPrintResult.failure(
           message:
-              'Printer default belum disimpan. Transaksi tetap tersimpan dan bisa cetak ulang nanti.',
+              'Printer lokal perangkat ini belum disimpan. Transaksi tetap tersimpan dan bisa cetak ulang nanti.',
         );
       }
       final connected = await _adapter.connect(printer);
@@ -161,7 +162,7 @@ class ReceiptPrintingService {
       final printer = settings.defaultPrinter;
       if (printer == null) {
         return const ReceiptPrintResult.failure(
-          message: 'Printer default belum disimpan.',
+          message: 'Printer lokal perangkat ini belum disimpan.',
         );
       }
       final connected = await _adapter.connect(printer);
@@ -201,7 +202,8 @@ class ReceiptPrintingService {
       final printer = settings.defaultPrinter;
       if (printer == null) {
         return const ReceiptPrintResult.failure(
-          message: 'Printer default belum disimpan untuk membuka laci kas.',
+          message:
+              'Printer lokal perangkat ini belum disimpan untuk membuka laci kas.',
         );
       }
       final connected = await _adapter.connect(printer);

@@ -1,8 +1,13 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../app/nojpos_assets.dart';
 import '../../../app/theme.dart';
+import '../../../shared/widgets/nojpos_skeleton.dart';
+import '../../../shared/widgets/nojpos_state_view.dart';
+import '../../../shared/widgets/nojpos_toast.dart';
 import '../formatters.dart';
 import '../models/product.dart';
 import '../providers/pos_providers.dart';
@@ -24,7 +29,7 @@ class ProductCatalog extends ConsumerWidget {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
             child: catalog.isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? _CatalogSkeleton(compact: compact)
                 : catalog.errorMessage != null
                 ? _CatalogError(message: catalog.errorMessage!)
                 : products.isEmpty
@@ -50,6 +55,61 @@ class ProductCatalog extends ConsumerWidget {
   }
 }
 
+class _CatalogSkeleton extends StatelessWidget {
+  const _CatalogSkeleton({required this.compact});
+
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return NojposSkeleton(
+      enabled: true,
+      child: GridView.builder(
+        itemCount: compact ? 8 : 12,
+        gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: compact ? 142 : 158,
+          mainAxisSpacing: 8,
+          crossAxisSpacing: 8,
+          mainAxisExtent: compact ? 178 : 192,
+        ),
+        itemBuilder: (context, index) => Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(NojposRadius.md),
+            border: Border.all(color: NojposColors.line),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Container(
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(NojposRadius.md),
+                    ),
+                  ),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Memuat produk'),
+                    SizedBox(height: 8),
+                    Text('Harga dari server'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _CatalogError extends ConsumerWidget {
   const _CatalogError({required this.message});
 
@@ -57,37 +117,12 @@ class _CatalogError extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(
-            LucideIcons.cloudOff,
-            color: MokposColors.primary,
-            size: 72,
-          ),
-          const SizedBox(height: 14),
-          const Text(
-            'Produk gagal dimuat',
-            style: TextStyle(
-              color: MokposColors.text,
-              fontWeight: FontWeight.w900,
-              fontSize: 16,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: MokposColors.muted),
-          ),
-          const SizedBox(height: 16),
-          FilledButton(
-            onPressed: () => ref.read(posCatalogProvider.notifier).load(),
-            child: const Text('Coba lagi'),
-          ),
-        ],
-      ),
+    return NojposStateView.error(
+      title: 'Produk gagal dimuat',
+      subtitle: message,
+      illustrationAsset: NojposAssets.noInternetCashier,
+      actionLabel: 'Coba lagi',
+      onAction: () => ref.read(posCatalogProvider.notifier).load(),
     );
   }
 }
@@ -97,22 +132,12 @@ class _NoProductsFound extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(LucideIcons.searchX, color: MokposColors.primary, size: 72),
-          SizedBox(height: 14),
-          Text(
-            'Produk tidak ditemukan',
-            style: TextStyle(
-              color: MokposColors.text,
-              fontWeight: FontWeight.w900,
-              fontSize: 16,
-            ),
-          ),
-        ],
-      ),
+    return NojposStateView.empty(
+      title: 'Produk tidak ditemukan',
+      subtitle:
+          'Coba kata kunci lain atau pilih kategori berbeda. Pencarian mendukung nama, SKU, dan barcode.',
+      illustrationAsset: NojposAssets.emptyProducts,
+      compact: false,
     );
   }
 }
@@ -125,39 +150,44 @@ class _CatalogToolbar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Container(
-      height: 54,
+      height: 62,
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(bottom: BorderSide(color: MokposColors.line)),
+        border: Border(bottom: BorderSide(color: NojposColors.line)),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       child: Row(
         children: [
           Expanded(
-            child: SizedBox(
-              height: 44,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: NojposColors.canvas,
+                borderRadius: BorderRadius.circular(NojposRadius.lg),
+                border: Border.all(color: NojposColors.line),
+              ),
               child: TextField(
                 onChanged: (value) =>
                     ref.read(productSearchQueryProvider.notifier).update(value),
                 decoration: const InputDecoration(
                   prefixIcon: Icon(
                     LucideIcons.search,
-                    color: MokposColors.muted,
+                    color: NojposColors.muted,
                     size: 22,
                   ),
                   hintText: 'Cari produk, SKU, atau barcode',
-                  hintStyle: TextStyle(color: MokposColors.muted, fontSize: 15),
+                  hintStyle: TextStyle(color: NojposColors.muted, fontSize: 15),
                   border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(vertical: 12),
+                  contentPadding: EdgeInsets.symmetric(vertical: 13),
                 ),
               ),
             ),
           ),
           if (!compact) ...[
-            const SizedBox(width: 14),
+            const SizedBox(width: 12),
             const _IconAction(
               icon: LucideIcons.scanBarcode,
-              tooltip: 'Segera hadir (keyboard-wedge)',
+              tooltip:
+                  'Scanner kamera nonaktif di preview produksi. Gunakan kolom pencarian untuk SKU atau barcode.',
               enabled: false,
             ),
           ],
@@ -179,19 +209,26 @@ class _IconAction extends StatelessWidget {
     return Tooltip(
       message: tooltip ?? '',
       child: InkWell(
-        onTap: null,
-        borderRadius: BorderRadius.circular(MokposRadius.sm),
+        onTap: enabled
+            ? () {}
+            : () => NojposToast.info(
+                context,
+                'Scanner kamera nonaktif',
+                description:
+                    'Gunakan kolom pencarian untuk mengetik SKU atau barcode produk.',
+              ),
+        borderRadius: BorderRadius.circular(NojposRadius.md),
         child: Container(
-          width: 44,
-          height: 44,
+          width: 46,
+          height: 46,
           decoration: BoxDecoration(
-            color: enabled ? Colors.white : MokposColors.disabledSurface,
-            border: Border.all(color: MokposColors.line),
-            borderRadius: BorderRadius.circular(MokposRadius.sm),
+            color: enabled ? Colors.white : NojposColors.disabledSurface,
+            border: Border.all(color: NojposColors.line),
+            borderRadius: BorderRadius.circular(NojposRadius.md),
           ),
           child: Icon(
             icon,
-            color: enabled ? MokposColors.text : MokposColors.muted,
+            color: enabled ? NojposColors.text : NojposColors.muted,
             size: 21,
           ),
         ),
@@ -211,14 +248,15 @@ class ProductCard extends StatelessWidget {
     return Material(
       key: ValueKey('product_${product.id}'),
       color: Colors.white,
-      borderRadius: BorderRadius.circular(MokposRadius.sm),
+      borderRadius: BorderRadius.circular(NojposRadius.md),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(MokposRadius.sm),
+        borderRadius: BorderRadius.circular(NojposRadius.md),
         child: Ink(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(MokposRadius.sm),
-            border: Border.all(color: MokposColors.line),
+            borderRadius: BorderRadius.circular(NojposRadius.md),
+            border: Border.all(color: NojposColors.line),
+            boxShadow: NojposShadow.soft,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -229,26 +267,37 @@ class ProductCard extends StatelessWidget {
                     Positioned.fill(
                       child: ClipRRect(
                         borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(MokposRadius.sm),
+                          top: Radius.circular(NojposRadius.md),
                         ),
-                        child: Image.network(
-                          product.imageUrl,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              color: MokposColors.productFallback,
-                              child: Center(
-                                child: Text(
-                                  product.name.characters.first.toUpperCase(),
-                                  style: const TextStyle(
-                                    color: MokposColors.muted,
-                                    fontSize: 34,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
+                        child: product.imageUrl.trim().isEmpty
+                            ? _ProductImageFallback(product: product)
+                            : CachedNetworkImage(
+                                imageUrl: product.imageUrl,
+                                fit: BoxFit.cover,
+                                placeholder: (context, url) =>
+                                    const NojposSkeleton(
+                                      enabled: true,
+                                      child: NojposSkeletonCard(
+                                        height: double.infinity,
+                                        radius: NojposRadius.md,
+                                      ),
+                                    ),
+                                errorWidget: (context, url, error) =>
+                                    _ProductImageFallback(product: product),
                               ),
-                            );
-                          },
+                      ),
+                    ),
+                    Positioned.fill(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              Colors.black.withValues(alpha: .10),
+                              Colors.transparent,
+                            ],
+                            begin: Alignment.bottomCenter,
+                            end: Alignment.center,
+                          ),
                         ),
                       ),
                     ),
@@ -262,17 +311,18 @@ class ProductCard extends StatelessWidget {
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: .9),
+                            color: Colors.white.withValues(alpha: .92),
                             borderRadius: BorderRadius.circular(
-                              MokposRadius.xs,
+                              NojposRadius.sm,
                             ),
+                            boxShadow: NojposShadow.soft,
                           ),
                           child: Text(
                             product.badge!,
                             style: const TextStyle(
-                              color: MokposColors.muted,
+                              color: NojposColors.muted,
                               fontSize: 11,
-                              fontWeight: FontWeight.w800,
+                              fontWeight: FontWeight.w900,
                             ),
                           ),
                         ),
@@ -291,8 +341,8 @@ class ProductCard extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: MokposColors.text,
-                        fontWeight: FontWeight.w800,
+                        color: NojposColors.text,
+                        fontWeight: FontWeight.w900,
                         height: 1.15,
                         fontSize: 13,
                       ),
@@ -309,22 +359,67 @@ class ProductCard extends StatelessWidget {
                         rupiah(product.price),
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          color: MokposColors.muted,
-                          fontWeight: FontWeight.w800,
+                          color: NojposColors.primaryDark,
+                          fontWeight: FontWeight.w900,
                           fontSize: 13,
                         ),
                       ),
                     ),
                     if (product.isFavorite)
-                      const Icon(
-                        LucideIcons.star,
-                        color: MokposColors.warning,
-                        size: 18,
+                      Container(
+                        width: 26,
+                        height: 26,
+                        decoration: BoxDecoration(
+                          color: NojposColors.warningSurface,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: const Icon(
+                          LucideIcons.star,
+                          color: Color(0xFFB58200),
+                          size: 16,
+                        ),
                       ),
                   ],
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ProductImageFallback extends StatelessWidget {
+  const _ProductImageFallback({required this.product});
+
+  final Product product;
+
+  @override
+  Widget build(BuildContext context) {
+    final initial = product.name.trim().isEmpty
+        ? '?'
+        : product.name.characters.first.toUpperCase();
+    return Container(
+      decoration: const BoxDecoration(gradient: NojposColors.softGradient),
+      child: Center(
+        child: Container(
+          width: 62,
+          height: 62,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: .78),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: NojposColors.successBorder),
+          ),
+          child: Center(
+            child: Text(
+              initial,
+              style: const TextStyle(
+                color: NojposColors.primaryDark,
+                fontSize: 30,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
           ),
         ),
       ),

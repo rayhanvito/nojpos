@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Business;
 use App\Models\Outlet;
 use App\Models\User;
+use App\Services\TerminalSessionException;
+use App\Services\TerminalSessionService;
 use App\Support\ApiResponse;
 use App\Support\Nojpos;
 use Illuminate\Http\JsonResponse;
@@ -16,6 +18,8 @@ use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
+    public function __construct(private readonly TerminalSessionService $terminalSessions) {}
+
     public function login(Request $request): JsonResponse
     {
         $data = $request->validate([
@@ -151,10 +155,19 @@ class AuthController extends Controller
             ],
         );
 
+        $this->rememberActingCashier($request, $cashier->id, $data['outlet_id'], $data['device_id']);
+
+        try {
+            $terminalSession = $this->terminalSessions->startFromPinSwitch($actor, $cashier, $request, $data['outlet_id'], $data['device_id']);
+        } catch (TerminalSessionException $error) {
+            return ApiResponse::error($error->errorCode, $error->getMessage(), $error->details, $error->status);
+        }
+
         Nojpos::audit($actor->business_id, $actor->id, 'auth.pin_switch', 'user', $cashier->id);
 
         return ApiResponse::success([
             'cashier' => $this->userPayload($cashier),
+            'terminal_session' => $terminalSession,
         ]);
     }
 
@@ -234,6 +247,26 @@ class AuthController extends Controller
             'email' => $user->email,
             'role' => $user->role,
         ];
+    }
+
+    private function rememberActingCashier(Request $request, string $cashierId, string $outletId, string $deviceId): void
+    {
+        $token = $request->user()?->currentAccessToken();
+        if (! $token || ! method_exists($token, 'forceFill')) {
+            return;
+        }
+
+        $abilities = collect($token->abilities ?? [])
+            ->reject(fn (string $ability): bool => str_starts_with($ability, 'acting_cashier:')
+                || str_starts_with($ability, 'acting_outlet:')
+                || str_starts_with($ability, 'acting_device:'))
+            ->push('acting_cashier:'.$cashierId)
+            ->push('acting_outlet:'.$outletId)
+            ->push('acting_device:'.$deviceId)
+            ->values()
+            ->all();
+
+        $token->forceFill(['abilities' => $abilities])->save();
     }
 
     private function forbidUnlessSameBusiness(string $table, string $id, string $businessId): void

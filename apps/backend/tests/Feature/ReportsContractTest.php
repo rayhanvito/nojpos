@@ -251,6 +251,76 @@ class ReportsContractTest extends TestCase
             ->assertJsonPath('meta.window.end', '2026-01-01T16:00:00.000000Z');
     }
 
+    public function test_report_pagination_metadata_and_per_page_limit_are_explicit(): void
+    {
+        [$businessId, $outletId, $ownerId, $token] = $this->businessWithUser('owner', 'pagination@example.test');
+        $deviceId = $this->device($businessId, $outletId, 'pagination-device');
+        $shiftId = $this->shift($businessId, $outletId, $deviceId, $ownerId);
+
+        foreach (['Produk A', 'Produk B', 'Produk C'] as $index => $name) {
+            $productId = $this->product($businessId, $outletId, $name, 10000 + $index);
+            $transactionId = $this->transaction($businessId, $outletId, $deviceId, $ownerId, $shiftId, 'paid', 10000 + $index);
+            $this->item($businessId, $transactionId, $productId, $name, 3 - $index, 10000 + $index, 0);
+            $this->payment($businessId, $transactionId, 'cash', 10000 + $index, 'confirmed', true);
+        }
+
+        $this->withToken($token)->getJson('/api/v1/reports/sold-products?date='.now('Asia/Jakarta')->toDateString().'&per_page=2&page=2')
+            ->assertOk()
+            ->assertJsonCount(1, 'data.rows')
+            ->assertJsonPath('meta.pagination.total', 3)
+            ->assertJsonPath('meta.pagination.per_page', 2)
+            ->assertJsonPath('meta.pagination.current_page', 2)
+            ->assertJsonPath('meta.pagination.last_page', 2)
+            ->assertJsonPath('meta.range', 'day')
+            ->assertJsonStructure(['meta' => ['generated_at', 'timezone', 'window' => ['start', 'end']]]);
+
+        $this->withToken($token)->getJson('/api/v1/reports/sold-products?date='.now('Asia/Jakarta')->toDateString().'&per_page=101')
+            ->assertUnprocessable();
+    }
+
+    public function test_report_custom_date_range_uses_outlet_timezone_and_rejects_large_ranges(): void
+    {
+        [$businessId, $outletId, $ownerId, $token] = $this->businessWithUser('owner', 'custom-range@example.test');
+        DB::table('outlets')->where('id', $outletId)->update(['timezone' => 'Asia/Makassar']);
+        $deviceId = $this->device($businessId, $outletId, 'custom-range-device');
+        $shiftId = $this->shift($businessId, $outletId, $deviceId, $ownerId, openedAt: CarbonImmutable::parse('2025-12-31 16:00:00', 'UTC'));
+
+        $includedA = $this->transaction($businessId, $outletId, $deviceId, $ownerId, $shiftId, 'paid', 11000, createdAt: CarbonImmutable::parse('2025-12-31 16:30:00', 'UTC'));
+        $this->payment($businessId, $includedA, 'cash', 11000, 'confirmed', true);
+        $includedB = $this->transaction($businessId, $outletId, $deviceId, $ownerId, $shiftId, 'paid', 22000, createdAt: CarbonImmutable::parse('2026-01-02 15:30:00', 'UTC'));
+        $this->payment($businessId, $includedB, 'cash', 22000, 'confirmed', true);
+        $excluded = $this->transaction($businessId, $outletId, $deviceId, $ownerId, $shiftId, 'paid', 99000, createdAt: CarbonImmutable::parse('2026-01-02 16:30:00', 'UTC'));
+        $this->payment($businessId, $excluded, 'cash', 99000, 'confirmed', true);
+
+        $this->withToken($token)->getJson('/api/v1/reports/sales-summary?outlet_id='.$outletId.'&date_from=2026-01-01&date_to=2026-01-02')
+            ->assertOk()
+            ->assertJsonPath('data.total_sales', 33000)
+            ->assertJsonPath('data.transaction_count', 2)
+            ->assertJsonPath('meta.timezone', 'Asia/Makassar')
+            ->assertJsonPath('meta.range', 'custom')
+            ->assertJsonPath('meta.window.start', '2025-12-31T16:00:00.000000Z')
+            ->assertJsonPath('meta.window.end', '2026-01-02T16:00:00.000000Z');
+
+        $this->withToken($token)->getJson('/api/v1/reports/sales-summary?date_from=2026-01-02&date_to=2026-01-01')
+            ->assertUnprocessable();
+
+        $this->withToken($token)->getJson('/api/v1/reports/sales-summary?date_from=2026-01-01&date_to=2026-02-15')
+            ->assertUnprocessable();
+    }
+
+    public function test_report_export_is_explicitly_not_implemented_until_export_contract_exists(): void
+    {
+        [$businessId, $outletId, $ownerId, $token] = $this->businessWithUser('owner', 'export@example.test');
+        $deviceId = $this->device($businessId, $outletId, 'export-device');
+        $shiftId = $this->shift($businessId, $outletId, $deviceId, $ownerId);
+        $transactionId = $this->transaction($businessId, $outletId, $deviceId, $ownerId, $shiftId, 'paid', 10000);
+        $this->payment($businessId, $transactionId, 'cash', 10000, 'confirmed', true);
+
+        $this->withToken($token)->getJson('/api/v1/reports/sales-summary?date='.now('Asia/Jakarta')->toDateString().'&export=csv')
+            ->assertStatus(501)
+            ->assertJsonPath('error.code', 'REPORT_EXPORT_NOT_IMPLEMENTED');
+    }
+
     public function test_report_responses_do_not_expose_sensitive_fields_or_raw_payment_reference_or_customer_pii(): void
     {
         [$businessId, $outletId, $ownerId, $token] = $this->businessWithUser('owner', 'sensitive@example.test');

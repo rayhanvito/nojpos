@@ -20,12 +20,14 @@ void main() {
 
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [authRepositoryProvider.overrideWith((ref) => auth)],
+          overrides: [
+            authRepositoryProvider.overrideWith((ref) => auth),
+            tokenStorageProvider.overrideWith((ref) => InMemoryTokenStorage()),
+          ],
           child: const _FlowTestApp(initialLocation: '/login'),
         ),
       );
-      await tester.tap(find.text('Masuk'));
-      await tester.pumpAndSettle();
+      await _submitLogin(tester);
 
       expect(find.text('Pilih Outlet'), findsOneWidget);
       expect(find.text('Outlet Utama'), findsOneWidget);
@@ -40,12 +42,14 @@ void main() {
 
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [authRepositoryProvider.overrideWith((ref) => auth)],
+          overrides: [
+            authRepositoryProvider.overrideWith((ref) => auth),
+            tokenStorageProvider.overrideWith((ref) => InMemoryTokenStorage()),
+          ],
           child: const _FlowTestApp(initialLocation: '/login'),
         ),
       );
-      await tester.tap(find.text('Masuk'));
-      await tester.pumpAndSettle();
+      await _submitLogin(tester);
 
       expect(find.byType(PinScreen), findsOneWidget);
       expect(find.text('Outlet Utama · NojPOS Demo'), findsOneWidget);
@@ -71,7 +75,10 @@ void main() {
 
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [authRepositoryProvider.overrideWith((ref) => auth)],
+          overrides: [
+            authRepositoryProvider.overrideWith((ref) => auth),
+            tokenStorageProvider.overrideWith((ref) => InMemoryTokenStorage()),
+          ],
           child: const _FlowTestApp(initialLocation: '/'),
         ),
       );
@@ -82,6 +89,19 @@ void main() {
       expect(find.text('Outlet Kedua'), findsOneWidget);
     });
   });
+}
+
+Future<void> _submitLogin(WidgetTester tester) async {
+  await tester.enterText(
+    find.byKey(const ValueKey('login_email')),
+    'operator@example.test',
+  );
+  await tester.enterText(
+    find.byKey(const ValueKey('login_password')),
+    'secure-password',
+  );
+  await tester.tap(find.text('Masuk'));
+  await tester.pumpAndSettle();
 }
 
 const _outlets = [

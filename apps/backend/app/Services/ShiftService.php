@@ -16,6 +16,8 @@ class ShiftService
     public function open(string $businessId, array $data, string $actorId): ShiftSession
     {
         return DB::transaction(function () use ($businessId, $data, $actorId): ShiftSession {
+            app(StoreStateService::class)->assertStoreAllowsShiftOpen($businessId, $data['outlet_id']);
+
             $existing = ShiftSession::query()
                 ->where('business_id', $businessId)
                 ->where('outlet_id', $data['outlet_id'])

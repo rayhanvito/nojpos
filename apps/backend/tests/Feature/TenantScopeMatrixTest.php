@@ -31,6 +31,13 @@ class TenantScopeMatrixTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        config()->set('nojpos.checkout.require_quote_for_checkout', false);
+    }
+
     /**
      * Every new tenant-owned endpoint must add a row to test_domain_endpoints_reject_cross_tenant_resources.
      */
@@ -108,7 +115,7 @@ class TenantScopeMatrixTest extends TestCase
             'device_id' => $ctxA['device'],
             'cashier_id' => $ctxA['user'],
             'opening_cash' => 100000,
-        ]);
+        ], ['Idempotency-Key' => (string) Str::uuid()]);
         $this->assertTenantIsolated('POST', '/api/v1/transactions/quote', $tokenA, $this->checkoutPayload($ctxB['outlet'], $ctxB['device'], $ctxB['user'], $shiftB, $productB));
         $this->assertTenantIsolated('POST', '/api/v1/transactions', $tokenA, $this->checkoutPayload($ctxB['outlet'], $ctxB['device'], $ctxB['user'], $shiftB, $productB, true), ['Idempotency-Key' => (string) Str::uuid()]);
         $this->assertTenantIsolated('POST', '/api/v1/payments', $tokenA, [
@@ -130,19 +137,29 @@ class TenantScopeMatrixTest extends TestCase
             'product_category_id' => $categoryA,
             'name' => 'Spoof Product',
             'price' => 1000,
-        ]);
+        ], ['Idempotency-Key' => (string) Str::uuid()]);
         $this->assertTenantIsolated('PUT', '/api/v1/products/'.$productB, $tokenA, [
             'outlet_id' => $ctxA['outlet'],
             'product_category_id' => $categoryA,
             'name' => 'Spoof Product',
             'price' => 1000,
-        ]);
+        ], ['Idempotency-Key' => (string) Str::uuid()]);
+        $this->assertTenantIsolated('DELETE', '/api/v1/products/'.$productB, $tokenA, [], ['Idempotency-Key' => (string) Str::uuid()]);
+        $this->assertTenantIsolated('DELETE', '/api/v1/categories/'.$categoryB, $tokenA, [], ['Idempotency-Key' => (string) Str::uuid()]);
+        $this->assertTenantIsolated('PUT', '/api/v1/customers/'.$customerB, $tokenA, [
+            'name' => 'Spoof Customer',
+        ], ['Idempotency-Key' => (string) Str::uuid()]);
+        $this->assertTenantIsolated('DELETE', '/api/v1/customers/'.$customerB, $tokenA, [], ['Idempotency-Key' => (string) Str::uuid()]);
+        $this->assertTenantIsolated('PUT', '/api/v1/staff/'.$ctxB['user'], $tokenA, [
+            'name' => 'Spoof Staff',
+        ], ['Idempotency-Key' => (string) Str::uuid()]);
+        $this->assertTenantIsolated('DELETE', '/api/v1/staff/'.$ctxB['user'], $tokenA, [], ['Idempotency-Key' => (string) Str::uuid()]);
         $this->assertTenantIsolated('POST', '/api/v1/inventory/purchases', $tokenA, [
             'outlet_id' => $ctxA['outlet'],
             'items' => [
                 ['product_id' => $productB, 'quantity' => 1, 'unit_cost' => 1000],
             ],
-        ]);
+        ], ['Idempotency-Key' => (string) Str::uuid()]);
 
         $this->withToken($tokenA)->getJson('/api/v1/products?search=Produk B')
             ->assertOk()

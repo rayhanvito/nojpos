@@ -32,7 +32,7 @@ class _OutletSelectScreenState extends ConsumerState<OutletSelectScreen> {
     if (!mounted) return;
     final session = ref.read(nojposSessionProvider);
     if (!widget.allowChange && session.outlet.id.isNotEmpty) {
-      context.go('/sync');
+      await _goToPinOrSync();
       return;
     }
     if (!widget.allowChange && session.outlets.length == 1) {
@@ -43,7 +43,15 @@ class _OutletSelectScreenState extends ConsumerState<OutletSelectScreen> {
   Future<void> _select(Outlet outlet) async {
     await ref.read(nojposSessionProvider.notifier).selectOutlet(outlet);
     if (!mounted) return;
-    context.go('/sync');
+    await _goToPinOrSync();
+  }
+
+  Future<void> _goToPinOrSync() async {
+    final completed = await ref
+        .read(nojposSessionProvider.notifier)
+        .hasCompletedInitialSync();
+    if (!mounted) return;
+    context.go(completed ? '/pin' : '/sync');
   }
 
   @override

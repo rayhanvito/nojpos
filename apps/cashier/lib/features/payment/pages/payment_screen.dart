@@ -8,6 +8,9 @@ import '../../../core/outbox/checkout_outbox.dart';
 import '../../../app/theme.dart';
 import '../../../app/providers/nojpos_session_provider.dart';
 import '../../../shared/models/nojpos_models.dart';
+import '../../../shared/widgets/nojpos_asset_icon.dart';
+import '../../../shared/widgets/nojpos_toast.dart';
+import '../../connectivity/widgets/connectivity_status_chip.dart';
 import '../../pos/formatters.dart';
 import '../../pos/models/cart_item.dart';
 import '../../pos/providers/parked_order_lease_controller.dart';
@@ -100,6 +103,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   int paidAmount = 0;
   final paymentLines = <CheckoutPayment>[];
   final referenceController = TextEditingController();
+  final referenceFocusNode = FocusNode();
   final promotionCodeController = TextEditingController();
   bool submitting = false;
 
@@ -126,6 +130,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   void dispose() {
     referenceController.removeListener(_refreshReferenceState);
     referenceController.dispose();
+    referenceFocusNode.dispose();
     promotionCodeController.dispose();
     ref.read(pendingPaymentControllerProvider.notifier).stop();
     super.dispose();
@@ -152,9 +157,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             ];
       requireNonCashReferences(lines);
     } on ArgumentError catch (error) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.message.toString())));
+      NojposToast.warning(context, error.message.toString());
       return;
     }
     setState(() => submitting = true);
@@ -186,12 +189,10 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
           context.go('/success');
         }
       } else if (result is QueuedCheckoutResult) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Checkout belum terkonfirmasi. Pulihkan atau kirim ulang checkout yang sama.',
-            ),
-          ),
+        NojposToast.warning(
+          context,
+          'Checkout belum terkonfirmasi',
+          description: 'Pulihkan atau kirim ulang checkout yang sama.',
         );
         context.go('/pos');
       }
@@ -200,9 +201,11 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       if (error is ApiException && error.code == 'QUOTE_STALE') {
         ref.invalidate(checkoutQuoteProvider);
       }
-      ScaffoldMessenger.of(
+      NojposToast.error(
         context,
-      ).showSnackBar(SnackBar(content: Text(_checkoutErrorMessage(error))));
+        'Checkout gagal',
+        description: _checkoutErrorMessage(error),
+      );
     } finally {
       if (mounted) setState(() => submitting = false);
     }
@@ -261,123 +264,169 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
           children: [
             _PaymentTopBar(onBack: () => context.go('/pos')),
             Expanded(
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final mobile = constraints.maxWidth < 820;
+                  final summary = _PaymentOrderSummary(
+                    items: items,
+                    total: total,
+                    itemDiscountTotal: itemDiscountTotal,
+                    cartDiscount: cartDiscount,
+                    paymentLines: paymentLines,
+                    quote: quote,
+                    quoteLoading: isQuoteLoading,
+                    quoteError: quoteError,
+                    promotionCodes: promotionCodes,
+                    promotionCodeController: promotionCodeController,
+                    onApplyPromotionCode: _applyPromotionCode,
+                    onRemovePromotionCode: _removePromotionCode,
+                    canPay:
+                        !submitting &&
+                        !isQuoteLoading &&
+                        quoteError == null &&
+                        quote != null &&
+                        items.isNotEmpty &&
+                        !hasUnresolvedCheckout &&
+                        remaining == 0 &&
+                        methods.isNotEmpty &&
+                        _hasReadyPaymentReference(
+                          selected: selected,
+                          paymentLines: paymentLines,
+                          singleReference: referenceController.text,
+                        ),
+                    onPay: () => _pay(items, total, quote!),
+                  );
+                  final paymentContent = Column(
+                    children: [
+                      _PaymentStats(
+                        total: total,
+                        remaining: remaining,
+                        change: change,
+                        showChange:
+                            selected.isCash ||
+                            paymentLines.any((line) => line.isCash),
+                      ),
+                      _PaymentActions(
+                        onSplit: () async {
+                          final result = await showSplitPaymentDialog(
+                            context,
+                            methods: methods,
+                            total: total,
+                            existing: paymentLines,
+                          );
+                          if (result != null && mounted) {
+                            setState(() {
+                              paymentLines
+                                ..clear()
+                                ..addAll(result);
+                              paidAmount = result.fold(
+                                0,
+                                (sum, line) => sum + line.amount,
+                              );
+                            });
+                          }
+                        },
+                        onHeld: () => _saveHeld(items),
+                      ),
+                      Expanded(
+                        child: mobile
+                            ? Column(
+                                children: [
+                                  _MethodRail(
+                                    methods: methods,
+                                    selected: selected.method,
+                                    onSelect: (method) => _selectMethod(
+                                      methods: methods,
+                                      method: method,
+                                      total: total,
+                                    ),
+                                    horizontal: true,
+                                  ),
+                                  Expanded(
+                                    child: _PaymentAmountPanel(
+                                      method: selected,
+                                      total: total,
+                                      paidAmount: paidAmount,
+                                      referenceController: referenceController,
+                                      referenceFocusNode: referenceFocusNode,
+                                      onSelectAmount: (amount) {
+                                        setState(() => paidAmount = amount);
+                                      },
+                                      onOpenAmountDialog: () async {
+                                        final result = await showDialog<int>(
+                                          context: context,
+                                          barrierColor: Colors.black54,
+                                          builder: (context) => AmountDialog(
+                                            total: total,
+                                            initialAmount: paidAmount,
+                                          ),
+                                        );
+                                        if (result != null && mounted) {
+                                          setState(() => paidAmount = result);
+                                        }
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : Row(
+                                children: [
+                                  _MethodRail(
+                                    methods: methods,
+                                    selected: selected.method,
+                                    onSelect: (method) => _selectMethod(
+                                      methods: methods,
+                                      method: method,
+                                      total: total,
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: _PaymentAmountPanel(
+                                      method: selected,
+                                      total: total,
+                                      paidAmount: paidAmount,
+                                      referenceController: referenceController,
+                                      referenceFocusNode: referenceFocusNode,
+                                      onSelectAmount: (amount) {
+                                        setState(() => paidAmount = amount);
+                                      },
+                                      onOpenAmountDialog: () async {
+                                        final result = await showDialog<int>(
+                                          context: context,
+                                          barrierColor: Colors.black54,
+                                          builder: (context) => AmountDialog(
+                                            total: total,
+                                            initialAmount: paidAmount,
+                                          ),
+                                        );
+                                        if (result != null && mounted) {
+                                          setState(() => paidAmount = result);
+                                        }
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ),
+                      ),
+                    ],
+                  );
+
+                  if (mobile) {
+                    return Column(
                       children: [
-                        _PaymentStats(
-                          total: total,
-                          remaining: remaining,
-                          change: change,
-                          showChange:
-                              selected.isCash ||
-                              paymentLines.any((line) => line.isCash),
-                        ),
-                        _PaymentActions(
-                          onSplit: () async {
-                            final result = await showSplitPaymentDialog(
-                              context,
-                              methods: methods,
-                              total: total,
-                              existing: paymentLines,
-                            );
-                            if (result != null && mounted) {
-                              setState(() {
-                                paymentLines
-                                  ..clear()
-                                  ..addAll(result);
-                                paidAmount = result.fold(
-                                  0,
-                                  (sum, line) => sum + line.amount,
-                                );
-                              });
-                            }
-                          },
-                          onHeld: () => _saveHeld(items),
-                        ),
-                        Expanded(
-                          child: Row(
-                            children: [
-                              _MethodRail(
-                                methods: methods,
-                                selected: selected.method,
-                                onSelect: (method) {
-                                  setState(() {
-                                    selectedMethod = method;
-                                    paymentLines.clear();
-                                    final config = _methodByName(
-                                      methods,
-                                      method,
-                                    );
-                                    paidAmount = config.isCash ? 0 : total;
-                                    referenceController.clear();
-                                  });
-                                },
-                              ),
-                              Expanded(
-                                child: _PaymentAmountPanel(
-                                  method: selected,
-                                  total: total,
-                                  paidAmount: paidAmount,
-                                  referenceController: referenceController,
-                                  onSelectAmount: (amount) {
-                                    setState(() => paidAmount = amount);
-                                  },
-                                  onOpenAmountDialog: () async {
-                                    final result = await showDialog<int>(
-                                      context: context,
-                                      barrierColor: Colors.black54,
-                                      builder: (context) => AmountDialog(
-                                        total: total,
-                                        initialAmount: paidAmount,
-                                      ),
-                                    );
-                                    if (result != null && mounted) {
-                                      setState(() => paidAmount = result);
-                                    }
-                                  },
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                        Expanded(child: paymentContent),
+                        SizedBox(height: 330, child: summary),
                       ],
-                    ),
-                  ),
-                  SizedBox(
-                    width: 430,
-                    child: _PaymentOrderSummary(
-                      items: items,
-                      total: total,
-                      itemDiscountTotal: itemDiscountTotal,
-                      cartDiscount: cartDiscount,
-                      paymentLines: paymentLines,
-                      quote: quote,
-                      quoteLoading: isQuoteLoading,
-                      quoteError: quoteError,
-                      promotionCodes: promotionCodes,
-                      promotionCodeController: promotionCodeController,
-                      onApplyPromotionCode: _applyPromotionCode,
-                      onRemovePromotionCode: _removePromotionCode,
-                      canPay:
-                          !submitting &&
-                          !isQuoteLoading &&
-                          quoteError == null &&
-                          quote != null &&
-                          items.isNotEmpty &&
-                          !hasUnresolvedCheckout &&
-                          remaining == 0 &&
-                          methods.isNotEmpty &&
-                          _hasReadyPaymentReference(
-                            selected: selected,
-                            paymentLines: paymentLines,
-                            singleReference: referenceController.text,
-                          ),
-                      onPay: () => _pay(items, total, quote!),
-                    ),
-                  ),
-                ],
+                    );
+                  }
+
+                  return Row(
+                    children: [
+                      Expanded(child: paymentContent),
+                      SizedBox(width: 430, child: summary),
+                    ],
+                  );
+                },
               ),
             ),
           ],
@@ -397,6 +446,26 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     ref.read(paymentPromotionCodesProvider.notifier).remove(code);
   }
 
+  void _selectMethod({
+    required List<PaymentMethodConfig> methods,
+    required String method,
+    required int total,
+  }) {
+    setState(() {
+      selectedMethod = method;
+      paymentLines.clear();
+      final config = _methodByName(methods, method);
+      paidAmount = config.isCash ? 0 : total;
+      referenceController.clear();
+    });
+    final config = _methodByName(methods, method);
+    if (!config.isCash) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => referenceFocusNode.requestFocus(),
+      );
+    }
+  }
+
   Future<void> _saveHeld(List<CartItem> items) async {
     if (items.isEmpty) return;
     final details = ref.read(checkoutDetailsProvider);
@@ -414,9 +483,11 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       context.go('/orders');
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
+      NojposToast.error(
         context,
-      ).showSnackBar(SnackBar(content: Text(parkedOrderLeaseMessage(error))));
+        'Parked order belum bisa dilepas',
+        description: parkedOrderLeaseMessage(error),
+      );
     }
   }
 }
@@ -427,6 +498,9 @@ String _checkoutErrorMessage(Object error) {
   }
   if (error is ApiException && error.code == 'TOTAL_MISMATCH') {
     return 'Harga atau pajak berubah. Ulangi checkout untuk mengambil total terbaru.';
+  }
+  if (error is ApiException && error.code == 'STORE_CLOSED_CHECKOUT_BLOCKED') {
+    return 'Toko sedang tutup. Buka toko sebelum checkout.';
   }
   final message = error.toString();
   final separator = message.indexOf(': ');
@@ -491,18 +565,12 @@ class _PaymentTopBar extends StatelessWidget {
                 ),
               ),
               SizedBox(height: 1),
-              Row(
-                children: [
-                  _TinyDot(),
-                  SizedBox(width: 5),
-                  Text(
-                    'Status: Online',
-                    style: TextStyle(
-                      color: MokposColors.onPrimaryMuted,
-                      fontSize: 11,
-                    ),
-                  ),
-                ],
+              ConnectivityStatusChip(
+                textStyle: TextStyle(
+                  color: MokposColors.onPrimaryMuted,
+                  fontSize: 11,
+                ),
+                dotSize: 8,
               ),
             ],
           ),
@@ -517,22 +585,6 @@ class _PaymentTopBar extends StatelessWidget {
           ),
           const Spacer(flex: 2),
         ],
-      ),
-    );
-  }
-}
-
-class _TinyDot extends StatelessWidget {
-  const _TinyDot();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 8,
-      height: 8,
-      decoration: const BoxDecoration(
-        color: MokposColors.success,
-        shape: BoxShape.circle,
       ),
     );
   }
@@ -646,7 +698,7 @@ class _PaymentActions extends ConsumerWidget {
           Expanded(
             child: _PaymentAction(
               icon: LucideIcons.fileText,
-              label: 'Jadikan Invoice',
+              label: 'Simpan Order',
               onTap: onHeld,
             ),
           ),
@@ -665,22 +717,20 @@ class _PaymentActions extends ConsumerWidget {
 }
 
 class _PaymentAction extends StatelessWidget {
-  const _PaymentAction({required this.icon, required this.label, this.onTap});
+  const _PaymentAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
 
   final IconData icon;
   final String label;
-  final VoidCallback? onTap;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap:
-          onTap ??
-          () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('$label siap disambungkan ke backend')),
-            );
-          },
+      onTap: onTap,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -705,14 +755,89 @@ class _MethodRail extends StatelessWidget {
     required this.methods,
     required this.selected,
     required this.onSelect,
+    this.horizontal = false,
   });
 
   final List<PaymentMethodConfig> methods;
   final String selected;
   final ValueChanged<String> onSelect;
+  final bool horizontal;
 
   @override
   Widget build(BuildContext context) {
+    final header = Container(
+      height: 44,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: MokposColors.line)),
+      ),
+      child: const Row(
+        children: [
+          Expanded(
+            child: Text(
+              'Metode Pembayaran',
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: MokposColors.muted,
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          Icon(LucideIcons.listFilter, size: 16, color: MokposColors.text),
+        ],
+      ),
+    );
+
+    final empty = const Padding(
+      padding: EdgeInsets.all(12),
+      child: Text(
+        'Metode pembayaran belum dikonfigurasi',
+        style: TextStyle(color: MokposColors.danger, fontSize: 12),
+      ),
+    );
+
+    final tiles = [
+      for (final method in methods)
+        _MethodTile(
+          key: ValueKey('payment_method_${method.method}'),
+          text: '${method.method} ${method.isCash ? '(cash)' : '(non-cash)'}',
+          active: selected == method.method,
+          onTap: () => onSelect(method.method),
+          compact: horizontal,
+        ),
+    ];
+
+    if (horizontal) {
+      return Container(
+        height: 98,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(bottom: BorderSide(color: MokposColors.line)),
+        ),
+        child: Column(
+          children: [
+            header,
+            Expanded(
+              child: methods.isEmpty
+                  ? empty
+                  : ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      itemBuilder: (context, index) => SizedBox(
+                        width: 156,
+                        child: tiles[index],
+                      ),
+                      separatorBuilder: (context, index) =>
+                          const SizedBox(width: 8),
+                      itemCount: tiles.length,
+                    ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Container(
       width: 174,
       decoration: const BoxDecoration(
@@ -720,51 +845,7 @@ class _MethodRail extends StatelessWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            height: 44,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: MokposColors.line)),
-            ),
-            child: const Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Metode Pembayaran',
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: MokposColors.muted,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-                Icon(
-                  LucideIcons.listFilter,
-                  size: 16,
-                  color: MokposColors.text,
-                ),
-              ],
-            ),
-          ),
-          if (methods.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(12),
-              child: Text(
-                'Metode pembayaran belum dikonfigurasi',
-                style: TextStyle(color: MokposColors.danger, fontSize: 12),
-              ),
-            ),
-          for (final method in methods)
-            _MethodTile(
-              key: ValueKey('payment_method_${method.method}'),
-              text:
-                  '${method.method} ${method.isCash ? '(cash)' : '(non-cash)'}',
-              active: selected == method.method,
-              onTap: () => onSelect(method.method),
-            ),
-        ],
+        children: [header, if (methods.isEmpty) empty, ...tiles],
       ),
     );
   }
@@ -775,42 +856,103 @@ class _MethodTile extends StatelessWidget {
     required this.text,
     required this.active,
     required this.onTap,
+    this.compact = false,
     super.key,
   });
 
   final String text;
   final bool active;
   final VoidCallback onTap;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
       child: Container(
-        height: 42,
+        height: compact ? 44 : 42,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
           color: active ? MokposColors.primarySoft : Colors.white,
-          border: Border(
-            bottom: const BorderSide(color: MokposColors.line),
-            left: BorderSide(
-              color: active ? MokposColors.primary : Colors.transparent,
-              width: 3,
-            ),
-          ),
+          borderRadius: compact ? BorderRadius.circular(NojposRadius.md) : null,
+          border: compact
+              ? Border.all(
+                  color: active ? NojposColors.primary : NojposColors.line,
+                )
+              : Border(
+                  bottom: const BorderSide(color: MokposColors.line),
+                  left: BorderSide(
+                    color: active ? MokposColors.primary : Colors.transparent,
+                    width: 3,
+                  ),
+                ),
         ),
         alignment: Alignment.centerLeft,
-        child: Text(
-          text,
-          style: TextStyle(
-            color: active ? MokposColors.text : MokposColors.muted,
-            fontSize: 12,
-            fontWeight: active ? FontWeight.w900 : FontWeight.w700,
-          ),
+        child: Row(
+          children: [
+            Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: active ? Colors.white : MokposColors.canvas,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: MokposColors.line),
+              ),
+              child: Center(
+                child: NojposAssetIcon.named(
+                  _paymentMethodAssetFor(text),
+                  fallbackIcon: _paymentMethodIconFor(text),
+                  size: 18,
+                  applyColor: false,
+                  semanticLabel: text,
+                ),
+              ),
+            ),
+            const SizedBox(width: 9),
+            Expanded(
+              child: Text(
+                text,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: active ? MokposColors.text : MokposColors.muted,
+                  fontSize: 12,
+                  fontWeight: active ? FontWeight.w900 : FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
+}
+
+String _paymentMethodAssetFor(String value) {
+  final method = value.toLowerCase();
+  if (method.contains('qris') || method.contains('qr')) return 'qris';
+  if (method.contains('edc') ||
+      method.contains('card') ||
+      method.contains('kartu')) {
+    return 'edc';
+  }
+  if (method.contains('cash') || method.contains('tunai')) return 'cash';
+  return 'receipt';
+}
+
+IconData _paymentMethodIconFor(String value) {
+  final method = value.toLowerCase();
+  if (method.contains('qris') || method.contains('qr')) {
+    return LucideIcons.qrCode;
+  }
+  if (method.contains('edc') ||
+      method.contains('card') ||
+      method.contains('kartu')) {
+    return LucideIcons.creditCard;
+  }
+  if (method.contains('cash') || method.contains('tunai')) {
+    return LucideIcons.banknote;
+  }
+  return LucideIcons.receiptText;
 }
 
 class _PaymentAmountPanel extends StatelessWidget {
@@ -819,6 +961,7 @@ class _PaymentAmountPanel extends StatelessWidget {
     required this.total,
     required this.paidAmount,
     required this.referenceController,
+    required this.referenceFocusNode,
     required this.onSelectAmount,
     required this.onOpenAmountDialog,
   });
@@ -827,6 +970,7 @@ class _PaymentAmountPanel extends StatelessWidget {
   final int total;
   final int paidAmount;
   final TextEditingController referenceController;
+  final FocusNode referenceFocusNode;
   final ValueChanged<int> onSelectAmount;
   final VoidCallback onOpenAmountDialog;
 
@@ -850,6 +994,9 @@ class _PaymentAmountPanel extends StatelessWidget {
             TextField(
               key: const ValueKey('payment_reference'),
               controller: referenceController,
+              focusNode: referenceFocusNode,
+              autofocus: true,
+              textInputAction: TextInputAction.done,
               decoration: const InputDecoration(
                 labelText: 'Reference manual',
                 hintText: 'Nomor referensi QRIS/transfer/e-wallet',
@@ -1007,6 +1154,9 @@ class _PaymentOrderSummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final itemCount = items.fold(0, (sum, item) => sum + item.quantity);
+    final quoteLabel = quote == null
+        ? 'Menunggu total server'
+        : 'Quote ${quote!.quoteId}';
 
     return Container(
       decoration: const BoxDecoration(
@@ -1021,15 +1171,15 @@ class _PaymentOrderSummary extends StatelessWidget {
             decoration: const BoxDecoration(
               border: Border(bottom: BorderSide(color: MokposColors.line)),
             ),
-            child: const Row(
+            child: Row(
               children: [
-                Icon(
+                const Icon(
                   LucideIcons.circleUserRound,
                   size: 18,
                   color: MokposColors.muted,
                 ),
-                SizedBox(width: 8),
-                Text(
+                const SizedBox(width: 8),
+                const Text(
                   'Tanpa Pelanggan',
                   style: TextStyle(
                     color: MokposColors.muted,
@@ -1037,10 +1187,12 @@ class _PaymentOrderSummary extends StatelessWidget {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                Spacer(),
+                const Spacer(),
                 Text(
-                  'CS/01/260616/0003',
-                  style: TextStyle(color: MokposColors.muted, fontSize: 11),
+                  quoteLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: MokposColors.muted, fontSize: 11),
                 ),
               ],
             ),
@@ -1285,12 +1437,24 @@ class _SplitPaymentDialogState extends State<_SplitPaymentDialog> {
   late String method = widget.methods.firstOrNull?.method ?? '';
   final amountController = TextEditingController();
   final referenceController = TextEditingController();
+  final amountFocusNode = FocusNode();
+  final referenceFocusNode = FocusNode();
   String? lineError;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => amountFocusNode.requestFocus(),
+    );
+  }
 
   @override
   void dispose() {
     amountController.dispose();
     referenceController.dispose();
+    amountFocusNode.dispose();
+    referenceFocusNode.dispose();
     super.dispose();
   }
 
@@ -1318,6 +1482,7 @@ class _SplitPaymentDialogState extends State<_SplitPaymentDialog> {
       amountController.clear();
       referenceController.clear();
     });
+    amountFocusNode.requestFocus();
   }
 
   @override
@@ -1327,93 +1492,125 @@ class _SplitPaymentDialogState extends State<_SplitPaymentDialog> {
     final selected = _methodByName(widget.methods, method);
     return AlertDialog(
       backgroundColor: Colors.white,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
       title: const Text('Pisah Bayar'),
-      content: SizedBox(
-        width: 460,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            DropdownButtonFormField<String>(
-              initialValue: method.isEmpty ? null : method,
-              items: [
-                for (final config in widget.methods)
-                  DropdownMenuItem(
-                    value: config.method,
-                    child: Text(
-                      '${config.method} ${config.isCash ? '(cash)' : '(non-cash)'}',
+      content: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 500,
+          maxHeight: MediaQuery.sizeOf(context).height * .68,
+        ),
+        child: SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<String>(
+                initialValue: method.isEmpty ? null : method,
+                items: [
+                  for (final config in widget.methods)
+                    DropdownMenuItem(
+                      value: config.method,
+                      child: Text(
+                        '${config.method} ${config.isCash ? '(cash)' : '(non-cash)'}',
+                      ),
                     ),
-                  ),
-              ],
-              onChanged: (value) => setState(() => method = value ?? method),
-              decoration: const InputDecoration(
-                labelText: 'Metode',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: amountController,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                labelText: 'Nominal',
-                helperText: 'Sisa tagihan ${rupiah(remaining)}',
-                prefixText: 'Rp ',
-                border: const OutlineInputBorder(),
-              ),
-            ),
-            if (!selected.isCash) ...[
-              const SizedBox(height: 12),
-              TextField(
-                controller: referenceController,
+                ],
+                onChanged: (value) {
+                  setState(() => method = value ?? method);
+                  final config = _methodByName(widget.methods, value ?? method);
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (config.isCash) {
+                      amountFocusNode.requestFocus();
+                    } else {
+                      referenceFocusNode.requestFocus();
+                    }
+                  });
+                },
                 decoration: const InputDecoration(
-                  labelText: 'Reference manual',
+                  labelText: 'Metode',
                   border: OutlineInputBorder(),
                 ),
               ),
-            ],
-            if (lineError != null) ...[
-              const SizedBox(height: 8),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  lineError!,
-                  style: const TextStyle(
-                    color: MokposColors.danger,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
+              const SizedBox(height: 12),
+              TextField(
+                controller: amountController,
+                focusNode: amountFocusNode,
+                autofocus: true,
+                keyboardType: TextInputType.number,
+                textInputAction: selected.isCash
+                    ? TextInputAction.done
+                    : TextInputAction.next,
+                onSubmitted: (_) {
+                  if (selected.isCash) {
+                    _addLine();
+                  } else {
+                    referenceFocusNode.requestFocus();
+                  }
+                },
+                decoration: InputDecoration(
+                  labelText: 'Nominal',
+                  helperText: 'Sisa tagihan ${rupiah(remaining)}',
+                  prefixText: 'Rp ',
+                  border: const OutlineInputBorder(),
+                ),
+              ),
+              if (!selected.isCash) ...[
+                const SizedBox(height: 12),
+                TextField(
+                  controller: referenceController,
+                  focusNode: referenceFocusNode,
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: (_) => _addLine(),
+                  decoration: const InputDecoration(
+                    labelText: 'Reference manual',
+                    border: OutlineInputBorder(),
                   ),
                 ),
-              ),
-            ],
-            const SizedBox(height: 12),
-            Align(
-              alignment: Alignment.centerRight,
-              child: OutlinedButton.icon(
-                onPressed: _addLine,
-                icon: const Icon(LucideIcons.plus, size: 16),
-                label: const Text('Tambah Line'),
-              ),
-            ),
-            const Divider(),
-            for (final (index, line) in lines.indexed)
-              ListTile(
-                dense: true,
-                title: Text(line.method),
-                subtitle: Text(
-                  line.reference ?? (line.isCash ? 'cash' : 'pending'),
-                ),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(rupiah(line.amount)),
-                    IconButton(
-                      onPressed: () => setState(() => lines.removeAt(index)),
-                      icon: const Icon(LucideIcons.x, size: 16),
+              ],
+              if (lineError != null) ...[
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    lineError!,
+                    style: const TextStyle(
+                      color: MokposColors.danger,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
                     ),
-                  ],
+                  ),
+                ),
+              ],
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerRight,
+                child: OutlinedButton.icon(
+                  onPressed: _addLine,
+                  icon: const Icon(LucideIcons.plus, size: 16),
+                  label: const Text('Tambah Line'),
                 ),
               ),
-          ],
+              const Divider(),
+              for (final (index, line) in lines.indexed)
+                ListTile(
+                  dense: true,
+                  title: Text(line.method),
+                  subtitle: Text(
+                    line.reference ?? (line.isCash ? 'cash' : 'pending'),
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(rupiah(line.amount)),
+                      IconButton(
+                        onPressed: () => setState(() => lines.removeAt(index)),
+                        icon: const Icon(LucideIcons.x, size: 16),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
       actions: [

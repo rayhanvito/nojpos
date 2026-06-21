@@ -73,7 +73,7 @@ void main() {
         '120000',
       );
       await tester.pump();
-      await tester.tap(find.text('Tutup Shift'));
+      await tester.tap(find.text('Tutup Kasir'));
       await tester.pumpAndSettle();
 
       expect(shift.lastActualCash, 120000);

@@ -74,7 +74,10 @@ void main() {
       expect(result.success, false);
       expect(result.blocksSale, false);
       expect(result.canReprint, true);
-      expect(result.message, contains('Printer default belum disimpan'));
+      expect(
+        result.message,
+        contains('Printer lokal perangkat ini belum disimpan'),
+      );
     },
   );
 

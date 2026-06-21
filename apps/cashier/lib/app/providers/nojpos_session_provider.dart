@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/network/api_client.dart';
 import '../../core/outbox/checkout_outbox.dart';
 import '../../features/auth/repositories/auth_repository.dart';
 import '../../features/customers/repositories/customer_repository.dart';
@@ -217,6 +218,32 @@ class NojposSessionNotifier extends Notifier<NojposSessionState> {
   Future<void> selectOutlet(Outlet outlet) async {
     await ref.read(authRepositoryProvider).selectOutlet(outlet);
     state = state.copyWith(outlet: outlet, status: SessionStatus.pinRequired);
+  }
+
+  Future<bool> hasCompletedInitialSync() async {
+    final deviceId = state.deviceId ?? state.deviceUuid;
+    if (state.outlet.id.isEmpty || deviceId == null || deviceId.isEmpty) {
+      return false;
+    }
+    return ref
+        .read(tokenStorageProvider)
+        .readInitialSyncCompleted(
+          outletId: state.outlet.id,
+          deviceId: deviceId,
+        );
+  }
+
+  Future<void> markInitialSyncCompleted() async {
+    final deviceId = state.deviceId ?? state.deviceUuid;
+    if (state.outlet.id.isEmpty || deviceId == null || deviceId.isEmpty) {
+      return;
+    }
+    await ref
+        .read(tokenStorageProvider)
+        .writeInitialSyncCompleted(
+          outletId: state.outlet.id,
+          deviceId: deviceId,
+        );
   }
 
   Future<void> refreshOutlets() async {
@@ -873,6 +900,7 @@ class NojposSessionNotifier extends Notifier<NojposSessionState> {
       for (final item in items)
         OrderLine(
           productId: item.productId,
+          transactionItemId: item.transactionItemId,
           name: item.name,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
@@ -994,6 +1022,57 @@ class NojposSessionNotifier extends Notifier<NojposSessionState> {
     } catch (error) {
       state = state.copyWith(isBusy: false, errorMessage: _messageFor(error));
       return false;
+    }
+  }
+
+  Future<RefundResult?> createRefund({
+    required SalesTransaction transaction,
+    required String reason,
+    required String refundMethod,
+    required List<RefundLineRequest> lines,
+    String? authorizationCode,
+    String? notes,
+  }) async {
+    state = state.copyWith(isBusy: true, clearError: true);
+    try {
+      final refund = await ref
+          .read(transactionRepositoryProvider)
+          .createRefund(
+            transactionId: transaction.id,
+            request: RefundRequest(
+              idempotencyKey: const Uuid().v4(),
+              reason: reason,
+              refundMethod: refundMethod,
+              authorizationPin: authorizationCode,
+              notes: notes,
+              lines: lines,
+            ),
+          );
+      state = state.copyWith(
+        isBusy: false,
+        transactions: [
+          for (final existing in state.transactions)
+            if (existing.id == transaction.id)
+              SalesTransaction(
+                id: existing.id,
+                number: existing.number,
+                order: existing.order,
+                payments: existing.payments,
+                cashier: existing.cashier,
+                createdAt: existing.createdAt,
+                status: refund.transactionStatus,
+                itemDiscountTotal: existing.itemDiscountTotal,
+                cartDiscountTotal: existing.cartDiscountTotal,
+                grandTotal: existing.grandTotal,
+              )
+            else
+              existing,
+        ],
+      );
+      return refund;
+    } catch (error) {
+      state = state.copyWith(isBusy: false, errorMessage: _messageFor(error));
+      return null;
     }
   }
 
@@ -1138,6 +1217,21 @@ class NojposSessionNotifier extends Notifier<NojposSessionState> {
 }
 
 String _messageFor(Object error) {
+  if (error is ApiException) {
+    return switch (error.code) {
+      'STORE_CLOSED_SHIFT_OPEN_BLOCKED' =>
+        'Toko sedang tutup. Buka toko sebelum membuka shift.',
+      'STORE_CLOSED_CHECKOUT_BLOCKED' =>
+        'Toko sedang tutup. Buka toko sebelum checkout.',
+      'STORE_CLOSE_BLOCKED_OPEN_SHIFTS' =>
+        'Tutup toko ditolak. Masih ada shift terbuka atau pending close.',
+      'STORE_ALREADY_OPEN' => 'Toko sudah buka.',
+      'STORE_ALREADY_CLOSED' => 'Toko sudah tutup.',
+      'PIN_REQUIRED' => 'PIN otorisasi wajib diisi.',
+      'INVALID_PIN' => 'PIN otorisasi tidak valid.',
+      _ => error.message,
+    };
+  }
   final message = error.toString();
   final separator = message.indexOf(': ');
   return separator == -1 ? message : message.substring(separator + 2);

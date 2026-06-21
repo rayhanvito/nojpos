@@ -111,6 +111,21 @@ class Wave1FoundationTest extends TestCase
         $this->assertSame(1, DB::table('audit_logs')->where('business_id', $businessId)->where('action', 'test.effect')->count());
     }
 
+    public function test_idempotency_fingerprint_includes_user_and_terminal_context(): void
+    {
+        $service = app(IdempotencyService::class);
+        $payload = ['outlet_id' => (string) Str::uuid(), 'device_id' => (string) Str::uuid(), 'cashier_id' => (string) Str::uuid()];
+        $first = Request::create('/api/v1/__wave1/effects', 'POST', $payload);
+        $first->setUserResolver(fn () => (object) ['id' => 'user-a']);
+        $second = Request::create('/api/v1/__wave1/effects', 'POST', $payload);
+        $second->setUserResolver(fn () => (object) ['id' => 'user-b']);
+
+        $this->assertNotSame(
+            $service->hashPayload($service->fingerprintPayload($first)),
+            $service->hashPayload($service->fingerprintPayload($second)),
+        );
+    }
+
     public function test_parallel_same_key_second_request_gets_in_progress_without_second_effect(): void
     {
         [$businessId, $outletId, $token] = $this->tenantContext();
@@ -122,7 +137,15 @@ class Wave1FoundationTest extends TestCase
             'business_id' => $businessId,
             'endpoint' => 'POST api/v1/__wave1/effects',
             'key' => $key,
-            'request_hash' => app(IdempotencyService::class)->hashPayload($payload),
+            'request_hash' => app(IdempotencyService::class)->hashPayload([
+                'context' => [
+                    'user_id' => DB::table('personal_access_tokens')->where('token', hash('sha256', $token))->value('tokenable_id'),
+                    'outlet_id' => $outletId,
+                    'device_id' => null,
+                    'cashier_id' => null,
+                ],
+                'payload' => $payload,
+            ]),
             'state' => 'in_progress',
             'reserved_at' => now(),
             'response_snapshot' => '',
