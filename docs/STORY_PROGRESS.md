@@ -8,9 +8,9 @@ Board ini adalah urutan kerja aktif agar implementasi tidak loncat-loncat. Detai
 | --- | --- | --- |
 | Backend Core POS | `[IN PROGRESS]` | Route inti auth, master data, inventory, shift, transaction, payment, reports, superadmin core, dan dashboard summary read-only sudah ada. Perlu hardening tenant scope, policy, audit, dan endpoint platform tambahan. |
 | Mobile Kasir | `[IN PROGRESS]` | Feature Flutter utama sudah ada. Perlu QA end-to-end, hardening checkout retry, device/session, shift, print. |
-| Web Admin Tenant | `[INTEGRATED READ-ONLY]` | Dashboard, transactions, dan inventory owner/admin sudah membaca data read-only melalui Next.js BFF; catalog dan halaman tenant lain masih preview/read-only planning. |
+| Web Admin Tenant | `[INTEGRATED READ-ONLY]` | Dashboard, transactions, inventory, dan catalog owner/admin sudah membaca data read-only melalui Next.js BFF; reports/customers/staff/outlets masih preview/read-only planning. |
 | Platform Super Admin | `[PREVIEW]` | UI sederhana Indonesia-friendly sudah preview. Backend baru mendukung sebagian kecil. |
-| Integrasi Web Admin | `[IN PROGRESS]` | Session strategy dan BFF adapter sudah selesai; dashboard, transactions, dan inventory read-only integration selesai; lanjut catalog read-only contract. |
+| Integrasi Web Admin | `[IN PROGRESS]` | Session strategy dan BFF adapter sudah selesai; dashboard, transactions, inventory, dan catalog read-only integration selesai; lanjut reports read-only contract. |
 | Billing SaaS | `[TODO]` | Belum ada invoice/platform billing domain lengkap. |
 | Support/Bantuan | `[TODO]` | Belum ada support ticket backend domain. |
 | Pengumuman | `[TODO]` | Belum ada announcement backend domain. |
@@ -81,13 +81,12 @@ Status: `[IN PROGRESS]`
   2. `[DONE]` Transactions BFF + page read-only integration.
   3. `[DONE]` Inventory read-only contract.
   4. `[DONE]` Inventory BFF + page read-only integration.
-  3. `[READY]` Transactions checkpoint commit.
-  4. Inventory.
-  5. Catalog/products/categories.
-  4. Customers.
-  5. Staff/attendance.
-  6. Reports.
-  7. Settings/outlets/subscription.
+  5. `[DONE]` Catalog/products/categories read-only contract.
+  6. `[DONE]` Catalog/products/categories BFF + page read-only integration.
+  7. `[READY]` Reports read-only contract.
+  8. Customers.
+  9. Staff/attendance.
+  10. Settings/outlets/subscription.
 
 ### Phase 4 — Mobile Kasir Hardening
 

@@ -16,8 +16,8 @@ Dokumen ini adalah queue kerja aktif. Kerjakan dari atas ke bawah. Jangan mengam
 | --- | --- |
 | Mode | Single active coding agent |
 | Current phase | Phase 3 — Tenant Admin Read-only Pages |
-| Current task | `CHK-03` done; inventory read-only checkpoint pushed |
-| Next implementation target | `WEB-04A` Catalog/products/categories read-only contract |
+| Current task | `WEB-04B` done; catalog read-only integration ready |
+| Next implementation target | `CHK-04` Catalog read-only checkpoint |
 | Do not start yet | Tenant pages beyond dashboard, Super Admin writes, payment/broadcast/impersonation real |
 
 ## Phase 0 — Clean Baseline And Planning
@@ -380,13 +380,52 @@ Goal:
 
 ### WEB-04A — Catalog/products/categories read-only contract
 
-Status: `[READY]`
+Status: `[DONE]`
 Priority: P1
-Area: Web Admin
+Area: Web Admin / API Contract
 Depends on: inventory read-only checkpoint
 
 Goal:
-- Integrate catalog read-only.
+- Finalize catalog read-only contract before BFF/page integration.
+
+Subtasks:
+- [x] Document backend routes `GET /api/v1/products` and `GET /api/v1/categories`.
+- [x] Document BFF targets `/api/admin/catalog/products` and `/api/admin/catalog/categories`.
+- [x] Document query whitelist, product/category response shape, field privacy, tenant/outlet/category isolation, empty/error state, and WEB-04B acceptance criteria.
+
+---
+
+### WEB-04B — Catalog/products/categories BFF + page read-only integration
+
+Status: `[DONE]`
+Priority: P1
+Area: Web Admin
+Depends on: `WEB-04A`, inventory read-only checkpoint
+
+Goal:
+- Integrate catalog products/categories read-only through BFF before reports.
+
+Subtasks:
+- [x] Add BFF route `GET /api/admin/catalog/products`.
+- [x] Add BFF route `GET /api/admin/catalog/categories`.
+- [x] Add server-only catalog mapping helper.
+- [x] Integrate `/catalog` page with session/error/empty/forbidden state.
+- [x] Keep add/edit/delete/import/export actions disabled.
+- [x] Run full web validation and boundary scan.
+
+---
+
+### CHK-04 — Catalog read-only checkpoint
+
+Status: `[READY]`
+Priority: P1
+Area: Checkpoint
+Depends on: `WEB-04B`
+
+Goal:
+- Commit and push catalog read-only contract, BFF routes, page integration, tests, and docs.
+
+---
 
 ## Phase 4 — Deferred Safe Writes
 

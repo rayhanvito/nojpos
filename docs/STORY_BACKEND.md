@@ -112,9 +112,11 @@ Staff:
 
 - `[DONE]` CRUD route dasar tersedia.
 - `[DONE]` Idempotency middleware untuk write route utama.
-- `[READY]` Stabilkan kontrak list untuk web admin.
-  - `[TODO]` Query params: search, status, category, outlet, pagination, sort.
-  - `[TODO]` Response DTO list/table.
+- `[IN PROGRESS]` Stabilkan kontrak list untuk web admin.
+  - `[DONE]` Products/categories read-only contract for Web Admin in `docs/API_CONTRACTS/CATALOG_READ.md`.
+  - `[TODO]` Backend-side products/categories pagination and category_id/status filters for high-volume production.
+  - `[TODO]` Customers/staff query params: search, status, outlet, pagination, sort.
+  - `[TODO]` Response DTO list/table for customers/staff.
   - `[TODO]` Empty, validation, forbidden, not found state.
 - `[READY]` Detail route jika UI detail membutuhkan real data.
   - `[TODO]` `GET /api/v1/products/{product}` bila dibutuhkan.
@@ -133,7 +135,8 @@ Staff:
 
 ### Bug/Kendala
 
-- `[OPEN]` DTO list final belum disepakati untuk web admin.
+- `[OPEN]` Products/categories Web Admin read-only contract is final, but backend list pagination, category_id/status/updated_at filters, and stock summary are limited; BFF must sanitize/map/paginate until backend hardening.
+- `[OPEN]` DTO list final belum disepakati untuk customers/staff web admin.
 - `[OPEN]` Delete staff punya dua route; perlu penyederhanaan kontrak.
 
 ---

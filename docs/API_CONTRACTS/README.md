@@ -17,7 +17,8 @@ Folder ini menyimpan kontrak API sebelum backend endpoint diimplementasikan atau
 | `SESSION.md` | Decision ready, implementation pending | Web Admin | Next.js BFF/server-side route handler with HttpOnly sealed session cookie |
 | `DASHBOARD_SUMMARY.md` | Contract ready, implementation complete | Backend + Web | Dashboard owner/admin read-only endpoint implemented in BE-04B |
 | `TRANSACTIONS_READ.md` | Contract ready, implementation complete | Backend + Web | Tenant Admin transactions read-only list through BFF `/api/admin/transactions` |
-| `INVENTORY_READ.md` | Contract ready, implementation pending | Backend + Web | Tenant Admin inventory read-only list/movements through BFF `/api/admin/inventory` |
+| `INVENTORY_READ.md` | Contract ready, implementation complete | Backend + Web | Tenant Admin inventory read-only list through BFF `/api/admin/inventory` |
+| `CATALOG_READ.md` | Contract ready, implementation pending | Backend + Web | Tenant Admin products/categories read-only through BFF `/api/admin/catalog/*` |
 | `PLATFORM_READ.md` | Draft needed | Backend Platform + Web | Super Admin read-only |
 
 ## Template Ringkas

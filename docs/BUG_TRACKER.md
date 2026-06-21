@@ -15,6 +15,7 @@ Gunakan file ini untuk bug, blocker, dan gap yang menghambat implementasi story.
 | BUG-BE-04 | Backend | P1 | `[OPEN]` | Payment read/list endpoint untuk web admin belum jelas. | BE-03, WEB-02 | Tentukan apakah pakai transactions/payment report atau endpoint baru. |
 | BUG-BE-05 | Backend/Web | P2 | `[OPEN]` | `GET /api/v1/transactions` sudah ada dan tenant-scoped, tapi filter/pagination backend masih terbatas untuk kebutuhan Web Admin. | BE-03, WEB-02, INT-03 | WEB-02B sudah sanitize/map di BFF; backend-side filter/pagination hardening direkomendasikan sebelum volume produksi besar. |
 | BUG-BE-06 | Backend/Web | P2 | `[OPEN]` | Inventory read endpoints sudah ada dan tenant-scoped, tapi pagination total, filter `category_id`/`stock_status`, dan low-stock threshold belum stabil untuk Web Admin produksi. | BE-03, WEB-03, INT-03 | WEB-03B wajib sanitize/map/paginate di BFF; backend-side inventory filter/pagination/threshold hardening direkomendasikan sebelum volume produksi besar. |
+| BUG-BE-07 | Backend/Web | P2 | `[OPEN]` | Products/categories read endpoints sudah ada dan tenant-scoped, tapi pagination, category_id filter, status, updated_at, dan stock summary belum stabil untuk Web Admin produksi. | BE-02, WEB-04, INT-03 | WEB-04B harus melakukan mapping dan pagination aman di BFF; backend-side catalog hardening direkomendasikan sebelum volume produksi besar. |
 
 ## Bug Resolved
 

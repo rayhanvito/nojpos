@@ -108,8 +108,9 @@ Route web admin tersedia:
   - `[DONE]` Transactions list via BFF `GET /api/admin/transactions`.
   - `[TODO]` Transactions detail contract/integration if needed after list.
   - `[DONE]` Inventory list/movements/transfers contract in `docs/API_CONTRACTS/INVENTORY_READ.md`.
-  - `[READY]` Inventory list via BFF `GET /api/admin/inventory`.
-  - `[TODO]` Products/categories list.
+  - `[DONE]` Inventory list via BFF `GET /api/admin/inventory`.
+  - `[DONE]` Products/categories contract in `docs/API_CONTRACTS/CATALOG_READ.md`.
+  - `[DONE]` Products/categories list via BFF `GET /api/admin/catalog/products` and `GET /api/admin/catalog/categories`.
   - `[TODO]` Customers list/detail.
   - `[TODO]` Staff list/detail.
   - `[TODO]` Attendance list.
@@ -148,6 +149,7 @@ Route web admin tersedia:
 - `[RESOLVED]` Session/BFF adapter awal sudah tersedia di server-only boundary; page/component tetap belum memakai API langsung.
 - `[OPEN]` Transactions backend route exists, but current backend list filter/pagination is limited; `GET /api/admin/transactions` now sanitizes/maps/paginates safely in BFF and backend-side filter/pagination hardening remains recommended before high-volume production.
 - `[OPEN]` Inventory backend read routes exist, but pagination totals, `category_id`/`stock_status` filters, and low-stock threshold are not final; `GET /api/admin/inventory` now sanitizes/maps/paginates safely in BFF and backend-side hardening remains recommended before high-volume production.
+- `[OPEN]` Catalog backend read routes exist, but products/categories pagination, `category_id` filter, status, updated_at, and stock summary are limited; `GET /api/admin/catalog/products` and `GET /api/admin/catalog/categories` now sanitize/map/paginate safely in BFF and keep write actions disabled.
 - `[OPEN]` Payment/promotions web route belum jelas endpoint backend realnya.
 
 ---

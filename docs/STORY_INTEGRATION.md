@@ -132,6 +132,8 @@ Menghubungkan halaman tenant admin ke backend secara read-only dulu.
 - `[DONE]` Transactions BFF + page read-only integration: `GET /api/admin/transactions`.
 - `[DONE]` Inventory read-only contract: `docs/API_CONTRACTS/INVENTORY_READ.md`.
 - `[DONE]` Inventory BFF + page read-only integration: `GET /api/admin/inventory`.
+- `[DONE]` Catalog products/categories read-only contract: `docs/API_CONTRACTS/CATALOG_READ.md`.
+- `[DONE]` Catalog products/categories BFF + page read-only integration: `GET /api/admin/catalog/products` and `GET /api/admin/catalog/categories`.
 - `[TODO]` Buat typed DTO per endpoint lain.
 - `[TODO]` Buat adapter per feature.
 - `[TODO]` Tambah state loading/empty/error/forbidden/not found.
@@ -150,7 +152,8 @@ Menghubungkan halaman tenant admin ke backend secara read-only dulu.
 
 - `[OPEN]` Transactions DTO/pagination/filter contract is final for Web Admin; BFF now handles safe sanitization/mapping/pagination, while backend-side filter/pagination remains a hardening gap before high-volume production.
 - `[OPEN]` Inventory DTO/pagination/filter contract is final for Web Admin; BFF now handles safe sanitization/mapping/pagination, while backend-side inventory filter/pagination/threshold remains a hardening gap before high-volume production.
-- `[OPEN]` DTO/pagination/filter belum final untuk list selain transactions dan inventory.
+- `[OPEN]` Catalog DTO/pagination/filter contract is final for Web Admin; BFF now handles safe sanitization/mapping/pagination while backend-side catalog hardening remains recommended before high-volume production.
+- `[OPEN]` DTO/pagination/filter belum final untuk list selain transactions, inventory, and catalog.
 - `[OPEN]` Payments/promotions route belum punya backend mapping jelas.
 
 ---

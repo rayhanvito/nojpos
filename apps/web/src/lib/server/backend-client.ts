@@ -107,6 +107,15 @@ export type InventoryReadQuery = {
   readonly per_page?: number;
 };
 
+export type CatalogReadQuery = {
+  readonly search?: string;
+  readonly category_id?: string;
+  readonly outlet_id?: string;
+  readonly status?: 'all' | 'active' | 'inactive' | 'archived';
+  readonly page?: number;
+  readonly per_page?: number;
+};
+
 export type BackendInventoryItem = {
   readonly business_id?: string | null;
   readonly product_id?: string | null;
@@ -147,6 +156,40 @@ export type BackendInventoryData = {
   readonly rows?: readonly BackendInventoryItem[];
   readonly items?: readonly BackendInventoryItem[];
   readonly totals?: Record<string, unknown>;
+};
+
+export type BackendCatalogCategory = {
+  readonly id: string;
+  readonly business_id?: string | null;
+  readonly name?: string | null;
+  readonly status?: string | null;
+  readonly updated_at?: string | null;
+};
+
+export type BackendCatalogProduct = {
+  readonly id: string;
+  readonly business_id?: string | null;
+  readonly outlet_id?: string | null;
+  readonly product_category_id?: string | null;
+  readonly category_id?: string | null;
+  readonly name?: string | null;
+  readonly barcode?: string | null;
+  readonly sku?: string | null;
+  readonly price?: number | null;
+  readonly track_stock?: boolean | null;
+  readonly status?: string | null;
+  readonly updated_at?: string | null;
+  readonly category?: BackendCatalogCategory | null;
+  readonly outlet?: { readonly id?: string | null; readonly name?: string | null } | null;
+};
+
+export type BackendCatalogProductsData = {
+  readonly products?: readonly BackendCatalogProduct[];
+  readonly categories?: readonly BackendCatalogCategory[];
+};
+
+export type BackendCatalogCategoriesData = {
+  readonly categories?: readonly BackendCatalogCategory[];
 };
 
 export type DashboardSummaryKpi = {
@@ -276,6 +319,8 @@ export type BackendClient = {
   readonly dashboardSummary: (token: string, query?: DashboardSummaryQuery) => Promise<ApiEnvelope<DashboardSummaryData>>;
   readonly transactions: (token: string, query?: TransactionsReadQuery) => Promise<ApiEnvelope<BackendTransactionsData>>;
   readonly inventory: (token: string, query?: InventoryReadQuery) => Promise<ApiEnvelope<BackendInventoryData>>;
+  readonly catalogProducts: (token: string, query?: CatalogReadQuery) => Promise<ApiEnvelope<BackendCatalogProductsData>>;
+  readonly catalogCategories: (token: string, query?: CatalogReadQuery) => Promise<ApiEnvelope<BackendCatalogCategoriesData>>;
 };
 
 export function createBackendClient(baseUrl = getBackendBaseUrl()): BackendClient {
@@ -342,6 +387,22 @@ export function createBackendClient(baseUrl = getBackendBaseUrl()): BackendClien
       const path = appendInventoryQuery('/inventory', query);
 
       return backendRequest<BackendInventoryData>(baseUrl, path, {
+        method: 'GET',
+        token,
+      });
+    },
+    catalogProducts: async (token, query = {}) => {
+      const path = appendCatalogProductsQuery('/products', query);
+
+      return backendRequest<BackendCatalogProductsData>(baseUrl, path, {
+        method: 'GET',
+        token,
+      });
+    },
+    catalogCategories: async (token, query = {}) => {
+      const path = appendCatalogCategoriesQuery('/categories', query);
+
+      return backendRequest<BackendCatalogCategoriesData>(baseUrl, path, {
         method: 'GET',
         token,
       });
@@ -463,6 +524,34 @@ function appendInventoryQuery(path: string, query: InventoryReadQuery): string {
   // Current Laravel inventory endpoint supports outlet filtering. BFF keeps category/status/search pagination stable until backend-side filters mature.
   if (query.outlet_id) {
     params.set('outlet_id', query.outlet_id);
+  }
+
+  const serialized = params.toString();
+
+  return serialized ? `${path}?${serialized}` : path;
+}
+
+function appendCatalogProductsQuery(path: string, query: CatalogReadQuery): string {
+  const params = new URLSearchParams();
+
+  if (query.search) {
+    params.set('search', query.search);
+  }
+
+  if (query.outlet_id) {
+    params.set('outlet_id', query.outlet_id);
+  }
+
+  const serialized = params.toString();
+
+  return serialized ? `${path}?${serialized}` : path;
+}
+
+function appendCatalogCategoriesQuery(path: string, query: CatalogReadQuery): string {
+  const params = new URLSearchParams();
+
+  if (query.search) {
+    params.set('search', query.search);
   }
 
   const serialized = params.toString();

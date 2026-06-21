@@ -1,35 +1,31 @@
-import { ActivityLanes } from '@/components/activity-lanes';
-import { AdminShell } from '@/components/admin-shell';
-import { DetailLinks } from '@/components/detail-links';
-import { PreviewActionPanel } from '@/components/preview-action-panel';
-import { PreviewStateBoard } from '@/components/preview-state-board';
-import { PreviewTable } from '@/components/preview-table';
-import { PreviewToolbar } from '@/components/preview-toolbar';
-import { catalogDetailLinks, catalogLanes, catalogProductsTable, previewActionGroups, previewStateMatrix } from '@/fixtures/preview';
+import { TenantPreviewPage } from '@/components/tenant-preview-page';
+import { previewActionGroups, previewStateMatrix } from '@/fixtures/preview';
+import { getCatalogPageModel } from '@/lib/server/catalog';
 
-export default function CatalogPage() {
+export default async function CatalogPage() {
+  const model = await getCatalogPageModel();
+
   return (
-    <AdminShell title="Katalog Produk">
-      <PreviewToolbar action="Tambah produk preview" />
-      <ActivityLanes title="Area kerja katalog" lanes={catalogLanes} />
-      <PreviewActionPanel group={previewActionGroups.catalog} />
-      <PreviewStateBoard
-        title="Kondisi tampilan katalog"
-        description="Produk, kategori, varian, dan alur publikasi punya status lengkap sebelum aksi katalog dibuka."
-        states={previewStateMatrix.catalog}
-      />
-      <DetailLinks title="Preview detail produk" links={catalogDetailLinks} />
-      <section className="resource card">
-        <div className="card-header">
-          <div>
-            <span className="card-kicker">Data produk</span>
-            <h2>Produk</h2>
-          </div>
-          <span className="badge neutral">Preview</span>
-        </div>
-        <p>Harga, kategori, visibilitas, dan urutan tampil hanya layout preview. Backend tetap sumber data utama.</p>
-        <PreviewTable columns={catalogProductsTable.columns} rows={catalogProductsTable.rows} />
-      </section>
-    </AdminShell>
+    <TenantPreviewPage
+      title="Katalog Produk"
+      kicker="Produk dan kategori read-only"
+      description={`${model.description} ${model.detail}`}
+      action="Filter katalog"
+      lanes={model.data.lanes}
+      metrics={model.data.metrics}
+      actionGroup={{
+        ...previewActionGroups.catalog,
+        title: 'Aksi katalog tetap dikunci',
+        description: 'Tambah, edit, hapus, import, export, dan publish belum aktif dari Web Admin.',
+      }}
+      states={[
+        { tone: model.state === 'real' ? 'empty' : model.state === 'forbidden' ? 'forbidden' : model.state === 'error' ? 'error' : 'unavailable', title: model.title, message: `${model.sourceLabel}: ${model.detail}` },
+        { tone: 'loading', title: 'Boundary BFF', message: 'Halaman membaca produk/kategori melalui server-side helper/BFF, bukan langsung ke Laravel.' },
+        { tone: 'forbidden', title: 'Aksi katalog', message: 'Tambah, edit, hapus, import, export, dan publish tetap disabled sampai safe write contract disetujui.' },
+        ...previewStateMatrix.catalog,
+      ]}
+      table={model.data.table}
+      detailLinks={model.data.detailLinks}
+    />
   );
 }
