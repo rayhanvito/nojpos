@@ -5,12 +5,29 @@ import { PreviewActionPanel } from '@/components/preview-action-panel';
 import { PreviewStateBoard } from '@/components/preview-state-board';
 import { PreviewTable } from '@/components/preview-table';
 import { PreviewToolbar } from '@/components/preview-toolbar';
-import { previewActionGroups, previewStateMatrix, staffDetailLinks, staffDirectoryTable, staffLanes } from '@/fixtures/preview';
+import { PreviewMetric } from '@/components/preview-metric';
+import { previewActionGroups, previewStateMatrix, staffDetailLinks, staffLanes } from '@/fixtures/preview';
+import { getStaffPageModel } from '@/lib/server/staff';
 
-export default function StaffPage() {
+export default async function StaffPage() {
+  const model = await getStaffPageModel();
+
   return (
     <AdminShell title="Manajemen Staf">
       <PreviewToolbar action="Undang staf preview" />
+      <div className="hero-card">
+        <div className="hero-head">
+          <div>
+            <span className="card-kicker">Direktori user</span>
+            <h2>{model.title}</h2>
+          </div>
+          <span className={`badge ${model.sourceTone}`}>{model.sourceLabel}</span>
+        </div>
+        <p>{model.description}</p>
+      </div>
+      <section className="metric-grid" aria-label="Ringkasan staf">
+        {model.metrics.map((metric) => <PreviewMetric key={metric.label} {...metric} />)}
+      </section>
       <ActivityLanes title="Status direktori staf" lanes={staffLanes} />
       <PreviewActionPanel group={previewActionGroups.staff} />
       <PreviewStateBoard
@@ -27,8 +44,8 @@ export default function StaffPage() {
           </div>
           <span className="badge neutral">Hanya lihat</span>
         </div>
-        <p>Preview hanya lihat. Peran, outlet, dan status aktif akan mengikuti otorisasi backend.</p>
-        <PreviewTable columns={staffDirectoryTable.columns} rows={staffDirectoryTable.rows} />
+        <p>{model.dataNotes[0] ?? 'Preview hanya lihat. Peran, outlet, dan status aktif akan mengikuti otorisasi backend.'}</p>
+        <PreviewTable columns={model.table.columns} rows={model.table.rows} caption={model.table.caption} />
       </section>
     </AdminShell>
   );

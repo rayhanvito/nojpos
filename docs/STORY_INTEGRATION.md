@@ -136,6 +136,10 @@ Menghubungkan halaman tenant admin ke backend secara read-only dulu.
 - `[DONE]` Catalog products/categories BFF + page read-only integration: `GET /api/admin/catalog/products` and `GET /api/admin/catalog/categories`.
 - `[DONE]` Reports read-only contract: `docs/API_CONTRACTS/REPORTS_READ.md`.
 - `[DONE]` Reports BFF + page read-only integration: `GET /api/admin/reports/*`.
+- `[DONE]` Staff read-only contract: `docs/API_CONTRACTS/STAFF_READ.md`.
+- `[DONE]` Customer read-only contract: `docs/API_CONTRACTS/CUSTOMERS_READ.md`.
+- `[DONE]` Outlets read-only contract: `docs/API_CONTRACTS/OUTLETS_READ.md`.
+- `[READY]` Staff/customer/outlets BFF + page read-only integration.
 - `[TODO]` Buat typed DTO per endpoint lain.
 - `[TODO]` Buat adapter per feature.
 - `[TODO]` Tambah state loading/empty/error/forbidden/not found.

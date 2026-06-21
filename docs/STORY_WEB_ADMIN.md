@@ -111,12 +111,14 @@ Route web admin tersedia:
   - `[DONE]` Inventory list via BFF `GET /api/admin/inventory`.
   - `[DONE]` Products/categories contract in `docs/API_CONTRACTS/CATALOG_READ.md`.
   - `[DONE]` Products/categories list via BFF `GET /api/admin/catalog/products` and `GET /api/admin/catalog/categories`.
-  - `[TODO]` Customers list/detail.
-  - `[TODO]` Staff list/detail.
+  - `[DONE]` Customer list contract in `docs/API_CONTRACTS/CUSTOMERS_READ.md`.
+  - `[DONE]` Staff contract in `docs/API_CONTRACTS/STAFF_READ.md`.
   - `[TODO]` Attendance list.
   - `[DONE]` Reports contract in `docs/API_CONTRACTS/REPORTS_READ.md`.
   - `[DONE]` Reports via BFF `/api/admin/reports/*`.
-  - `[TODO]` Settings/outlets/subscription.
+  - `[DONE]` Outlets contract in `docs/API_CONTRACTS/OUTLETS_READ.md`.
+  - `[READY]` Staff/customer/outlet BFF read-only integration.
+  - `[TODO]` Settings/subscription.
   - `[TODO]` Payments read-only jika backend read endpoint tersedia.
 - `[READY]` API state pattern.
   - `[TODO]` Loading.

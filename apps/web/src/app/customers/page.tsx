@@ -1,18 +1,21 @@
 import { TenantPreviewPage } from '@/components/tenant-preview-page';
-import { customerDetailLinks, customerLanes, customerMetrics, customersTable, previewActionGroups, previewStateMatrix } from '@/fixtures/preview';
+import { customerDetailLinks, customerLanes, previewActionGroups, previewStateMatrix } from '@/fixtures/preview';
+import { getCustomersPageModel } from '@/lib/server/customers';
 
-export default function CustomersPage() {
+export default async function CustomersPage() {
+  const model = await getCustomersPageModel();
+
   return (
     <TenantPreviewPage
       title="Pelanggan"
       kicker="Direktori pelanggan toko"
-      description="Area pelanggan membantu pemilik usaha melihat daftar pelanggan, persetujuan, dan segmentasi tanpa impor, ekspor, atau edit aktif."
+      description={`${model.description} Data kontak pelanggan tetap masked dan semua aksi edit/export tetap disabled.`}
       action="Tambah pelanggan preview"
       lanes={customerLanes}
-      metrics={customerMetrics}
+      metrics={model.metrics}
       actionGroup={previewActionGroups.customers}
       states={previewStateMatrix.customers}
-      table={customersTable}
+      table={model.table}
       detailLinks={customerDetailLinks}
     />
   );

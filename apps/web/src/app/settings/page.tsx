@@ -5,11 +5,24 @@ import { PreviewGate } from '@/components/preview-gate';
 import { PreviewStateBoard } from '@/components/preview-state-board';
 import { PreviewTable } from '@/components/preview-table';
 import { ReadonlyResource } from '@/components/readonly-resource';
-import { businessProfileFields, previewActionGroups, previewStateMatrix, settingsResources, settingsSummaryTable } from '@/fixtures/preview';
+import { businessProfileFields, previewActionGroups, previewStateMatrix, settingsResources } from '@/fixtures/preview';
+import { getSettingsPageModel } from '@/lib/server/settings-readonly';
 
-export default function SettingsPage() {
+export default async function SettingsPage() {
+  const model = await getSettingsPageModel();
+
   return (
     <AdminShell title="Pengaturan">
+      <div className="hero-card">
+        <div className="hero-head">
+          <div>
+            <span className="card-kicker">Pengaturan tenant</span>
+            <h2>{model.title}</h2>
+          </div>
+          <span className={`badge ${model.sourceTone}`}>{model.sourceLabel}</span>
+        </div>
+        <p>{model.description}</p>
+      </div>
       <PreviewActionPanel group={previewActionGroups.settings} />
       <PreviewStateBoard
         title="Kondisi tampilan pengaturan"
@@ -25,8 +38,8 @@ export default function SettingsPage() {
             </div>
             <span className="badge neutral">Preview</span>
           </div>
-          <p>Struktur mengikuti pola kartu pengaturan NojPOS, tetapi semua form masih hanya lihat.</p>
-          <PreviewTable columns={settingsSummaryTable.columns} rows={settingsSummaryTable.rows} />
+          <p>{model.dataNotes[0] ?? 'Struktur mengikuti pola kartu pengaturan NojPOS, tetapi semua form masih hanya lihat.'}</p>
+          <PreviewTable columns={model.table.columns} rows={model.table.rows} caption={model.table.caption} />
         </section>
         <div className="stack">
           <DisabledFormPreview

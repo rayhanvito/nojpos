@@ -16,8 +16,8 @@ Dokumen ini adalah queue kerja aktif. Kerjakan dari atas ke bawah. Jangan mengam
 | --- | --- |
 | Mode | Single active coding agent |
 | Current phase | Phase 3 — Tenant Admin Read-only Pages |
-| Current task | `CHK-05` reports checkpoint ready |
-| Next implementation target | `WEB-06A` Staff, Customers, Outlets read-only contract |
+| Current task | `WEB-07A` done; settings/subscription contracts ready |
+| Next implementation target | `WEB-07B` Settings and Subscription read-only integration |
 | Do not start yet | Tenant pages beyond dashboard, Super Admin writes, payment/broadcast/impersonation real |
 
 ## Phase 0 — Clean Baseline And Planning
@@ -472,6 +472,77 @@ Depends on: `WEB-05B`
 
 Goal:
 - Commit and push reports read-only contract, BFF routes, page integration, tests, and docs.
+
+---
+
+### WEB-06A — Staff, customers, outlets read-only contract
+
+Status: `[DONE]`
+Priority: P1
+Area: Web Admin / API Contract
+Depends on: reports read-only checkpoint
+
+Goal:
+- Finalize staff, customers, and outlets read-only contracts before BFF/page integration.
+
+Subtasks:
+- [x] Document staff safe fields, role rules, query whitelist, tenant/outlet isolation, and disabled reset/ban/delete actions.
+- [x] Document customer safe fields with masked contact data, query whitelist, tenant isolation, and disabled export/delete actions.
+- [x] Document outlet safe fields, timezone/status, tenant isolation, and disabled store open/close/edit/delete actions.
+
+---
+
+### WEB-06B — Staff, customers, outlets BFF + page read-only integration
+
+Status: `[DONE]`
+Priority: P1
+Area: Web Admin
+Depends on: `WEB-06A`, reports read-only checkpoint
+
+Goal:
+- Integrate staff, customers, and outlets read-only pages through BFF before settings/subscription.
+
+Subtasks:
+- [ ] Add BFF routes `GET /api/admin/staff`, `GET /api/admin/customers`, and `GET /api/admin/outlets`.
+- [ ] Add server-only mapping helpers.
+- [ ] Integrate `/staff`, `/customers`, and `/outlets` pages with session/error/empty/forbidden state.
+- [ ] Keep reset password, ban, delete, outlet edit, store open/close, cash reconciliation, and export actions disabled.
+- [ ] Run full web validation and boundary scan.
+
+---
+
+### WEB-07A — Settings and subscription read-only contract
+
+Status: `[DONE]`
+Priority: P1
+Area: Web Admin / API Contract
+Depends on: staff/customers/outlets read-only integration
+
+Goal:
+- Finalize settings and subscription read-only contracts.
+
+Subtasks:
+- [x] Document settings read-only endpoints, safe fields, auth, role, tenant isolation, and disabled save/update behavior.
+- [x] Document subscription read-only response, safe fields, auth, role, tenant isolation, and disabled plan/billing changes.
+
+---
+
+### WEB-07B — Settings and subscription read-only integration
+
+Status: `[DONE]`
+Priority: P1
+Area: Web Admin
+Depends on: `WEB-07A`
+
+Goal:
+- Integrate settings and subscription read-only pages through BFF.
+
+Subtasks:
+- [x] Add BFF routes for settings and subscription reads.
+- [x] Add server-only mapping helpers.
+- [x] Integrate `/settings` and `/subscription` pages with session/error/empty/forbidden state.
+- [x] Keep save/update, plan change, billing actions, and sensitive config display disabled.
+- [x] Run full web validation and boundary scan.
 
 ---
 

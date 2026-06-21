@@ -19,7 +19,12 @@ Folder ini menyimpan kontrak API sebelum backend endpoint diimplementasikan atau
 | `TRANSACTIONS_READ.md` | Contract ready, implementation complete | Backend + Web | Tenant Admin transactions read-only list through BFF `/api/admin/transactions` |
 | `INVENTORY_READ.md` | Contract ready, implementation complete | Backend + Web | Tenant Admin inventory read-only list through BFF `/api/admin/inventory` |
 | `CATALOG_READ.md` | Contract ready, implementation complete | Backend + Web | Tenant Admin products/categories read-only through BFF `/api/admin/catalog/*` |
-| `REPORTS_READ.md` | Contract ready, implementation pending | Backend + Web | Tenant Admin reports read-only through BFF `/api/admin/reports/*` |
+| `REPORTS_READ.md` | Contract ready, implementation complete | Backend + Web | Tenant Admin reports read-only through BFF `/api/admin/reports/*` |
+| `STAFF_READ.md` | Contract ready, implementation pending | Backend + Web | Tenant Admin staff read-only through BFF `/api/admin/staff` |
+| `CUSTOMERS_READ.md` | Contract ready, implementation pending | Backend + Web | Tenant Admin customers read-only through BFF `/api/admin/customers` |
+| `OUTLETS_READ.md` | Contract ready, implementation pending | Backend + Web | Tenant Admin outlets read-only through BFF `/api/admin/outlets` |
+| `SETTINGS_READ.md` | Contract ready, implementation pending | Backend + Web | Tenant Admin settings read-only |
+| `SUBSCRIPTION_READ.md` | Contract ready, implementation pending | Backend + Web | Tenant Admin subscription read-only |
 | `PLATFORM_READ.md` | Draft needed | Backend Platform + Web | Super Admin read-only |
 
 ## Template Ringkas

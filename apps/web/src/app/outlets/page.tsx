@@ -1,18 +1,21 @@
 import { TenantPreviewPage } from '@/components/tenant-preview-page';
-import { outletDetailLinks, outletLanes, outletMetrics, outletsTable, previewActionGroups, previewStateMatrix } from '@/fixtures/preview';
+import { outletDetailLinks, outletLanes, previewActionGroups, previewStateMatrix } from '@/fixtures/preview';
+import { getOutletsPageModel } from '@/lib/server/outlets';
 
-export default function OutletsPage() {
+export default async function OutletsPage() {
+  const model = await getOutletsPageModel();
+
   return (
     <TenantPreviewPage
       title="Outlet"
       kicker="Operasional outlet toko"
-      description="Area outlet memisahkan daftar outlet, status operasional, dan kontrol terminal. Buka/tutup outlet serta kunci terminal tetap dikunci."
+      description={`${model.description} Status outlet ditampilkan read-only dan perubahan tetap disabled.`}
       action="Tambah outlet preview"
       lanes={outletLanes}
-      metrics={outletMetrics}
+      metrics={model.metrics}
       actionGroup={previewActionGroups.outlets}
       states={previewStateMatrix.outlets}
-      table={outletsTable}
+      table={model.table}
       detailLinks={outletDetailLinks}
     />
   );

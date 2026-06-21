@@ -85,9 +85,10 @@ Status: `[IN PROGRESS]`
   6. `[DONE]` Catalog/products/categories BFF + page read-only integration.
   7. `[DONE]` Reports read-only contract.
   8. `[DONE]` Reports BFF + page read-only integration.
-  9. Customers.
-  10. Staff/attendance.
-  11. Settings/outlets/subscription.
+  9. `[DONE]` Staff/outlets/customer read-only contracts.
+  10. `[READY]` Staff/outlets/customer BFF + page read-only integration.
+  11. Attendance.
+  12. Settings/subscription.
 
 ### Phase 4 — Mobile Kasir Hardening
 

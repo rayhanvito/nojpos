@@ -1,7 +1,10 @@
 import { TenantPreviewPage } from '@/components/tenant-preview-page';
-import { previewActionGroups, previewStateMatrix, subscriptionLanes, subscriptionMetrics, subscriptionTable, tenantSubscriptionStatus } from '@/fixtures/preview';
+import { previewActionGroups, previewStateMatrix, subscriptionLanes, tenantSubscriptionStatus } from '@/fixtures/preview';
+import { getSubscriptionPageModel } from '@/lib/server/settings-readonly';
 
-export default function SubscriptionPage() {
+export default async function SubscriptionPage() {
+  const model = await getSubscriptionPageModel();
+
   return (
     <TenantPreviewPage
       title="Langganan"
@@ -9,10 +12,10 @@ export default function SubscriptionPage() {
       description="Halaman langganan menampilkan paket, jadwal perpanjangan, dan posisi invoice tanpa aksi ubah paket, pembatalan, atau penagihan aktif."
       action="Ubah paket preview"
       lanes={subscriptionLanes}
-      metrics={subscriptionMetrics}
+      metrics={model.metrics}
       actionGroup={previewActionGroups.subscription}
       states={previewStateMatrix.subscription}
-      table={subscriptionTable}
+      table={model.table}
       subscription={tenantSubscriptionStatus}
     />
   );
