@@ -16,8 +16,8 @@ Dokumen ini adalah queue kerja aktif. Kerjakan dari atas ke bawah. Jangan mengam
 | --- | --- |
 | Mode | Single active coding agent |
 | Current phase | Phase 3 — Tenant Admin Read-only Pages |
-| Current task | `WEB-04B` done; catalog read-only integration ready |
-| Next implementation target | `CHK-04` Catalog read-only checkpoint |
+| Current task | `CHK-05` reports checkpoint ready |
+| Next implementation target | `WEB-06A` Staff, Customers, Outlets read-only contract |
 | Do not start yet | Tenant pages beyond dashboard, Super Admin writes, payment/broadcast/impersonation real |
 
 ## Phase 0 — Clean Baseline And Planning
@@ -417,13 +417,61 @@ Subtasks:
 
 ### CHK-04 — Catalog read-only checkpoint
 
-Status: `[READY]`
+Status: `[DONE]`
 Priority: P1
 Area: Checkpoint
 Depends on: `WEB-04B`
 
 Goal:
 - Commit and push catalog read-only contract, BFF routes, page integration, tests, and docs.
+
+---
+
+### WEB-05A — Reports read-only contract
+
+Status: `[DONE]`
+Priority: P1
+Area: Web Admin / API Contract
+Depends on: catalog read-only checkpoint
+
+Goal:
+- Finalize reports read-only contract before BFF/page integration.
+
+Subtasks:
+- [x] Document backend report routes for sales summary, sold/top products, payment methods, and cashier shifts.
+- [x] Document BFF targets `/api/admin/reports/*`.
+- [x] Document query whitelist, integer rupiah response shape, tenant/outlet isolation, empty/error state, export disabled, and WEB-05B acceptance criteria.
+
+---
+
+### WEB-05B — Reports BFF + page read-only integration
+
+Status: `[DONE]`
+Priority: P1
+Area: Web Admin
+Depends on: `WEB-05A`, catalog read-only checkpoint
+
+Goal:
+- Integrate reports read-only through BFF before staff/customers/outlets planning.
+
+Subtasks:
+- [x] Add BFF routes `GET /api/admin/reports/sales-summary`, `top-products`, `payment-methods`, and `cashier-shifts`.
+- [x] Add server-only reports mapping helper.
+- [x] Integrate `/reports` page with session/error/empty/forbidden state.
+- [x] Keep export/refund/void/reprint/cash reconciliation/shift actions disabled.
+- [x] Run full web validation and boundary scan.
+
+---
+
+### CHK-05 — Reports read-only checkpoint
+
+Status: `[DONE]`
+Priority: P1
+Area: Checkpoint
+Depends on: `WEB-05B`
+
+Goal:
+- Commit and push reports read-only contract, BFF routes, page integration, tests, and docs.
 
 ---
 

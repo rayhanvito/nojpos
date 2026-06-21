@@ -10,7 +10,7 @@ Board ini adalah urutan kerja aktif agar implementasi tidak loncat-loncat. Detai
 | Mobile Kasir | `[IN PROGRESS]` | Feature Flutter utama sudah ada. Perlu QA end-to-end, hardening checkout retry, device/session, shift, print. |
 | Web Admin Tenant | `[INTEGRATED READ-ONLY]` | Dashboard, transactions, inventory, dan catalog owner/admin sudah membaca data read-only melalui Next.js BFF; reports/customers/staff/outlets masih preview/read-only planning. |
 | Platform Super Admin | `[PREVIEW]` | UI sederhana Indonesia-friendly sudah preview. Backend baru mendukung sebagian kecil. |
-| Integrasi Web Admin | `[IN PROGRESS]` | Session strategy dan BFF adapter sudah selesai; dashboard, transactions, inventory, dan catalog read-only integration selesai; lanjut reports read-only contract. |
+| Integrasi Web Admin | `[IN PROGRESS]` | Session strategy dan BFF adapter sudah selesai; dashboard, transactions, inventory, dan catalog read-only integration selesai; reports read-only contract ready, lanjut reports BFF/page integration. |
 | Billing SaaS | `[TODO]` | Belum ada invoice/platform billing domain lengkap. |
 | Support/Bantuan | `[TODO]` | Belum ada support ticket backend domain. |
 | Pengumuman | `[TODO]` | Belum ada announcement backend domain. |
@@ -83,10 +83,11 @@ Status: `[IN PROGRESS]`
   4. `[DONE]` Inventory BFF + page read-only integration.
   5. `[DONE]` Catalog/products/categories read-only contract.
   6. `[DONE]` Catalog/products/categories BFF + page read-only integration.
-  7. `[READY]` Reports read-only contract.
-  8. Customers.
-  9. Staff/attendance.
-  10. Settings/outlets/subscription.
+  7. `[DONE]` Reports read-only contract.
+  8. `[DONE]` Reports BFF + page read-only integration.
+  9. Customers.
+  10. Staff/attendance.
+  11. Settings/outlets/subscription.
 
 ### Phase 4 — Mobile Kasir Hardening
 

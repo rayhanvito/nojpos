@@ -114,7 +114,8 @@ Route web admin tersedia:
   - `[TODO]` Customers list/detail.
   - `[TODO]` Staff list/detail.
   - `[TODO]` Attendance list.
-  - `[TODO]` Reports.
+  - `[DONE]` Reports contract in `docs/API_CONTRACTS/REPORTS_READ.md`.
+  - `[DONE]` Reports via BFF `/api/admin/reports/*`.
   - `[TODO]` Settings/outlets/subscription.
   - `[TODO]` Payments read-only jika backend read endpoint tersedia.
 - `[READY]` API state pattern.

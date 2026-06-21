@@ -119,9 +119,9 @@ Menghubungkan halaman tenant admin ke backend secara read-only dulu.
 1. Transactions list/detail.
 2. Inventory list/movements/transfers.
 3. Catalog/products/categories.
-4. Customers.
-5. Staff/attendance.
-6. Reports.
+4. Reports.
+5. Customers.
+6. Staff/attendance.
 7. Settings/outlets/subscription.
 8. Payments read-only jika endpoint tersedia.
 9. Promotions hanya setelah backend jelas.
@@ -134,6 +134,8 @@ Menghubungkan halaman tenant admin ke backend secara read-only dulu.
 - `[DONE]` Inventory BFF + page read-only integration: `GET /api/admin/inventory`.
 - `[DONE]` Catalog products/categories read-only contract: `docs/API_CONTRACTS/CATALOG_READ.md`.
 - `[DONE]` Catalog products/categories BFF + page read-only integration: `GET /api/admin/catalog/products` and `GET /api/admin/catalog/categories`.
+- `[DONE]` Reports read-only contract: `docs/API_CONTRACTS/REPORTS_READ.md`.
+- `[DONE]` Reports BFF + page read-only integration: `GET /api/admin/reports/*`.
 - `[TODO]` Buat typed DTO per endpoint lain.
 - `[TODO]` Buat adapter per feature.
 - `[TODO]` Tambah state loading/empty/error/forbidden/not found.
@@ -153,7 +155,7 @@ Menghubungkan halaman tenant admin ke backend secara read-only dulu.
 - `[OPEN]` Transactions DTO/pagination/filter contract is final for Web Admin; BFF now handles safe sanitization/mapping/pagination, while backend-side filter/pagination remains a hardening gap before high-volume production.
 - `[OPEN]` Inventory DTO/pagination/filter contract is final for Web Admin; BFF now handles safe sanitization/mapping/pagination, while backend-side inventory filter/pagination/threshold remains a hardening gap before high-volume production.
 - `[OPEN]` Catalog DTO/pagination/filter contract is final for Web Admin; BFF now handles safe sanitization/mapping/pagination while backend-side catalog hardening remains recommended before high-volume production.
-- `[OPEN]` DTO/pagination/filter belum final untuk list selain transactions, inventory, and catalog.
+- `[OPEN]` DTO/pagination/filter belum final untuk list selain transactions, inventory, catalog, and reports.
 - `[OPEN]` Payments/promotions route belum punya backend mapping jelas.
 
 ---

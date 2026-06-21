@@ -275,10 +275,10 @@ Owner/admin bisa melihat ringkasan bisnis tanpa web admin memanggil terlalu bany
   - `[DONE]` Charts: sales last 7 days, payment methods.
   - `[DONE]` Lists: top products, low stock, recent transactions, cashier performance, branch highlights.
   - `[DONE]` Feature tests: owner/admin, cashier/superadmin forbidden, unauthenticated, invalid filter, outlet tenant isolation, empty state, normal state, cross-tenant exclusion.
-- `[READY]` Report filter contract.
-  - `[TODO]` Outlet filter.
-  - `[TODO]` Date range.
-  - `[TODO]` Business-day timezone boundary.
+- `[DONE]` Report read-only contract for Web Admin in `docs/API_CONTRACTS/REPORTS_READ.md`.
+  - `[DONE]` BFF targets for sales summary, top products, payment methods, and cashier shifts.
+  - `[DONE]` Query whitelist: `date_from`, `date_to`, `outlet_id`, and `range`.
+  - `[DONE]` Integer rupiah response rules, tenant/outlet isolation, empty/error state, and export disabled.
 
 ### Acceptance Criteria
 
