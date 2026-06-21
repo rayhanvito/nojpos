@@ -8,9 +8,9 @@ Board ini adalah urutan kerja aktif agar implementasi tidak loncat-loncat. Detai
 | --- | --- | --- |
 | Backend Core POS | `[IN PROGRESS]` | Route inti auth, master data, inventory, shift, transaction, payment, reports, superadmin core, dan dashboard summary read-only sudah ada. Perlu hardening tenant scope, policy, audit, dan endpoint platform tambahan. |
 | Mobile Kasir | `[IN PROGRESS]` | Feature Flutter utama sudah ada. Perlu QA end-to-end, hardening checkout retry, device/session, shift, print. |
-| Web Admin Tenant | `[INTEGRATED READ-ONLY]` | Dashboard owner/admin sudah membaca backend summary melalui Next.js BFF; kontrak transaksi read-only sudah siap, halaman tenant admin lain masih preview/read-only planning. |
+| Web Admin Tenant | `[INTEGRATED READ-ONLY]` | Dashboard, transactions, dan inventory owner/admin sudah membaca data read-only melalui Next.js BFF; catalog dan halaman tenant lain masih preview/read-only planning. |
 | Platform Super Admin | `[PREVIEW]` | UI sederhana Indonesia-friendly sudah preview. Backend baru mendukung sebagian kecil. |
-| Integrasi Web Admin | `[IN PROGRESS]` | Session strategy dan BFF adapter sudah selesai; dashboard read-only integration selesai; lanjut tenant admin read-only pages. |
+| Integrasi Web Admin | `[IN PROGRESS]` | Session strategy dan BFF adapter sudah selesai; dashboard, transactions, dan inventory read-only integration selesai; lanjut catalog read-only contract. |
 | Billing SaaS | `[TODO]` | Belum ada invoice/platform billing domain lengkap. |
 | Support/Bantuan | `[TODO]` | Belum ada support ticket backend domain. |
 | Pengumuman | `[TODO]` | Belum ada announcement backend domain. |
@@ -79,6 +79,8 @@ Status: `[IN PROGRESS]`
 - Urutan:
   1. `[DONE]` Transactions read-only contract.
   2. `[DONE]` Transactions BFF + page read-only integration.
+  3. `[DONE]` Inventory read-only contract.
+  4. `[DONE]` Inventory BFF + page read-only integration.
   3. `[READY]` Transactions checkpoint commit.
   4. Inventory.
   5. Catalog/products/categories.

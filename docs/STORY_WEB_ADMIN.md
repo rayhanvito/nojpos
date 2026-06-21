@@ -107,7 +107,8 @@ Route web admin tersedia:
   - `[DONE]` Transactions list contract in `docs/API_CONTRACTS/TRANSACTIONS_READ.md`.
   - `[DONE]` Transactions list via BFF `GET /api/admin/transactions`.
   - `[TODO]` Transactions detail contract/integration if needed after list.
-  - `[TODO]` Inventory list/movements/transfers.
+  - `[DONE]` Inventory list/movements/transfers contract in `docs/API_CONTRACTS/INVENTORY_READ.md`.
+  - `[READY]` Inventory list via BFF `GET /api/admin/inventory`.
   - `[TODO]` Products/categories list.
   - `[TODO]` Customers list/detail.
   - `[TODO]` Staff list/detail.
@@ -146,6 +147,7 @@ Route web admin tersedia:
 
 - `[RESOLVED]` Session/BFF adapter awal sudah tersedia di server-only boundary; page/component tetap belum memakai API langsung.
 - `[OPEN]` Transactions backend route exists, but current backend list filter/pagination is limited; `GET /api/admin/transactions` now sanitizes/maps/paginates safely in BFF and backend-side filter/pagination hardening remains recommended before high-volume production.
+- `[OPEN]` Inventory backend read routes exist, but pagination totals, `category_id`/`stock_status` filters, and low-stock threshold are not final; `GET /api/admin/inventory` now sanitizes/maps/paginates safely in BFF and backend-side hardening remains recommended before high-volume production.
 - `[OPEN]` Payment/promotions web route belum jelas endpoint backend realnya.
 
 ---

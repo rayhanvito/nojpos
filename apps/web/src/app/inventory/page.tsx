@@ -1,29 +1,31 @@
-import { AdminShell } from '@/components/admin-shell';
-import { DetailLinks } from '@/components/detail-links';
-import { PreviewActionPanel } from '@/components/preview-action-panel';
-import { PreviewMetric } from '@/components/preview-metric';
-import { PreviewStateBoard } from '@/components/preview-state-board';
-import { PreviewToolbar } from '@/components/preview-toolbar';
-import { ReadonlyResource } from '@/components/readonly-resource';
-import { inventoryDetailLinks, inventoryMetrics, inventoryResources, previewActionGroups, previewStateMatrix } from '@/fixtures/preview';
+import { TenantPreviewPage } from '@/components/tenant-preview-page';
+import { previewActionGroups, previewStateMatrix } from '@/fixtures/preview';
+import { getInventoryPageModel } from '@/lib/server/inventory';
 
-export default function InventoryPage() {
+export default async function InventoryPage() {
+  const model = await getInventoryPageModel();
+
   return (
-    <AdminShell title="Inventaris">
-      <PreviewToolbar action="Filter preview" />
-      <div className="kpi-grid">
-        {inventoryMetrics.map((metric) => <PreviewMetric key={metric.label} {...metric} />)}
-      </div>
-      <PreviewActionPanel group={previewActionGroups.inventory} />
-      <PreviewStateBoard
-        title="Kondisi tampilan inventaris"
-        description="Stok, pergerakan barang, transfer, dan status stok rendah disiapkan tanpa kalkulasi stok di browser."
-        states={previewStateMatrix.inventory}
-      />
-      <DetailLinks title="Preview detail inventaris" links={inventoryDetailLinks} />
-      <div className="panel-grid">
-        {inventoryResources.map((resource) => <ReadonlyResource key={resource.path} {...resource} />)}
-      </div>
-    </AdminShell>
+    <TenantPreviewPage
+      title="Inventaris"
+      kicker="Stok toko read-only"
+      description={`${model.description} ${model.detail}`}
+      action="Filter inventory"
+      lanes={model.data.lanes}
+      metrics={model.data.metrics}
+      actionGroup={{
+        ...previewActionGroups.inventory,
+        title: 'Aksi inventaris tetap dikunci',
+        description: 'Stock adjustment, purchase, count, waste, transfer, dan export belum aktif dari Web Admin.',
+      }}
+      states={[
+        { tone: model.state === 'real' ? 'empty' : model.state === 'forbidden' ? 'forbidden' : model.state === 'error' ? 'error' : 'unavailable', title: model.title, message: `${model.sourceLabel}: ${model.detail}` },
+        { tone: 'loading', title: 'Boundary BFF', message: 'Halaman membaca data melalui server-side helper/BFF, bukan langsung ke Laravel.' },
+        { tone: 'forbidden', title: 'Aksi stok sensitif', message: 'Adjustment, transfer, purchase, count, waste, dan export tetap disabled.' },
+        ...previewStateMatrix.inventory,
+      ]}
+      table={model.data.table}
+      detailLinks={model.data.detailLinks}
+    />
   );
 }

@@ -98,6 +98,57 @@ export type BackendTransactionsData = {
   readonly transactions?: readonly BackendTransactionRow[];
 };
 
+export type InventoryReadQuery = {
+  readonly outlet_id?: string;
+  readonly category_id?: string;
+  readonly stock_status?: 'all' | 'in_stock' | 'low' | 'out' | 'negative' | 'not_tracked';
+  readonly search?: string;
+  readonly page?: number;
+  readonly per_page?: number;
+};
+
+export type BackendInventoryItem = {
+  readonly business_id?: string | null;
+  readonly product_id?: string | null;
+  readonly id?: string | null;
+  readonly product?: {
+    readonly id?: string | null;
+    readonly name?: string | null;
+    readonly sku?: string | null;
+    readonly barcode?: string | null;
+    readonly unit?: string | null;
+    readonly track_stock?: boolean | null;
+    readonly category?: { readonly id?: string | null; readonly name?: string | null } | null;
+  } | null;
+  readonly name?: string | null;
+  readonly sku?: string | null;
+  readonly barcode?: string | null;
+  readonly category?: { readonly id?: string | null; readonly name?: string | null } | null;
+  readonly outlet_id?: string | null;
+  readonly outlet?: { readonly id?: string | null; readonly name?: string | null } | null;
+  readonly outlet_name?: string | null;
+  readonly stock_on_hand?: number | null;
+  readonly quantity?: number | null;
+  readonly current_stock?: number | null;
+  readonly available_stock?: number | null;
+  readonly reserved_stock?: number | null;
+  readonly in_transit_out?: number | null;
+  readonly in_transit_in?: number | null;
+  readonly unit?: string | null;
+  readonly low_stock_threshold?: number | null;
+  readonly threshold?: number | null;
+  readonly track_stock?: boolean | null;
+  readonly status?: string | null;
+  readonly updated_at?: string | null;
+};
+
+export type BackendInventoryData = {
+  readonly inventory?: readonly BackendInventoryItem[];
+  readonly rows?: readonly BackendInventoryItem[];
+  readonly items?: readonly BackendInventoryItem[];
+  readonly totals?: Record<string, unknown>;
+};
+
 export type DashboardSummaryKpi = {
   readonly value: number;
   readonly type: 'money' | 'integer' | 'percent' | string;
@@ -224,6 +275,7 @@ export type BackendClient = {
   readonly outlets: (token: string) => Promise<BackendOutletsData>;
   readonly dashboardSummary: (token: string, query?: DashboardSummaryQuery) => Promise<ApiEnvelope<DashboardSummaryData>>;
   readonly transactions: (token: string, query?: TransactionsReadQuery) => Promise<ApiEnvelope<BackendTransactionsData>>;
+  readonly inventory: (token: string, query?: InventoryReadQuery) => Promise<ApiEnvelope<BackendInventoryData>>;
 };
 
 export function createBackendClient(baseUrl = getBackendBaseUrl()): BackendClient {
@@ -282,6 +334,14 @@ export function createBackendClient(baseUrl = getBackendBaseUrl()): BackendClien
       const path = appendTransactionsQuery('/transactions', query);
 
       return backendRequest<BackendTransactionsData>(baseUrl, path, {
+        method: 'GET',
+        token,
+      });
+    },
+    inventory: async (token, query = {}) => {
+      const path = appendInventoryQuery('/inventory', query);
+
+      return backendRequest<BackendInventoryData>(baseUrl, path, {
         method: 'GET',
         token,
       });
@@ -390,6 +450,19 @@ function appendTransactionsQuery(path: string, query: TransactionsReadQuery): st
   // Current Laravel endpoint safely supports status. Other filters are applied and normalized in the BFF until backend pagination/filtering is completed.
   if (query.status) {
     params.set('status', query.status);
+  }
+
+  const serialized = params.toString();
+
+  return serialized ? `${path}?${serialized}` : path;
+}
+
+function appendInventoryQuery(path: string, query: InventoryReadQuery): string {
+  const params = new URLSearchParams();
+
+  // Current Laravel inventory endpoint supports outlet filtering. BFF keeps category/status/search pagination stable until backend-side filters mature.
+  if (query.outlet_id) {
+    params.set('outlet_id', query.outlet_id);
   }
 
   const serialized = params.toString();

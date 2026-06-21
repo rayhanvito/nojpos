@@ -16,8 +16,8 @@ Dokumen ini adalah queue kerja aktif. Kerjakan dari atas ke bawah. Jangan mengam
 | --- | --- |
 | Mode | Single active coding agent |
 | Current phase | Phase 3 — Tenant Admin Read-only Pages |
-| Current task | `WEB-02B` done; transactions read-only integration ready |
-| Next implementation target | `CHK-02` Transactions read-only checkpoint commit |
+| Current task | `CHK-03` done; inventory read-only checkpoint pushed |
+| Next implementation target | `WEB-04A` Catalog/products/categories read-only contract |
 | Do not start yet | Tenant pages beyond dashboard, Super Admin writes, payment/broadcast/impersonation real |
 
 ## Phase 0 — Clean Baseline And Planning
@@ -320,7 +320,7 @@ Subtasks:
 
 ### CHK-02 — Transactions read-only checkpoint
 
-Status: `[READY]`
+Status: `[DONE]`
 Priority: P1
 Area: Checkpoint
 Depends on: `WEB-02B`
@@ -330,24 +330,60 @@ Goal:
 
 ---
 
-### WEB-02C — Inventory read-only page integration
+### WEB-03A — Inventory read-only contract
 
-Status: `[READY AFTER CHK-02]`
+Status: `[DONE]`
 Priority: P1
-Area: Web Admin
-Depends on: transactions read-only success
+Area: Web Admin / API Contract
+Depends on: transactions read-only checkpoint
 
 Goal:
-- Integrate inventory list read-only.
+- Finalize inventory read-only contract before BFF/page integration.
+
+Subtasks:
+- [x] Document backend routes `GET /api/v1/inventory`, `/inventory/movements`, `/inventory/transfers`, and `/inventory/transfers/in-transit`.
+- [x] Document BFF targets `/api/admin/inventory` and `/api/admin/inventory/movements`.
+- [x] Document query whitelist, response shape, field privacy, tenant/outlet isolation, empty/error state, and WEB-03B acceptance criteria.
 
 ---
 
-### WEB-02D — Catalog/products/categories read-only integration
+### WEB-03B — Inventory BFF + page read-only integration
 
-Status: `[READY AFTER WEB-02C]`
+Status: `[DONE]`
 Priority: P1
 Area: Web Admin
-Depends on: inventory read-only success
+Depends on: `WEB-03A`, transactions read-only checkpoint
+
+Goal:
+- Integrate inventory list read-only through BFF before catalog.
+
+Subtasks:
+- [x] Add BFF route `GET /api/admin/inventory`.
+- [x] Add server-only inventory mapping helper.
+- [x] Integrate `/inventory` page with session/error/empty/forbidden state.
+- [x] Keep stock adjustment/purchase/count/waste/transfer actions disabled.
+- [x] Run full web validation and boundary scan.
+
+---
+
+### CHK-03 — Inventory read-only checkpoint
+
+Status: `[DONE]`
+Priority: P1
+Area: Checkpoint
+Depends on: `WEB-03B`
+
+Goal:
+- Commit and push inventory read-only contract, BFF route, page integration, tests, and docs.
+
+---
+
+### WEB-04A — Catalog/products/categories read-only contract
+
+Status: `[READY]`
+Priority: P1
+Area: Web Admin
+Depends on: inventory read-only checkpoint
 
 Goal:
 - Integrate catalog read-only.

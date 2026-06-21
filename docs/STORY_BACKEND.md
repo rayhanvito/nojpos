@@ -208,10 +208,12 @@ Orders/transactions:
   - `[TODO]` Audit payload redaction untuk PII/payment reference.
 - `[READY]` Web admin read-only.
   - `[DONE]` Transaction list read-only contract finalized in `docs/API_CONTRACTS/TRANSACTIONS_READ.md`.
-  - `[READY]` Transaction list BFF integration using existing `GET /api/v1/transactions` with BFF sanitization.
+  - `[DONE]` Transaction list BFF integration using existing `GET /api/v1/transactions` with BFF sanitization.
   - `[TODO]` Backend-side transaction filter/pagination hardening for high-volume production.
   - `[TODO]` Transaction detail contract/integration if needed after list.
-  - `[TODO]` Inventory list/movements/transfers safe for admin web.
+  - `[DONE]` Inventory list/movements/transfers contract finalized in `docs/API_CONTRACTS/INVENTORY_READ.md`.
+  - `[READY]` Inventory list/movements BFF integration using existing `GET /api/v1/inventory` and `/inventory/movements` with BFF sanitization.
+  - `[TODO]` Backend-side inventory filter/pagination/threshold hardening for high-volume production.
   - `[TODO]` Payment read/list endpoint jika web payments page akan real.
 - `[DEFERRED]` Web admin sensitive writes.
   - `[TODO]` Refund/void from web.
