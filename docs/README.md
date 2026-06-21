@@ -7,8 +7,9 @@ Dokumen ini adalah index aktif untuk memantau progress NojPOS. Semua kerja baru 
 1. `PRDPOSJA.md` — PRD utama NojPOS.
 2. `docs/SINGLE_AGENT_WORKFLOW.md` — aturan kerja single active coding agent.
 3. `docs/TASK_QUEUE.md` — queue task final yang dikerjakan berurutan.
-4. `docs/PROMPT_SEQUENCE.md` — prompt copy-paste lengkap untuk menjalankan task satu per satu.
-5. `docs/STORY_PROGRESS.md` — progress global dan urutan fase.
+4. `docs/AUTO_RUNNER_PROMPT.md` — prompt untuk agent agar membaca task queue/prompt sequence dan menjalankan 1 prompt aktif secara otomatis.
+5. `docs/PROMPT_SEQUENCE.md` — prompt copy-paste lengkap untuk menjalankan task satu per satu.
+6. `docs/STORY_PROGRESS.md` — progress global dan urutan fase.
 5. Story area:
    - `docs/STORY_BACKEND.md`
    - `docs/STORY_MOBILE_KASIR.md`
@@ -25,6 +26,7 @@ Dokumen ini adalah index aktif untuk memantau progress NojPOS. Semua kerja baru 
 | --- | --- |
 | `docs/SINGLE_AGENT_WORKFLOW.md` | Aturan single-agent, scope, validasi, dan laporan akhir |
 | `docs/TASK_QUEUE.md` | Task aktif yang dikerjakan dari atas ke bawah |
+| `docs/AUTO_RUNNER_PROMPT.md` | Prompt auto-runner untuk memilih prompt aktif dari task queue dan menjalankannya satu per satu |
 | `docs/PROMPT_SEQUENCE.md` | Prompt copy-paste detail dari checkpoint dashboard sampai RC |
 | `docs/STORY_PROGRESS.md` | Status fase dan progres global |
 | `docs/STORY_BACKEND.md` | Story, task, subtask, dan bug backend |
@@ -55,8 +57,9 @@ Dokumen ini adalah index aktif untuk memantau progress NojPOS. Semua kerja baru 
 2. Baca `PRDPOSJA.md`.
 3. Baca `docs/SINGLE_AGENT_WORKFLOW.md`.
 4. Baca `docs/TASK_QUEUE.md`.
-5. Ambil prompt yang sesuai dari `docs/PROMPT_SEQUENCE.md`.
-6. Pilih task paling atas yang statusnya `[READY]` atau lanjutkan task `[IN PROGRESS]` yang sedang berjalan.
+5. Untuk agent otomatis, pakai `docs/AUTO_RUNNER_PROMPT.md`.
+6. Untuk manual copy-paste, ambil prompt yang sesuai dari `docs/PROMPT_SEQUENCE.md`.
+7. Pilih task paling atas yang statusnya `[READY]` atau lanjutkan task `[IN PROGRESS]` yang sedang berjalan.
 7. Baca story area yang relevan.
 7. Baca kontrak API jika task menyentuh integrasi.
 8. Kerjakan hanya file yang masuk allowed scope task.
@@ -65,21 +68,26 @@ Dokumen ini adalah index aktif untuk memantau progress NojPOS. Semua kerja baru 
 
 ## Prinsip Integrasi Berikutnya
 
-- Web Admin masih UI preview sampai session strategy web disetujui.
 - Tenant Admin dan Platform Super Admin tetap terpisah.
 - Mobile Kasir tetap online-first, tanpa general offline database/write queue.
 - Backend tetap sumber kebenaran untuk tenant, outlet, device, role, uang, stok, dan laporan.
+- Web Admin harus memakai BFF/session server-side untuk integrasi backend; jangan expose token ke browser.
 - Sensitive writes harus paling akhir setelah policy, audit, idempotency, reason, approval, dan tests siap.
 
 ## Urutan Aman Saat Ini
 
-1. Selesaikan clean docs baseline dan commit bersih.
-2. Finalisasi kontrak `GET /api/v1/dashboard/summary`.
-3. Implement backend dashboard summary.
-4. Test backend.
-5. Putuskan web session strategy.
-6. Integrasi `/dashboard` web read-only.
-7. Test web.
-8. Lanjut Tenant Admin read-only pages.
+Baseline yang sudah selesai:
+
+1. `BE-04A` kontrak dashboard summary.
+2. `BE-04B` backend dashboard summary.
+3. `WEB-01A` session strategy.
+4. `WEB-01B` BFF/session scaffold.
+5. `WEB-01C` dashboard read-only integration.
+
+Prompt aktif berikutnya:
+
+1. Jalankan `PROMPT 006` di `docs/PROMPT_SEQUENCE.md` untuk checkpoint commit.
+2. Lanjut `PROMPT 007` untuk kontrak transaksi read-only.
+3. Ikuti prompt berikutnya berurutan; jangan lompat ke CRUD atau sensitive actions.
 
 Jangan menjalankan banyak coding agent paralel dulu. Gunakan satu active coding agent agar perubahan tidak tabrakan.

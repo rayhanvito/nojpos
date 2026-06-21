@@ -15,9 +15,9 @@ Dokumen ini adalah queue kerja aktif. Kerjakan dari atas ke bawah. Jangan mengam
 | Field | Value |
 | --- | --- |
 | Mode | Single active coding agent |
-| Current phase | Phase 2 — Web Dashboard Read-only Integration |
-| Current task | `WEB-01C` done; dashboard read-only BFF integration ready |
-| Next implementation target | `WEB-02A` Transactions read-only page planning/integration |
+| Current phase | Phase 3 — Tenant Admin Read-only Pages |
+| Current task | `WEB-02B` done; transactions read-only integration ready |
+| Next implementation target | `CHK-02` Transactions read-only checkpoint commit |
 | Do not start yet | Tenant pages beyond dashboard, Super Admin writes, payment/broadcast/impersonation real |
 
 ## Phase 0 — Clean Baseline And Planning
@@ -281,27 +281,58 @@ rg -n "fetch\(|XMLHttpRequest|sessionStorage|localStorage|Authorization|Bearer |
 
 ## Phase 3 — Tenant Admin Read-only Pages
 
-### WEB-02A — Transactions read-only page integration
+### WEB-02A — Transactions read-only contract
 
-Status: `[READY]`
+Status: `[DONE]`
 Priority: P1
-Area: Web Admin
+Area: Web Admin / API Contract
 Depends on: dashboard/session read-only success
 
 Goal:
-- Integrate transactions list read-only before inventory/catalog.
+- Finalize transactions list read-only contract before inventory/catalog.
 
 Subtasks:
-- [ ] Finalize transaction list contract.
-- [ ] Backend route shape check.
-- [ ] Web read-only integration.
-- [ ] Loading/error/empty/forbidden state.
+- [x] Finalize transaction list contract in `docs/API_CONTRACTS/TRANSACTIONS_READ.md`.
+- [x] Backend route shape check for `GET /api/v1/transactions`.
+- [x] Document BFF target `GET /api/admin/transactions`.
+- [x] Document loading/error/empty/forbidden states for implementation.
 
 ---
 
-### WEB-02B — Inventory read-only page integration
+### WEB-02B — Transactions BFF + page read-only integration
 
-Status: `[READY AFTER WEB-02A]`
+Status: `[DONE]`
+Priority: P1
+Area: Web Admin
+Depends on: `WEB-02A`, dashboard/session read-only success
+
+Goal:
+- Integrate transactions list read-only through BFF before inventory/catalog.
+
+Subtasks:
+- [x] Add BFF route `GET /api/admin/transactions`.
+- [x] Add server-only transactions mapping helper.
+- [x] Integrate `/transactions` page with session/error/empty/forbidden state.
+- [x] Keep transaction actions disabled.
+- [x] Run full web validation and boundary scan.
+
+---
+
+### CHK-02 — Transactions read-only checkpoint
+
+Status: `[READY]`
+Priority: P1
+Area: Checkpoint
+Depends on: `WEB-02B`
+
+Goal:
+- Commit and push transactions read-only contract, BFF route, page integration, tests, and docs.
+
+---
+
+### WEB-02C — Inventory read-only page integration
+
+Status: `[READY AFTER CHK-02]`
 Priority: P1
 Area: Web Admin
 Depends on: transactions read-only success
@@ -311,9 +342,9 @@ Goal:
 
 ---
 
-### WEB-02C — Catalog/products/categories read-only integration
+### WEB-02D — Catalog/products/categories read-only integration
 
-Status: `[READY AFTER WEB-02B]`
+Status: `[READY AFTER WEB-02C]`
 Priority: P1
 Area: Web Admin
 Depends on: inventory read-only success

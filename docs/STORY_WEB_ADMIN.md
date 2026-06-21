@@ -104,7 +104,9 @@ Route web admin tersedia:
 - `[DONE]` Shell Tenant Admin preview.
 - `[DONE]` Route manifest mengenali Tenant Admin routes.
 - `[READY]` Read-only integration order.
-  - `[TODO]` Transactions list/detail.
+  - `[DONE]` Transactions list contract in `docs/API_CONTRACTS/TRANSACTIONS_READ.md`.
+  - `[DONE]` Transactions list via BFF `GET /api/admin/transactions`.
+  - `[TODO]` Transactions detail contract/integration if needed after list.
   - `[TODO]` Inventory list/movements/transfers.
   - `[TODO]` Products/categories list.
   - `[TODO]` Customers list/detail.
@@ -143,6 +145,7 @@ Route web admin tersedia:
 ### Bug/Kendala
 
 - `[RESOLVED]` Session/BFF adapter awal sudah tersedia di server-only boundary; page/component tetap belum memakai API langsung.
+- `[OPEN]` Transactions backend route exists, but current backend list filter/pagination is limited; `GET /api/admin/transactions` now sanitizes/maps/paginates safely in BFF and backend-side filter/pagination hardening remains recommended before high-volume production.
 - `[OPEN]` Payment/promotions web route belum jelas endpoint backend realnya.
 
 ---

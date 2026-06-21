@@ -48,6 +48,56 @@ export type DashboardSummaryQuery = {
   readonly range?: 'last_7_days';
 };
 
+export type TransactionsReadQuery = {
+  readonly date_from?: string;
+  readonly date_to?: string;
+  readonly outlet_id?: string;
+  readonly cashier_id?: string;
+  readonly payment_method?: 'cash' | 'qris' | 'card' | 'transfer' | 'ewallet' | 'other';
+  readonly status?: 'paid' | 'partial' | 'unpaid' | 'held' | 'payment_pending' | 'payment_failed' | 'voided' | 'refunded' | 'pending';
+  readonly search?: string;
+  readonly page?: number;
+  readonly per_page?: number;
+};
+
+export type BackendTransactionPayment = {
+  readonly method?: string | null;
+  readonly status?: string | null;
+  readonly amount?: number | null;
+};
+
+export type BackendTransactionItem = {
+  readonly product_id?: string | null;
+  readonly name?: string | null;
+  readonly quantity?: number | null;
+};
+
+export type BackendTransactionRow = {
+  readonly id: string;
+  readonly business_id?: string | null;
+  readonly outlet_id?: string | null;
+  readonly cashier_id?: string | null;
+  readonly customer_id?: string | null;
+  readonly number?: string | null;
+  readonly status?: string | null;
+  readonly subtotal?: number | null;
+  readonly discount_total?: number | null;
+  readonly service_charge_total?: number | null;
+  readonly tax_total?: number | null;
+  readonly rounding_total?: number | null;
+  readonly grand_total?: number | null;
+  readonly created_at?: string | null;
+  readonly updated_at?: string | null;
+  readonly cashier?: { readonly id?: string | null; readonly name?: string | null } | null;
+  readonly customer?: { readonly id?: string | null; readonly name?: string | null } | null;
+  readonly items?: readonly BackendTransactionItem[];
+  readonly payments?: readonly BackendTransactionPayment[];
+};
+
+export type BackendTransactionsData = {
+  readonly transactions?: readonly BackendTransactionRow[];
+};
+
 export type DashboardSummaryKpi = {
   readonly value: number;
   readonly type: 'money' | 'integer' | 'percent' | string;
@@ -173,6 +223,7 @@ export type BackendClient = {
   readonly me: (token: string) => Promise<BackendMeData>;
   readonly outlets: (token: string) => Promise<BackendOutletsData>;
   readonly dashboardSummary: (token: string, query?: DashboardSummaryQuery) => Promise<ApiEnvelope<DashboardSummaryData>>;
+  readonly transactions: (token: string, query?: TransactionsReadQuery) => Promise<ApiEnvelope<BackendTransactionsData>>;
 };
 
 export function createBackendClient(baseUrl = getBackendBaseUrl()): BackendClient {
@@ -223,6 +274,14 @@ export function createBackendClient(baseUrl = getBackendBaseUrl()): BackendClien
       const path = appendQuery('/dashboard/summary', query);
 
       return backendRequest<DashboardSummaryData>(baseUrl, path, {
+        method: 'GET',
+        token,
+      });
+    },
+    transactions: async (token, query = {}) => {
+      const path = appendTransactionsQuery('/transactions', query);
+
+      return backendRequest<BackendTransactionsData>(baseUrl, path, {
         method: 'GET',
         token,
       });
@@ -318,6 +377,19 @@ function appendQuery(path: string, query: DashboardSummaryQuery): string {
 
   if (query.range) {
     params.set('range', query.range);
+  }
+
+  const serialized = params.toString();
+
+  return serialized ? `${path}?${serialized}` : path;
+}
+
+function appendTransactionsQuery(path: string, query: TransactionsReadQuery): string {
+  const params = new URLSearchParams();
+
+  // Current Laravel endpoint safely supports status. Other filters are applied and normalized in the BFF until backend pagination/filtering is completed.
+  if (query.status) {
+    params.set('status', query.status);
   }
 
   const serialized = params.toString();

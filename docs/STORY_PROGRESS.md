@@ -8,7 +8,7 @@ Board ini adalah urutan kerja aktif agar implementasi tidak loncat-loncat. Detai
 | --- | --- | --- |
 | Backend Core POS | `[IN PROGRESS]` | Route inti auth, master data, inventory, shift, transaction, payment, reports, superadmin core, dan dashboard summary read-only sudah ada. Perlu hardening tenant scope, policy, audit, dan endpoint platform tambahan. |
 | Mobile Kasir | `[IN PROGRESS]` | Feature Flutter utama sudah ada. Perlu QA end-to-end, hardening checkout retry, device/session, shift, print. |
-| Web Admin Tenant | `[INTEGRATED READ-ONLY]` | Dashboard owner/admin sudah membaca backend summary melalui Next.js BFF; halaman tenant admin lain masih preview/read-only planning. |
+| Web Admin Tenant | `[INTEGRATED READ-ONLY]` | Dashboard owner/admin sudah membaca backend summary melalui Next.js BFF; kontrak transaksi read-only sudah siap, halaman tenant admin lain masih preview/read-only planning. |
 | Platform Super Admin | `[PREVIEW]` | UI sederhana Indonesia-friendly sudah preview. Backend baru mendukung sebagian kecil. |
 | Integrasi Web Admin | `[IN PROGRESS]` | Session strategy dan BFF adapter sudah selesai; dashboard read-only integration selesai; lanjut tenant admin read-only pages. |
 | Billing SaaS | `[TODO]` | Belum ada invoice/platform billing domain lengkap. |
@@ -73,13 +73,15 @@ Dependency: backend dashboard endpoint + web session strategy.
 
 ### Phase 3 — Tenant Admin Read-only Pages
 
-Status: `[READY]`
+Status: `[IN PROGRESS]`
 
 - Story: `WEB-02`, `INT-03`.
 - Urutan:
-  1. Transactions.
-  2. Inventory.
-  3. Catalog/products/categories.
+  1. `[DONE]` Transactions read-only contract.
+  2. `[DONE]` Transactions BFF + page read-only integration.
+  3. `[READY]` Transactions checkpoint commit.
+  4. Inventory.
+  5. Catalog/products/categories.
   4. Customers.
   5. Staff/attendance.
   6. Reports.

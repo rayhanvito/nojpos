@@ -128,7 +128,9 @@ Menghubungkan halaman tenant admin ke backend secara read-only dulu.
 
 ### Task dan Subtask
 
-- `[TODO]` Buat typed DTO per endpoint.
+- `[DONE]` Transactions list read-only contract: `docs/API_CONTRACTS/TRANSACTIONS_READ.md`.
+- `[DONE]` Transactions BFF + page read-only integration: `GET /api/admin/transactions`.
+- `[TODO]` Buat typed DTO per endpoint lain.
 - `[TODO]` Buat adapter per feature.
 - `[TODO]` Tambah state loading/empty/error/forbidden/not found.
 - `[TODO]` Tambah test route render.
@@ -144,7 +146,8 @@ Menghubungkan halaman tenant admin ke backend secara read-only dulu.
 
 ### Bug/Kendala
 
-- `[OPEN]` DTO/pagination/filter belum final untuk semua list.
+- `[OPEN]` Transactions DTO/pagination/filter contract is final for Web Admin; BFF now handles safe sanitization/mapping/pagination, while backend-side filter/pagination remains a hardening gap before high-volume production.
+- `[OPEN]` DTO/pagination/filter belum final untuk list selain transactions.
 - `[OPEN]` Payments/promotions route belum punya backend mapping jelas.
 
 ---

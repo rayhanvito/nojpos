@@ -207,7 +207,10 @@ Orders/transactions:
   - `[TODO]` Void/refund/cash movement/stock adjustment audit.
   - `[TODO]` Audit payload redaction untuk PII/payment reference.
 - `[READY]` Web admin read-only.
-  - `[TODO]` Transaction list/detail safe for admin web.
+  - `[DONE]` Transaction list read-only contract finalized in `docs/API_CONTRACTS/TRANSACTIONS_READ.md`.
+  - `[READY]` Transaction list BFF integration using existing `GET /api/v1/transactions` with BFF sanitization.
+  - `[TODO]` Backend-side transaction filter/pagination hardening for high-volume production.
+  - `[TODO]` Transaction detail contract/integration if needed after list.
   - `[TODO]` Inventory list/movements/transfers safe for admin web.
   - `[TODO]` Payment read/list endpoint jika web payments page akan real.
 - `[DEFERRED]` Web admin sensitive writes.
@@ -227,6 +230,7 @@ Orders/transactions:
 ### Bug/Kendala
 
 - `[OPEN]` Aksi sensitif belum boleh diaktifkan dari web admin.
+- `[OPEN]` `GET /api/v1/transactions` exists and is tenant-scoped, but currently has limited list filters/pagination for Web Admin. BFF must sanitize response and backend hardening is recommended before high-volume production.
 - `[OPEN]` Payment read/list endpoint khusus admin belum jelas.
 
 ---

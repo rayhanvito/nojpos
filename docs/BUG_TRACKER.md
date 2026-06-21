@@ -13,6 +13,7 @@ Gunakan file ini untuk bug, blocker, dan gap yang menghambat implementasi story.
 | BUG-MOB-01 | Mobile Kasir | P1 | `[OPEN]` | Perlu QA device/emulator untuk lock, PIN switch, checkout retry, dan print. | MOB-01, MOB-02, MOB-05, INT-07 | Jalankan QA di emulator/device target. |
 | BUG-MOB-02 | Mobile Kasir | P0 | `[OPEN]` | Perlu verifikasi final bahwa semua total transaksi final berasal dari server. | MOB-02, BE-03 | Audit POS/payment UI dan repository. |
 | BUG-BE-04 | Backend | P1 | `[OPEN]` | Payment read/list endpoint untuk web admin belum jelas. | BE-03, WEB-02 | Tentukan apakah pakai transactions/payment report atau endpoint baru. |
+| BUG-BE-05 | Backend/Web | P2 | `[OPEN]` | `GET /api/v1/transactions` sudah ada dan tenant-scoped, tapi filter/pagination backend masih terbatas untuk kebutuhan Web Admin. | BE-03, WEB-02, INT-03 | WEB-02B wajib sanitize/map di BFF; backend-side filter/pagination hardening direkomendasikan sebelum volume produksi besar. |
 
 ## Bug Resolved
 
