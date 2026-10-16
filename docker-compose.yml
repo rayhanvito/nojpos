@@ -1,10 +1,10 @@
 services:
   db:
     image: postgres:18-alpine
-    container_name: pos-pakesigap-db
+    container_name: nojpos-db
     env_file: .env.deploy
     volumes:
-      - pos-pakesigap-db:/var/lib/postgresql
+      - nojpos-db:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U openpos -d openpos"]
       interval: 5s
@@ -15,7 +15,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.backend
-    container_name: pos-pakesigap-backend
+    container_name: nojpos-backend
     env_file: .env.deploy
     ports:
       - "127.0.0.1:8080:8080"
@@ -23,6 +23,17 @@ services:
       db:
         condition: service_healthy
     restart: unless-stopped
+  frontend:
+    image: nginx:alpine
+    container_name: nojpos-frontend
+    volumes:
+      - ./frontend/web/dist:/usr/share/nginx/html:ro
+      - ./frontend-nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "127.0.0.1:8081:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
 volumes:
-  pos-pakesigap-db:
-    name: pos-pakesigap-db
+  nojpos-db:
+    name: nojpos-db
