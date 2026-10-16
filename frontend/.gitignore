@@ -1,0 +1,59 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-ssr/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Editor / OS
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+Thumbs.db
+
+# Env & local
+.env
+.env.local
+.env.*.local
+*.local
+
+# Catatan sesi lokal - berisi kredensial, JANGAN di-push
+MEMORY.md
+
+# Internal working docs - kept locally, not part of the public repo
+docs/
+PRODUCT.md
+PROJECT.md
+updatelist9sep.MD
+opencode.json
+*.bundle
+
+# TODO sesi + artefak harness - lokal. TODO.md menyebut lokasi keystore rilis
+# dan sidik jari sertifikat, jadi jangan ikut repo publik meski tanpa password.
+TODO.md
+.playwright-mcp/
+# Screenshot verifikasi yang jatuh di root repo (pola di-root, jadi tidak
+# menyentuh web/public/ yang memang harus ikut).
+/dashboard-*.png
+/ipad-*.png
+/datepicker-*.png
+/screenshot-*.png
+/*-mobile-*.png
+
+# OMP and local tooling
+.code-graph/
+.mcp-servers/
+.omp/cache/
+.omp/logs/
+
+# Secrets (broader than the .env.*.local rules above)
+.env.*
+!.env.example

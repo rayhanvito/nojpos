@@ -1,0 +1,28 @@
+services:
+  db:
+    image: postgres:18-alpine
+    container_name: pos-pakesigap-db
+    env_file: .env.deploy
+    volumes:
+      - pos-pakesigap-db:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U openpos -d openpos"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: pos-pakesigap-backend
+    env_file: .env.deploy
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+volumes:
+  pos-pakesigap-db:
+    name: pos-pakesigap-db

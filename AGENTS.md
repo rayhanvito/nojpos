@@ -1,155 +1,108 @@
-# NojPOS Monorepo Guide
+# AGENTS.md — OpenPOS (pos-pakesigap)
 
-Read this file first, then the closest package guide.
+Panduan wajib untuk setiap agen (Codex) dan manusia yang mengubah project ini.
+Project: OpenPOS di https://pos.pakesigap.com — backend Go (repo `backend/`,
+github.com/adrr-dev/openPOS) + frontend React/Vite (repo `frontend/`,
+github.com/0xMinomus/OpenPOS), di-deploy dari /opt/pos-pakesigap di VPS 2.
+Pemilik project: Rayhan. Orkestrator & QA: Muse (PM). Agen pengkode: Codex.
 
-## Product And Source Of Truth
+## Aturan emas
+1. **UI/UX TIDAK BERUBAH.** Kembangkan dari tampilan yang ada: shell, layout,
+   komponen, spacing, warna, dan pola interaksi saat ini adalah acuan final.
+   Fitur baru menempel pada pola halaman yang sudah ada (daftar, form, modal,
+   tombol) — dilarang mendesain ulang, mengganti design system, atau membawa
+   gaya visual baru.
+2. **Business flow harus jelas dan tidak ambigu.** Setiap fitur punya satu
+   alur yang tegas: siapa boleh, urutan statusnya apa, angka dihitung dari
+   mana. Kalau sebuah aturan bisnis belum diputuskan di PLAN.md, JANGAN
+   mengarang — berhenti dan laporkan sebagai pertanyaan ke PM.
+3. **Anti-slop.** Tidak ada kode placeholder, stub "TODO nanti", fungsi mati,
+   komentar generik hasil template, dependensi baru tanpa alasan tertulis,
+   atau penamaan ulang massal. Setiap baris yang ditambah harus punya alasan
+   yang bisa dijelaskan dalam satu kalimat.
+4. **Clean code & struktur tetap seperti sekarang.** Ikuti layering dan pola
+   yang sudah ada di repo (lihat bagian Arsitektur). Perubahan sekecil
+   mungkin untuk mencapai tujuan; jangan refactor di luar scope unit kerja.
+5. **Bahasa UI: Bahasa Indonesia**, sama seperti aplikasi sekarang. Pesan
+   error ke user juga Bahasa Indonesia, jelas dan bisa ditindaklanjuti.
 
-NojPOS is an online-first POS SaaS for Indonesian UMKM. Cashiers operate shared terminals; owners and admins control business operations; superadmins operate the SaaS layer.
+## Kontrak yang tidak boleh dilanggar
+- API di bawah awalan `/api/v1`. Respons error selalu `{"error": "..."}` dan,
+  bila sudah ada polanya, sertakan `code` mesin (mis. `PASSCODE_REQUIRED`).
+- List selalu dibungkus `{"items": [...]}` (paginasi `page`/`limit` bila ada).
+- Body request JSON memakai camelCase; field respons mengikuti tag JSON pada
+  model (snake_case dari gorm.Model). Jangan ubah nama field yang sudah ada —
+  frontend bergantung padanya.
+- Semua uang adalah integer Rupiah (int64), tidak pernah float/desimal.
+- Pajak bersifat ADITIF: `tax = round_half_up((subtotal - diskon) * taxPct / 100)`
+  dan `total = subtotal - diskon + tax`. Rumus ini sudah terverifikasi live;
+  jangan diubah dan jangan diganti rumus ekstraksi tax-inclusive.
+- Metode pembayaran adalah enum persis: `Cash`, `Bank Transfer`, `QRIS`,
+  `E-Wallet`, `Card`. Penambahan metode harus lewat keputusan PM di PLAN.md.
+- RBAC: role `admin` (pemilik) dan `cashier`. Endpoint admin-only harus
+  menolak kasir dengan 403. Data selalu ter-scope per toko (storeID dari
+  token), tidak pernah dari input user.
+- Auth: JWT access 15 menit + refresh 7 hari (rotasi refresh token), passcode
+  PIN 5 digit untuk switch akun. Jangan melemahkan mekanisme ini.
+- File deployment di root project (`docker-compose.yml`, `Dockerfile.backend`,
+  `.env.deploy`, `bootstrap-account.txt`) adalah milik PM — JANGAN diubah,
+  dipindah, atau di-commit isinya. `.env.deploy` berisi rahasia.
 
-Source order:
+## Cara kerja per unit (wajib)
+- **Superpowers selalu dipakai.** Mulai setiap sesi dengan skill
+  `using-superpowers`, lalu ikuti disiplinnya untuk unit ini: susun rencana
+  kerja unit dari spec PLAN.md (pola `writing-plans`/`executing-plans`),
+  kerjakan dengan TDD bila perilaku baru ditambahkan (pola
+  `test-driven-development`), dan sebelum menyatakan unit selesai jalankan
+  verifikasi menyeluruh (pola `verification-before-completion`) plus
+  self-review ala `requesting-code-review`. Spec di PLAN.md adalah sumber
+  kebenaran — skill mengatur CARA bekerja, bukan mengubah spec.
+- **Ponytail selalu aktif (mode full).** Perubahan terkecil yang benar-benar
+  menyelesaikan unit: pakai ulang komponen/fungsi/pola yang sudah ada sebelum
+  membuat yang baru, stdlib dan dependensi yang sudah terpasang sebelum
+  menambah apa pun, tanpa abstraksi untuk kebutuhan yang belum ada (YAGNI),
+  tanpa fitur di luar unit. Bila ada jalan yang lebih pendek dan tetap benar
+  menurut spec, jalan itulah yang diambil — dan sebutkan di ringkasan akhir.
+- Kerjakan HANYA unit yang tertulis di prompt tugasmu, dari PLAN.md.
+- Sebelum selesai: jalankan test suite repo terkait (backend: `go test ./...`;
+  frontend: `npm run build` harus lulus termasuk `tsc`). Tambahkan test untuk
+  perilaku baru mengikuti gaya test yang sudah ada (backend: integrasi HTTP
+  di paket router dengan sqlite).
+- Fitur baru yang menyentuh skema: gunakan AutoMigrate GORM (model baru/field
+  baru), tanpa file migrasi SQL manual, dan pastikan data lama tetap valid
+  (default/backfill yang aman).
+- Jangan commit. PM yang meninjau, meng-QA, dan commit per unit.
+- Akhiri dengan ringkasan: file yang diubah, keputusan yang diambil, hasil
+  test, dan hal yang belum pasti (bila ada) — jujur, tanpa melebih-lebihkan.
 
-1. Latest user instruction.
-2. Closest `AGENTS.md`.
-3. [PRDPOSJA](PRDPOSJA.md).
-4. [Active docs index](docs/README.md).
-5. [Single-agent workflow](docs/SINGLE_AGENT_WORKFLOW.md) and [task queue](docs/TASK_QUEUE.md).
-6. [Story progress board](docs/STORY_PROGRESS.md).
-7. Story files by area: [Backend](docs/STORY_BACKEND.md), [Mobile Kasir](docs/STORY_MOBILE_KASIR.md), [Web Admin](docs/STORY_WEB_ADMIN.md), and [Integration](docs/STORY_INTEGRATION.md).
-8. [API contracts](docs/API_CONTRACTS/README.md), [validation checklist](docs/VALIDATION_CHECKLIST.md), and [bug tracker](docs/BUG_TRACKER.md).
-9. Actual code and tests for implementation details and current constraints.
-10. [Task breakdown](Task%20%26%20Subtask%20Breakdown.md) only as a legacy/reconciled reference. Do not execute it blindly.
+## Arsitektur backend (Go, repo backend/)
+- Layering ketat: `handler/` (HTTP, parsing, respons) → `service/` (aturan
+  bisnis) → `repo/` (akses data GORM) → `model/` (struct & konstanta).
+  Handler tidak menulis query; repo tidak tahu HTTP.
+- Routing terpusat di `router/router.go`; grup admin dipisah dari grup kasir.
+- Setiap fitur baru mengikuti pembagian file yang sama (mis. fitur X →
+  handler/x.go, service/x.go, repo/x.go, model/x.go bila perlu).
 
-When business rules are ambiguous, use `PRDPOSJA.md` first. State which default was used in the change summary; do not invent a different rule. When execution sequence is ambiguous, follow `docs/SINGLE_AGENT_WORKFLOW.md`, `docs/TASK_QUEUE.md`, and the story docs under `docs/`, not the legacy task breakdown. Use one active coding agent and one active task at a time; do not run parallel coding agents for this repo until the product owner explicitly changes the workflow.
-
-## Active Packages
-
-| Package | Purpose | Guide | Setup and verification |
-| --- | --- | --- | --- |
-| `apps/backend` | Laravel API, Sanctum, tenant data, money/stock rules | [backend guide](apps/backend/AGENTS.md) | `composer install`; `php artisan migrate:fresh --seed`; `php artisan test`; `php artisan route:list --path=api/v1` |
-| `apps/cashier` | Flutter shared-terminal cashier app | [cashier guide](apps/cashier/AGENTS.md) | `flutter pub get`; `flutter analyze`; `flutter test`; `flutter build apk --debug` |
-| `apps/web` | Next.js Admin Web preview for Tenant Admin and Platform Super Admin | [admin web guide](apps/web/AGENTS.md) | `npm ci`; `npm test`; `npm run typecheck`; `npm run lint`; `npm run build`; `npx playwright test --list` |
-
-Admin Web now lives in `apps/web` as a UI-first preview surface. Backend integration starts only after the session and integration gates in `docs/STORY_INTEGRATION.md` are approved.
-
-Local API for Android emulator: `http://10.0.2.2:8000/api/v1`.
-
-## MUST Invariants
-
-1. **Tenant and actor:** Every domain query MUST scope `business_id` from the authenticated principal. Clients MUST NOT choose tenant ownership or acting `cashier_id`; server-side terminal context/policy MUST derive or verify actor, outlet, device, and shift together.
-2. **Money and stock:** All money MUST be integer rupiah. The server is the only calculator for price, discount, promotion, tax, service, rounding, totals, and stock. Flutter renders server results.
-3. **Sensitive writes:** Money, stock, shift, cash, payment, refund, void, and privileged writes MUST be database-transactional, idempotent by `business_id + endpoint + request_hash`, and create immutable audit events.
-4. **Authorization:** Server-side policy/gate/action authorization is mandatory. Hiding a Flutter control is never security.
-5. **Terminal:** Shift, cash, lock, checkout, and attendance writes MUST use a valid enrolled `device_id` and server-verified terminal actor context.
-6. **Time:** Store timestamps in UTC. Render and calculate business-day boundaries using the outlet timezone, defaulting to `Asia/Jakarta` when no configured outlet timezone exists.
-7. **Response envelope:** Success is `{ "data": ..., "meta": ... }`; failure is `{ "error": { "code": "...", "message": "...", "details": ... } }`.
-8. **PIN and PII:** PINs MUST be hashed; raw PIN, password, token, customer PII, and payment references MUST NEVER enter logs, audit payloads, screenshots, fixtures, or error messages.
-9. **Online-first:** NEVER add Drift, a general offline database, `/sync/pull`, `/sync/push`, or a general write queue. Checkout retry behavior is only the bounded PRD §2.1 mechanism.
-
-### Standard Error Codes
-
-| HTTP | Use |
-| --- | --- |
-| `401` | `UNAUTHENTICATED` - session/token invalid |
-| `403` | `FORBIDDEN` - tenant, outlet, role, or policy denied |
-| `404` | `NOT_FOUND` - resource absent within allowed scope |
-| `409` | `IDEMPOTENCY_CONFLICT`, `CONFLICT_REVISION`, `ORDER_LOCKED`, `QUOTE_STALE`, concurrent state conflict |
-| `422` | `VALIDATION_ERROR`, invalid state, required PIN/reason, `SHIFT_NOT_OPEN` |
-
-## Architecture Rules
-
-### Flutter
-
-MUST follow `ui -> provider/notifier -> repository interface -> ApiClient`.
-
-```dart
-// DO: feature notifier calls a repository.
-final result = await ref.read(transactionRepositoryProvider).createTransaction(draft);
-
-// DON'T: create Dio or serialize HTTP directly in a widget.
-await Dio().post('/transactions');
-```
-
-- Put new code in `apps/cashier/lib/features/<feature>/{pages,widgets,providers,repositories,models}`.
-- Widgets MUST NOT call HTTP, persist tokens, calculate money, or own idempotency retry behavior.
-- Feature state MUST own its own busy/error/result state. Do not add unrelated work to `NojposSessionNotifier`; it is a known fix-forward hotspot.
-- Repositories expose an interface and an API implementation. DTO parsing belongs in repositories/models, not widgets.
-
-### Laravel
-
-MUST use `controller -> authorization -> service/transaction -> model/query -> ApiResponse`.
-
-```php
-// DO: controller validates, authorizes, then delegates.
-$data = $request->validated();
-$this->authorize('close', $shift);
-return ApiResponse::success($service->close($context, $shift, $data));
-
-// DON'T: accept a free cashier ID and perform multi-table money writes in a controller.
-DB::table('transactions')->insert($request->all());
-```
-
-- Controllers live in `app/Http/Controllers/Api/V1/`; keep them thin.
-- Form requests live in `app/Http/Requests/`; policies in `app/Policies/`; business services in `app/Services/`; API output formatters/resources in `app/Http/Resources/`.
-- New domain models MUST use UUIDs, timestamps, soft delete where required, and tenant scope according to the domain model.
-- Query-builder reads MUST explicitly add `business_id`; do not assume Eloquent global scopes apply to `DB::table`.
-- A service handling a sensitive write MUST wrap state, ledger/movement, and audit insert in one `DB::transaction` and lock mutable aggregates as needed.
-
-## Conventions And Recipes
-
-### Add an endpoint
-
-1. Confirm PRD scope and `[DECISION]` rule.
-2. Add a FormRequest and policy/action authorization.
-3. Implement transaction/business logic in a service.
-4. Scope every resource by token-derived business and verified outlet/device/actor relation.
-5. Add route under `/api/v1`, then apply auth, role/policy, and idempotency middleware where required.
-6. Return only the standard envelope through `ApiResponse` or an API Resource.
-7. Add feature tests for tenant isolation, authorization, validation, idempotency, rollback, and concurrency when money/stock/state changes.
-
-### Add a Flutter feature
-
-1. Create the feature folder and repository interface/API implementation.
-2. Add a narrow provider/notifier; do not add new feature state to the global session notifier.
-3. Use typed `ApiException` and render loading, empty, validation, forbidden, conflict, and retry states.
-4. Use integer values for money and display rupiah only at the presentation boundary.
-5. Add unit/provider tests, a widget test for interaction, and an integration test when the flow crosses authentication, shift, checkout, or inventory.
-
-### Add a migration, audit, report, or idempotent write
-
-- Migrations MUST be additive and reversible. Inspect existing data before adding constraints. Never silently mutate financial history.
-- Audit events use `domain.action`, actor, business, outlet/device/request context, before/after, and are written in the same transaction as the effect.
-- Reports MUST aggregate server-side, paginate lists, apply outlet timezone, and never calculate totals in Flutter.
-- Idempotent writes MUST reserve the key atomically before executing, store an in-progress/completed response, and return the saved response for the same body.
-
-## Testing And Definition Of Done
-
-Every money, stock, or privileged change MUST test: tenant isolation, role/outlet authorization, idempotency, transaction rollback, and concurrent/state-conflict behavior. Track planned and completed work in the story docs before reporting Codex completion.
-
-Before declaring a change done:
-
-- [ ] Scope is limited and no unrelated dirty work was reverted.
-- [ ] Backend: `php artisan test` and route check pass when API changed.
-- [ ] Flutter: `flutter analyze`, `flutter test`, `flutter build apk --debug`; install on `emulator-5554` when available.
-- [ ] Formatting/lint is clean.
-- [ ] Migration is additive and rollback considered.
-- [ ] Audit exists for privileged/money/stock action.
-- [ ] No client-side money or stock calculation was added.
-- [ ] `PRDPOSJA.md`, story docs, and bug tracker are updated when contract changed.
-
-## Security And Logging
-
-Log structured identifiers only: `request_id`, `idempotency_key`, `business_id`, `outlet_id`, `device_id`, resource ID, and error code. Redact bearer token, password, PIN, full phone/email, receipt content, and payment reference.
-
-Do not commit `.env`, database dumps, device tokens, or production credentials. Demo credentials may appear only in dev seed documentation, never production code.
-
-## Current Fix-Forward Exceptions
-
-These are known gaps, not patterns to copy: client-trusted checkout price/rounding, client-trusted cashier context, persistent multi-item checkout outbox, controller-heavy writes, missing policy layer, UTC-only outlet behavior, and incomplete audit/idempotency coverage. P0 production blockers must be fixed before broad feature expansion. Sensitive writes must be tenant-scoped, authorized, idempotent, transactional, row-locked where state can race, and audited inside the same transaction. Track active gaps in `docs/BUG_TRACKER.md` and the relevant story file.
-
-Final report format:
-
-```text
-Built: <changed>
-Verified: <commands and results>
-Blocker: <precise blocker or none>
-```
+## Arsitektur frontend (React+Vite+TS, repo frontend/web/)
+- Halaman di `src/pages/`, komponen bersama di `src/components/` (termasuk
+  `components/ui` bergaya shadcn — PAKAI komponen ini, jangan buat sistem
+  tombol/form/modal baru), pemanggilan API hanya lewat `src/lib/api.ts`.
+- Halaman baru harus mengikuti pola AppShell dan pola halaman terdekat yang
+  sudah ada (struktur daftar/form/aksi yang sama). Tanpa library UI baru,
+  tanpa ikon set baru, tanpa font baru.
+- Folder `android/` (Capacitor) TIDAK disentuh dalam fase pengembangan ini.
+  Electron sudah dihapus dan tidak boleh dihidupkan lagi.
+- **DILARANG build ke `web/dist`.** Folder `web/dist` adalah PRODUKSI LIVE
+  yang disajikan nginx ke pengguna. Verifikasi build oleh agen pengkode
+  WAJIB memakai outDir sementara di luar dist (mis.
+  `npm run build -- --outDir /tmp/build-cek`, lalu folder itu dihapus).
+  Deploy ke dist hanya dilakukan PM sesudah QA. (Aturan ini lahir dari
+  insiden 2026-10-15: build verifikasi membocorkan halaman Promo yang
+  backend-nya belum ada ke produksi.)
+- Sebelum menambah kontrol UI baru (tombol/menu/aksi), PERIKSA dulu apakah
+  halaman itu sudah punya kontrol dengan fungsi yang sama atau mirip.
+  Dilarang ada dua kontrol untuk satu fungsi: fitur baru yang tumpang
+  tindih dengan kontrol lama harus MELEBUR ke kontrol lama, bukan berdiri
+  di sebelahnya. (Insiden yang sama: tombol "Ekspor CSV" baru berdiri di
+  samping menu "Export" bawaan.)
+- Cache build/test (Go/npm) JANGAN ditaruh di /tmp — /tmp di server ini tmpfs kecil (3,9 GB) dan pernah penuh sampai menggagalkan test & deploy. Pakai folder di disk, mis. GOCACHE=/opt/.cache-go-build, GOTMPDIR=/opt/.cache-go-tmp, npm --cache /opt/.cache-npm.
