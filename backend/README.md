@@ -1,0 +1,1144 @@
+# openPOS — Backend API
+
+Backend REST API untuk openPOS. Dibangun menggunakan **Go (Gin + GORM) + PostgreSQL (Supabase)** dengan fallback **sqlite** untuk dev lokal, dan siap di-deploy secara serverless di Vercel atau menggunakan server jangka panjang VPS.
+
+> **Catatan skema baru:** semua tabel memakai `gorm.Model` (ID **integer auto-increment** `1, 2, 3...`, `created_at`/`updated_at` otomatis, soft delete). Transaksi memakai ID numerik (format lama `TRX-0001` sudah tidak ada). Butuh wipe total sekali via `supabase/wipe.sql` sebelum deploy pertama — tidak ada jalur migrasi dari skema UUID lama. Contoh JSON di bawah masih menunjukkan ID string lama; anggap sebagai angka. Penghapusan kategori kosong tetap hard-delete; yang lain mengikuti soft-delete standar GORM.
+>
+> Karena tabel `users` dan `cashiers` punya urutan nomor terpisah, satu angka bisa ada di keduanya (mis. owner `1` dan kasir `1`). `POST /auth/switch` menyelesaikan otomatis dari status sesi; `PUT /users/{id}/passcode` menerima field opsional `"role": "admin"|"cashier"` bila perlu disambiguasi eksplisit.
+
+- **Base URL:** `https://openpos-api.vercel.app/api/v1`
+- **Format Payload:** `application/json` (Semua body request dan response berbentuk JSON)
+- **Format Error:** Semua kegagalan API akan mengembalikan payload error standar:
+  ```json
+  { "error": "Pesan deskripsi kesalahan detail di sini" }
+  ```
+
+---
+
+## 💡 Informasi Tambahan untuk Frontend (Developer Tips)
+
+Sebelum mengintegrasikan UI, harap perhatikan pedoman berikut agar integrasi berjalan mulus:
+
+### 1. Siklus Hidup Autentikasi (Token Lifecycle)
+* **AccessToken (JWT):** Memiliki masa aktif singkat (~15 menit). Kirimkan via header HTTP:  
+  `Authorization: Bearer <access_token>`
+* **RefreshToken:** Memiliki masa aktif panjang (~7 hari). Simpan secara aman di client (`localStorage` / secure storage).
+* **Silent Token Rotation:** Sangat disarankan untuk membuat *HTTP interceptor* (seperti pada Axios/Fetch). Jika request mengembalikan `401` dengan pesan kedaluwarsa, panggil `POST /auth/refresh` secara otomatis di belakang layar untuk mendapatkan pasangan token baru, lalu ulangi request yang gagal tadi tanpa mengganggu pengalaman pengguna.
+
+### 2. Alur Pembagian Sesi Akun (Multi-Cashier & PIN 5 Angka)
+Aplikasi ini mendukung perpindahan kasir cepat (common di mesin POS kasir fisik) menggunakan PIN/Passcode 5 digit.
+* **Alur Login / Switch Akun:**
+  1. Jalankan request login/switch terlebih dahulu tanpa mengirimkan parameter `passcode`.
+  2. Jika akun dilindungi oleh passcode, server akan merespons dengan status `401 Unauthorized` dan body `{"error": "passcode_required", "code": "PASSCODE_REQUIRED"}` (field `code` untuk deteksi mesin).
+  3. Ketika frontend menerima error tersebut, tampilkan modal/popup keypad PIN 5-digit ke layar.
+  4. Pengguna memasukkan PIN, kemudian frontend mengulangi request dengan menyertakan atribut `passcode: "12345"`.
+* **Catatan keamanan:** `switch` ke admin wajib PIN — jika admin belum set PIN, `switch` akan `401 passcode_required` (tidak bisa `nil` bypass). `GoogleLogin` juga cek PIN bila akun target punya passcode. Rate limit login 5/menit/IP, switch 10/menit/user, forgot 3/menit/IP → `429`.
+
+### 3. Presisi Perhitungan POS & Pajak (Tax)
+* **Snapshot Harga:** Backend selalu merekam snapshot `buy_price` dan `sell_price` saat transaksi terjadi. Nilai profit/laba rugi masa lalu tidak akan berubah meskipun harga produk diedit di masa depan.
+* **Perhitungan Pajak:** Pajak dihitung otomatis oleh server jika `taxEnabled` bernilai `true` pada `/settings`.  
+  Rumus perhitungan pajak backend:  
+  `tax = round_half_up((subtotal - discount) * taxPct / 100)`
+* **Nilai Uang (Currency):** Semua nilai uang seperti harga beli, harga jual, subtotal, diskon, pajak, total belanja, jumlah bayar, kembalian, dan laba kotor disimpan dalam tipe data **Integer** 64-bit (tidak menggunakan desimal/sen).
+
+### 4. Pembatasan Hak Akses (Role-Aware)
+* Pihak Kasir (`cashier`) secara sistem otomatis dibatasi oleh backend. Endpoint `GET /transactions` dan `GET /dashboard` secara implisit hanya akan memunculkan data milik kasir yang sedang aktif tersebut.
+* Halaman pengaturan toko, pembuatan produk/kategori, manipulasi stok, refund transaksi, manajemen akun kasir, dan penarikan laporan periodik wajib di-lock/sembunyikan di sisi frontend bila pengguna yang masuk memiliki `role: "cashier"`.
+
+### 5. Cetak Struk POS (Receipt Printing)
+* Tarik konfigurasi cetak struk dari endpoint `/settings`. Perhatikan atribut `paper` (`58mm` atau `80mm`) untuk menyesuaikan layout CSS printing atau byte stream ESC/POS printer termal.
+* Backend **hanya** suplai JSON mentah `Trx` + `StoreSettings`; tidak render HTML/PDF — redesign struk tanpa frontend tetap pakai 2 call tersebut.
+
+### 6. Keamanan & Hardening
+* Rate limit: `login` 5/menit/IP, `switch` 10/menit/user, `forgot-password` 3/menit/IP → `429`.
+* `forgot-password/send` & `otp/send` generik `200` anti-enumerasi (`Jika email terdaftar...`).
+* Header API: `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Permissions-Policy`, `X-Frame-Options: DENY`, `CSP frame-ancestors 'none'`.
+* Akun nonaktif dicek per-request (`ActiveCheck`) — token langsung `401` walau belum expired.
+* `switch` ke admin wajib PIN; `GoogleLogin` juga cek PIN bila ada.
+
+---
+
+## 🛠️ Daftar Lengkap API Endpoints
+
+### 🩺 Layanan & Health Check
+
+#### `GET /health`
+Mengecek status kesehatan aplikasi, koneksi database, dan konektivitas API.
+* **Autentikasi:** Publik (Tanpa token)
+* **Response Sukses (`200 OK`):**
+  ```json
+  {
+    "status": "ok",
+    "database": "up",
+    "service": "openpos-backend"
+  }
+  ```
+
+---
+
+### 🔑 Autentikasi (Authentication)
+
+#### `POST /auth/otp/send`
+Mengirim kode OTP 6 digit ke alamat email pengguna (Gmail SMTP) untuk verifikasi awal pendaftaran akun.
+* **Autentikasi:** Publik (Tanpa token)
+* **Request Expected:**
+  ```json
+  {
+    "email": "sari@tokosaya.com"
+  }
+  ```
+* **Response Sukses (`200 OK`):**
+  ```json
+  {
+    "message": "Kode OTP terkirim ke email Anda."
+  }
+  ```
+* **Expected Errors:**
+  * `400 Bad Request` — `{"error": "Email tidak valid."}`
+  * `429 Too Many Requests` — `{"error": "Terlalu sering meminta kode. Coba lagi dalam 60 detik."}`
+
+#### `POST /auth/otp/verify`
+Memverifikasi 6 digit kode OTP yang dikirimkan ke email. Sukses menandai email terverifikasi sehingga diizinkan untuk mendaftar akun.
+* **Autentikasi:** Publik (Tanpa token)
+* **Request Expected:**
+  ```json
+  {
+    "email": "sari@tokosaya.com",
+    "code": "482913"
+  }
+  ```
+* **Response Sukses (`200 OK`):**
+  ```json
+  {
+    "verified": true,
+    "message": "Email berhasil diverifikasi."
+  }
+  ```
+* **Expected Errors:**
+  * `400 Bad Request` — `{"error": "Kode OTP salah."}`
+  * `410 Gone` — `{"error": "Kode OTP sudah kedaluwarsa. Kirim ulang."}`
+  * `429 Too Many Requests` — `{"error": "Terlalu banyak percobaan. Kirim ulang kode OTP."}`
+
+#### `POST /auth/forgot-password/send`
+Mengirim kode OTP 6 digit ke email pengguna untuk proses pemulihan/lupa kata sandi (khusus akun non-Google). Demi anti-enumerasi, respons selalu generik `200` meski email tidak ada.
+* **Autentikasi:** Publik (Tanpa token) — rate limit 3/menit/IP → `429`
+* **Request Expected:**
+  ```json
+  {
+    "email": "sari@tokosaya.com"
+  }
+  ```
+* **Response Sukses (`200 OK`):**
+  ```json
+  {
+    "message": "Jika email terdaftar, kode OTP telah dikirim."
+  }
+  ```
+* **Expected Errors:**
+  * `400 Bad Request` — `{"error": "Email tidak valid."}`
+  * `429 Too Many Requests` — `{"error": "Terlalu sering meminta kode. Coba lagi dalam 60 detik."}` atau `{"error":"Terlalu banyak permintaan reset. Coba lagi dalam 1 menit."}`
+
+#### `POST /auth/forgot-password/reset`
+Memverifikasi kode OTP pemulihan dan memperbarui kata sandi akun dengan yang baru. Sukses otomatis `RevokeAllForUser` — semua refresh token lama dicabut.
+* **Autentikasi:** Publik (Tanpa token)
+* **Request Expected:**
+  ```json
+  {
+    "email": "sari@tokosaya.com",
+    "code": "482913",
+    "new_password": "passwordbaruminimal8karakter"
+  }
+  ```
+* **Response Sukses (`200 OK`):**
+  ```json
+  {
+    "message": "Kata sandi berhasil diubah. Silakan masuk dengan kata sandi baru."
+  }
+  ```
+* **Expected Errors:**
+  * `400 Bad Request` — `{"error": "kata sandi minimal 8 karakter"}`
+  * `400 Bad Request` — `{"error": "Kode OTP salah."}`
+  * `410 Gone` — `{"error": "Kode OTP sudah kedaluwarsa. Kirim ulang."}`
+  * `429 Too Many Requests` — `{"error": "Terlalu banyak percobaan. Kirim ulang kode OTP."}`
+  * `404 Not Found` — `{"error": "Akun tidak ditemukan."}`
+
+#### `POST /auth/register`
+Mendaftarkan Toko (Store) baru sekaligus membuat akun Admin pertama untuk toko tersebut (Memerlukan email yang sudah diverifikasi OTP sebelumnya), lalu otomatis login (mengembalikan token).
+* **Autentikasi:** Publik (Tanpa token)
+* **Request Expected:**
+  ```json
+  {
+    "name": "Bu Sari",
+    "email": "sari@tokosaya.com",
+    "password": "passwordminimal8karakter",
+    "storeName": "Toko Sembako Sari"
+  }
+  ```
+* **Response Sukses (`201 Created`):**
+  ```json
+  {
+    "access_token": "eyJ...",
+    "refresh_token": "88cb...",
+    "user": {
+      "id": "e4414f52-8703-45db-99bd-fa02a0a2df3c",
+      "email": "sari@tokosaya.com",
+      "name": "Bu Sari",
+      "role": "admin",
+      "active": true,
+      "store_id": "df2a0752-6cfa-42f5-b6d4-83b632617a2d",
+      "store_name": "Toko Sembako Sari"
+    }
+  }
+  ```
+* **Expected Errors:**
+  * `400 Bad Request` — Validasi gagal (misal: email kosong/tidak valid, password kurang dari 8 karakter).
+  * `400 Bad Request` — `{"error": "Email belum diverifikasi. Silakan verifikasi kode OTP terlebih dahulu."}`
+  * `409 Conflict` — `{"error": "Email sudah terdaftar. Silakan masuk."}`
+
+#### `POST /auth/google`
+Login/daftar instan dengan Google (GIS ID-token flow, alternatif dari OTP — keduanya hidup berdampingan).
+* **Autentikasi:** Publik (Tanpa token)
+* **Request Expected:**
+  ```json
+  {
+    "id_token": "eyJ...",
+    "storeName": "Toko Sembako Sari",
+    "passcode": "12345"
+  }
+  ```
+  *(Catatan: `id_token` didapat frontend dari tombol Google Identity Services. `storeName` opsional — hanya dipakai saat email belum terdaftar, untuk menamai toko baru; kosong memakai `"<nama>"'s Store`. Email yang sudah terdaftar (OTP maupun Google) otomatis terhubung ke akun yang sama; password lama tetap berfungsi. Jika akun target punya `passcode`, `passcode` wajib — tanpa itu `401 passcode_required`.)*
+* **Response Sukses (`200 OK`):** format response sama dengan `/auth/register`.
+* **Expected Errors:**
+  * `400 Bad Request` — `{"error": "id_token wajib diisi"}`
+  * `401 Unauthorized` — `{"error": "login Google tidak valid"}` (tanda tangan kedaluwarsa/salah, audience bukan milik aplikasi ini).
+  * `401 Unauthorized` — `{"error": "passcode_required", "code":"PASSCODE_REQUIRED"}` bila akun punya PIN.
+  * `400 Bad Request` — Email Google belum diverifikasi.
+  * `403 Forbidden` — Akun dinonaktifkan.
+  * `500 Internal Server Error` — `GOOGLE_CLIENT_ID` belum diset di server.
+
+#### `POST /auth/login`
+Autentikasi masuk pengguna menggunakan email dan password.
+* **Autentikasi:** Publik (Tanpa token) — rate limit 5/menit/IP → `429`
+* **Request Expected:**
+  ```json
+  {
+    "email": "sari@tokosaya.com",
+    "password": "passwordminimal8karakter",
+    "passcode": "12345" 
+  }
+  ```
+  *(Catatan: Atribut `passcode` opsional, dikirim hanya jika server merespons dengan tantangan PIN)*
+* **Response Sukses (`200 OK`):** format response sama dengan `/auth/register`.
+* **Expected Errors:**
+  * `401 Unauthorized` — `{"error": "passcode_required", "code":"PASSCODE_REQUIRED"}` (Akun dilindungi passcode/PIN, minta input PIN 5 digit dari user).
+  * `401 Unauthorized` — `{"error": "Email atau kata sandi tidak cocok. Coba lagi."}`
+  * `401 Unauthorized` — `{"error": "Passcode salah. Coba lagi.", "code":"PASSCODE_WRONG"}`
+  * `403 Forbidden` — `{"error": "Akun dinonaktifkan. Hubungi admin toko."}`
+  * `429 Too Many Requests` — `{"error":"Terlalu banyak percobaan login. Coba lagi dalam 1 menit."}`
+
+#### `POST /auth/refresh`
+Melakukan rotasi/pembaruan Access Token yang telah kedaluwarsa menggunakan Refresh Token yang valid. Konteks `acting_as` kasir dipertahankan lintas refresh.
+* **Autentikasi:** Publik (Tanpa token)
+* **Request Expected:**
+  ```json
+  {
+    "refresh_token": "88cb..."
+  }
+  ```
+* **Response Sukses (`200 OK`):** Mengembalikan pasangan token baru beserta profil pengguna (format sama dengan `/auth/register`; `user.role` tetap `cashier` + `acting_as` bila sesi kasir).
+* **Expected Errors:**
+  * `401 Unauthorized` — `{"error": "sesi tidak valid, silakan masuk kembali"}` (termasuk kasir nonaktif / beda toko)
+
+#### `POST /auth/logout`
+Mencabut status aktif dari Refresh Token agar tidak bisa digunakan lagi di masa mendatang.
+* **Autentikasi:** Publik (Tanpa token, body opsional)
+* **Request Expected:**
+  ```json
+  {
+    "refresh_token": "88cb..."
+  }
+  ```
+* **Response Sukses (`200 OK`):**
+  ```json
+  {
+    "message": "keluar berhasil"
+  }
+  ```
+
+#### `GET /auth/me`
+Mengambil profil data diri pengguna yang saat ini sedang aktif dalam sesi token.
+* **Autentikasi:** Bearer Token (Semua Role)
+* **Response Sukses (`200 OK`):**
+  ```json
+  {
+    "user": {
+      "id": "e4414f52-8703-45db-99bd-fa02a0a2df3c",
+      "email": "sari@tokosaya.com",
+      "name": "Bu Sari",
+      "role": "admin",
+      "active": true,
+      "store_id": "df2a0752-6cfa-42f5-b6d4-83b632617a2d",
+      "store_name": "Toko Sembako Sari"
+    }
+  }
+  ```
+* **Expected Errors:**
+  * `401 Unauthorized` — `{"error": "sesi tidak valid, silakan masuk kembali"}`
+
+#### `POST /auth/switch`
+Beralih sesi aktif ke akun kasir/admin lain dalam toko yang sama secara instan (fast login switch).
+* **Autentikasi:** Bearer Token (Semua Role) — rate limit 10/menit/user+IP → `429`; `switch` ke admin wajib PIN (bila admin belum set PIN → `401 passcode_required`).
+* **Request Expected:**
+  ```json
+  {
+    "target_user_id": "b3e211da-e0c1-4b13-aa8d-8eb99a4e69bb",
+    "passcode": "54321",
+    "role": "admin"
+  }
+  ```
+  *(Catatan: Atribut `passcode` opsional, hanya wajib jika akun target dilindungi oleh PIN; `role` opsional untuk disambiguasi `users` vs `cashiers` id tabrakan. Presence: user lama offline, target online.)*
+* **Response Sukses (`200 OK`):** Mengembalikan token pair baru untuk akun target (format sama dengan `/auth/register`).
+* **Expected Errors:**
+  * `400 Bad Request` — `{"error": "Tidak dapat beralih ke akun sendiri."}`
+  * `401 Unauthorized` — `{"error": "passcode_required", "code":"PASSCODE_REQUIRED"}` (Akun target butuh PIN 5 digit).
+  * `401 Unauthorized` — `{"error": "Passcode salah. Coba lagi.", "code":"PASSCODE_WRONG"}`
+  * `403 Forbidden` — `{"error": "Akun dinonaktifkan."}`
+  * `404 Not Found` — `{"error": "Akun tidak ditemukan."}`
+  * `429 Too Many Requests` — `{"error":"Terlalu banyak percobaan switch. Coba lagi dalam 1 menit."}`
+
+#### `PUT /auth/password`
+Ganti kata sandi saat login (terauntentikasi, bukan lupa PW).
+* **Autentikasi:** Bearer Token (Semua Role, kasir ditolak `403`)
+* **Request Expected:**
+  ```json
+  {
+    "old_password": "lamamin8",
+    "new_password": "baruminimal8karakter"
+  }
+  ```
+* **Response Sukses (`200 OK`):** `{"message":"Kata sandi berhasil diperbarui. Silakan masuk kembali."}` — semua refresh token lama dicabut (`RevokeAllForUser`), wajib login ulang.
+* **Expected Errors:** `400 kata sandi minimal 8 / lama wajib diisi`, `401 Kata sandi lama salah.`, `403 Kasir tidak memiliki kata sandi. Gunakan passcode.`, `401 sesi tidak valid`
+
+#### `POST /presence/heartbeat`
+Presence kasir Online/Offline. Frontend kirim tiap 30 dtk selagi login; `GET /users` hitung `online = last_seen_at <90s`.
+* **Auth:** Bearer (semua role) — tanpa body, `200 {"status":"ok"}`
+* **Efek:** `users.last_seen_at` & `cashiers.last_seen_at` diupdate; `logout`/`switch` set `NULL` offline instan.
+
+---
+
+### 👥 Manajemen Akun (User Management) 🔒 Admin
+
+#### `GET /users`
+Mendapatkan daftar seluruh akun staff/kasir yang terdaftar di dalam toko saat ini. Termasuk status presence `online` (`last_seen_at <90s`).
+* **Autentikasi:** Bearer Token (Hanya Admin)
+* **Response Sukses (`200 OK`):**
+  ```json
+  {
+    "users": [
+      {
+        "id": "e4414f52-8703-45db-99bd-fa02a0a2df3c",
+        "email": "sari@tokosaya.com",
+        "name": "Bu Sari",
+        "role": "admin",
+        "active": true,
+        "online": false,
+        "last_seen_at": "2026-09-10T08:12:00Z",
+        "store_id": "df2a0752-6cfa-42f5-b6d4-83b632617a2d",
+        "store_name": "Toko Sembako Sari",
+        "created_at": "2026-08-25T08:15:00Z"
+      },
+      {
+        "id": "b3e211da-e0c1-4b13-aa8d-8eb99a4e69bb",
+        "email": "andi@tokosaya.com",
+        "name": "Andi Kasir",
+        "role": "cashier",
+        "active": true,
+        "online": true,
+        "last_seen_at": "2026-09-10T08:13:00Z",
+        "store_id": "df2a0752-6cfa-42f5-b6d4-83b632617a2d",
+        "store_name": "Toko Sembako Sari",
+        "created_at": "2026-08-26T12:00:00Z"
+      }
+    ]
+  }
+  ```
+
+#### `POST /users`
+Membuat akun staff kasir baru dalam toko. Kasir tidak memerlukan email atau password, cukup nama.
+* **Autentikasi:** Bearer Token (Hanya Admin)
+* **Request Expected:**
+  ```json
+  {
+    "name": "Andi Kasir"
+  }
+  ```
+* **Response Sukses (`201 Created`):**
+  ```json
+  {
+    "user": {
+      "id": "b3e211da-e0c1-4b13-aa8d-8eb99a4e69bb",
+      "email": "",
+      "name": "Andi Kasir",
+      "role": "cashier",
+      "active": true,
+      "store_id": "df2a0752-6cfa-42f5-b6d4-83b632617a2d",
+      "store_name": "Toko Sembako Sari",
+      "created_at": "2026-08-27T10:30:00Z"
+    }
+  }
+  ```
+* **Expected Errors:**
+  * `409 Conflict` — `{"error": "Email sudah terdaftar."}`
+
+#### `PATCH /users/{id}`
+Ganti nama akun kasir dalam toko yang sama.
+* **Autentikasi:** Bearer Token (Hanya Admin)
+* **Request Expected:** `{"name":"Andi Kasir Baru"}`
+* **Response Sukses (`200 OK`):** `{"message":"Nama kasir diperbarui."}`
+* **Expected Errors:** `400 {"error":"Nama kasir wajib diisi."}`, `400 {"error":"Hanya akun kasir yang dapat diubah."}` (id milik admin), `404 {"error":"Akun tidak ditemukan di toko Anda."}`
+
+#### `PATCH /users/{id}/active`
+Mengubah status aktif (aktifkan atau nonaktifkan) akun kasir.
+* **Autentikasi:** Bearer Token (Hanya Admin)
+* **Request Expected:**
+  ```json
+  {
+    "active": false
+  }
+  ```
+* **Response Sukses (`200 OK`):**
+  ```json
+  {
+    "message": "Akun dinonaktifkan."
+  }
+  ```
+* **Expected Errors:**
+  * `400 Bad Request` — `{"error": "Hanya akun kasir yang dapat dinonaktifkan."}` (Akun admin tidak bisa dinonaktifkan lewat sini).
+  * `404 Not Found` — `{"error": "Akun tidak ditemukan di toko Anda."}`
+
+#### `DELETE /users/{id}`
+Menghapus akun kasir dari toko secara permanen.
+* **Autentikasi:** Bearer Token (Hanya Admin)
+* **Response Sukses (`200 OK`):**
+  ```json
+  {
+    "message": "Akun kasir berhasil dihapus."
+  }
+  ```
+* **Expected Errors:**
+  * `404 Not Found` — `{"error": "Akun tidak ditemukan di toko Anda."}`
+
+#### `PUT /users/{id}/passcode`
+Mengatur atau menghapus Passcode/PIN 5-digit milik akun kasir tertentu.
+* **Autentikasi:** Bearer Token (Hanya Admin)
+* **Request Expected:**
+  ```json
+  {
+    "passcode": "54321"
+  }
+  ```
+  *(Catatan: Kirim string kosong `""` untuk menghapus passcode dari akun)*
+* **Response Sukses (`200 OK`):**
+  ```json
+  {
+    "message": "Passcode disimpan."
+  }
+  ```
+* **Expected Errors:**
+  * `400 Bad Request` — `{"error": "passcode harus 5 angka"}` (Validasi format PIN salah).
+  * `404 Not Found` — `{"error": "Akun tidak ditemukan di toko Anda."}`
+
+---
+
+### 🗂️ Manajemen Kategori (Category)
+
+#### `GET /categories`
+Mendapatkan daftar seluruh kategori produk yang ada di toko.
+* **Autentikasi:** Bearer Token (Semua Role)
+* **Response Sukses (`200 OK`):**
+  ```json
+  {
+    "categories": [
+      {
+        "id": "2da1fb9b-00fa-4009-847c-7f5fa9374021",
+        "store_id": "df2a0752-6cfa-42f5-b6d4-83b632617a2d",
+        "name": "Sembako",
+        "active": true,
+        "created_at": "2026-08-25T08:30:00Z"
+      }
+    ]
+  }
+  ```
+
+#### `POST /categories` 🔒 Admin
+Membuat kategori produk baru di toko.
+* **Autentikasi:** Bearer Token (Hanya Admin)
+* **Request Expected:**
+  ```json
+  {
+    "name": "Makanan Instan"
+  }
+  ```
+* **Response Sukses (`201 Created`):**
+  ```json
+  {
+    "category": {
+      "id": "e0e2920f-87f5-46aa-acda-656910606b29",
+      "store_id": "df2a0752-6cfa-42f5-b6d4-83b632617a2d",
+      "name": "Makanan Instan",
+      "active": true,
+      "created_at": "2026-08-27T10:45:00Z"
+    }
+  }
+  ```
+* **Expected Errors:**
+  * `409 Conflict` — `{"error": "Kategori dengan nama itu sudah ada."}`
+
+#### `DELETE /categories/{id}` 🔒 Admin
+Menghapus kategori. Jika kategori masih dikaitkan dengan produk yang ada, sistem akan melakukan *soft-delete* (menonaktifkan kategori). Jika sudah kosong, sistem melakukan *hard-delete*.
+* **Autentikasi:** Bearer Token (Hanya Admin)
+* **Response Sukses (`200 OK`):**
+  ```json
+  {
+    "soft_deleted": true
+  }
+  ```
+  *(Catatan: `soft_deleted: true` berarti kategori dinonaktifkan karena masih digunakan oleh produk. `false` berarti terhapus sepenuhnya)*
+
+---
+
+### 📦 Manajemen Produk (Product)
+
+#### `GET /products`
+Mendapatkan katalog daftar seluruh produk dengan opsi penyaringan, pencarian, dan pagination.
+* **Autentikasi:** Bearer Token (Semua Role)
+* **Query Parameters:**
+  * `q` (string, opsional): Pencarian berbasis teks kecocokan parsial *case-insensitive* pada nama produk, SKU, atau barcode.
+  * `categoryId` (uuid, opsional): Filter produk berdasarkan kategori tertentu.
+  * `active` (string, opsional): Status produk (`"true"` / `"false"`).
+  * `page` (int, opsional): Halaman keberapa (default: `1`).
+  * `limit` (int, opsional): Batas item per halaman (default: `20`, maksimum: `200`).
+* **Response Sukses (`200 OK`):**
+  ```json
+  {
+    "items": [
+      {
+        "id": "761da11a-1f0b-4d99-897d-6fffa21da1a0",
+        "category_id": "2da1fb9b-00fa-4009-847c-7f5fa9374021",
+        "category_name": "Sembako",
+        "name": "Beras Premium 5kg",
+        "sku": "BR-001",
+        "barcode": "8991234567891",
+        "buy_price": 62000,
+        "sell_price": 68000,
+        "stock": 24,
+        "unit": "pcs",
+        "active": true,
+        "created_at": "2026-08-25T09:00:00Z"
+      }
+    ],
+    "total": 1,
+    "page": 1,
+    "limit": 20
+  }
+  ```
+
+#### `GET /products/{id}`
+Mendapatkan rincian detail data satu produk tertentu.
+* **Autentikasi:** Bearer Token (Semua Role)
+* **Response Sukses (`200 OK`):** Format objek sama persis dengan elemen item di `GET /products`.
+* **Expected Errors:**
+  * `404 Not Found` — `{"error": "Produk tidak ditemukan."}`
+
+#### `POST /products` 🔒 Admin
+Menambahkan produk baru ke dalam katalog toko. Otomatis membuat riwayat mutasi stok awal jika kuantitas stock diset lebih besar dari 0.
+* **Autentikasi:** Bearer Token (Hanya Admin)
+* **Request Expected:**
+  ```json
+  {
+    "name": "Minyak Goreng 2L",
+    "sku": "MNG-002",
+    "barcode": "8992345678122",
+    "categoryId": "2da1fb9b-00fa-4009-847c-7f5fa9374021",
+    "buyPrice": 28000,
+    "sellPrice": 32000,
+    "stock": 15,
+    "unit": "pcs"
+  }
+  ```
+  *(Catatan: `categoryId`, `buyPrice`, `stock`, `barcode`, `unit` bersifat opsional)*
+* **Response Sukses (`201 Created`):** Mengembalikan data lengkap produk yang berhasil dibuat (format sama dengan `GET /products/{id}`).
+* **Expected Errors:**
+  * `400 Bad Request` — `{"error": "Kategori tidak ditemukan di toko Anda."}`
+  * `409 Conflict` — `{"error": "SKU sudah digunakan di toko ini."}`
+
+#### `PUT /products/{id}` 🔒 Admin
+Memperbarui data atribut spesifikasi produk. **Harap Dicatat:** Stok produk tidak boleh dan tidak dapat diubah melalui endpoint ini (stok hanya bisa dimutasi secara aman lewat transaksi POS atau penyesuaian stok khusus).
+* **Autentikasi:** Bearer Token (Hanya Admin)
+* **Request Expected:** sama dengan payload `POST /products` tanpa parameter `stock`.
+* **Response Sukses (`200 OK`):** Mengembalikan objek produk terbaru yang sudah diperbarui.
+* **Expected Errors:**
+  * `400 Bad Request` — `{"error": "Kategori tidak ditemukan di toko Anda."}`
+  * `409 Conflict` — `{"error": "SKU sudah digunakan di toko ini."}`
+
+#### `PATCH /products/{id}/active` 🔒 Admin
+Mengubah status aktif/nonaktif dari suatu produk. Produk yang dinonaktifkan tidak akan muncul di layar POS penjualan kasir.
+* **Autentikasi:** Bearer Token (Hanya Admin)
+* **Request Expected:**
+  ```json
+  {
+    "active": false
+  }
+  ```
+* **Response Sukses (`200 OK`):**
+  ```json
+  {
+    "message": "Status produk diperbarui."
+  }
+  ```
+
+#### `DELETE /products/{id}` 🔒 Admin
+Menghapus produk dari katalog toko secara permanen.
+* **Autentikasi:** Bearer Token (Hanya Admin)
+* **Response Sukses (`200 OK`):**
+  ```json
+  {
+    "message": "Produk berhasil dihapus."
+  }
+  ```
+* **Expected Errors:**
+  * `404 Not Found` — `{"error": "Produk tidak ditemukan."}`
+
+---
+
+### 📈 Stok & Riwayat Mutasi (Inventory) 🔒 Admin
+
+#### `POST /stock/adjustments`
+Melakukan penyesuaian/koreksi nilai stok fisik barang di gudang. Seluruh proses penyesuaian stok dan mutasi riwayat berjalan secara atomik dalam database.
+* **Autentikasi:** Bearer Token (Hanya Admin)
+* **Request Expected:**
+  ```json
+  {
+    "productId": "761da11a-1f0b-4d99-897d-6fffa21da1a0",
+    "direction": "minus",
+    "qty": 2,
+    "reason": "Barang rusak / bocor di rak"
+  }
+  ```
+  *(Catatan: `direction` bernilai `"plus"` untuk menambah stok atau `"minus"` untuk mengurangi stok. `reason` wajib diisi)*
+* **Response Sukses (`200 OK`):**
+  ```json
+  {
+    "product": {
+      "id": "761da11a-1f0b-4d99-897d-6fffa21da1a0",
+      "category_id": "2da1fb9b-00fa-4009-847c-7f5fa9374021",
+      "category_name": "Sembako",
+      "name": "Beras Premium 5kg",
+      "sku": "BR-001",
+      "buy_price": 62000,
+      "sell_price": 68000,
+      "stock": 22,
+      "unit": "pcs",
+      "active": true,
+      "created_at": "..."
+    }
+  }
+  ```
+* **Expected Errors:**
+  * `400 Bad Request` — `{"error": "arah penyesuaian harus 'plus' atau 'minus'"}`
+  * `400 Bad Request` — `{"error": "stok tidak boleh negatif"}` (Terjadi jika pengurangan kuantitas stok melampaui jumlah stok yang ada saat ini).
+  * `404 Not Found` — `{"error": "Produk tidak ditemukan."}`
+
+#### `GET /movements`
+Mendapatkan riwayat mutasi keluar masuk stok di toko secara kronologis (terbaru dulu).
+* **Autentikasi:** Bearer Token (Hanya Admin)
+* **Query Parameters:**
+  * `type` (string, opsional): Filter jenis mutasi (`"sale"` / `"refund"` / `"adjust"` / `"initial"`).
+  * `productId` (uuid, opsional): Memfilter riwayat mutasi produk tertentu saja.
+  * `page` (int, opsional): Halaman keberapa (default: `1`).
+  * `limit` (int, opsional): Batas item per halaman (default: `25`).
+* **Response Sukses (`200 OK`):**
+  ```json
+  {
+    "items": [
+      {
+        "id": "6fa872b2-6523-4e00-9ff9-78fffa72da72",
+        "product_id": "761da11a-1f0b-4d99-897d-6fffa21da1a0",
+        "product_name": "Beras Premium 5kg",
+        "type": "adjust",
+        "qty": -2,
+        "reason": "Barang rusak / bocor di rak",
+        "actor": "Bu Sari",
+        "created_at": "2026-08-27T10:50:00Z"
+      }
+    ],
+    "total": 1,
+    "page": 1,
+    "limit": 25
+  }
+  ```
+
+---
+
+### 🛒 Transaksi Penjualan (Transactions)
+
+#### `POST /transactions`
+Menyelesaikan proses transaksi penjualan POS belanja (Checkout). Stok barang otomatis dikurangi dan mutasi penjualan terekam secara real-time. **RBAC:** identitas kasir diambil dari JWT (`claims`), bukan payload; admin tanpa `switch` otomatis dibuatkan baris `cashiers` bernama admin (idempotent per toko).
+* **Autentikasi:** Bearer Token (Semua Role)
+* **Request Expected:**
+  ```json
+  {
+    "items": [
+      {
+        "productId": "761da11a-1f0b-4d99-897d-6fffa21da1a0",
+        "qty": 2
+      }
+    ],
+    "discount": 5000,
+    "method": "Cash",
+    "paid": 150000,
+    "customer": "Budi Santoso"
+  }
+  ```
+  *(Catatan: Atribut `discount`, `paid`, `customer` bersifat opsional. Jika metode pembayaran adalah `"Cash"`, nominal `paid` wajib diisi dan harus bernilai lebih besar atau sama dengan total belanja bersih)*
+  
+  **Pilihan Metode Pembayaran (`method`):**  
+  `"Cash"`, `"Bank Transfer"`, `"QRIS"`, `"E-Wallet"`, `"Card"`.
+* **Response Sukses (`201 Created`):**
+  ```json
+  {
+    "id": "TRX-0001",
+    "seq": 1,
+    "cashier_name": "Andi Kasir",
+    "items": [
+      {
+        "product_id": "761da11a-1f0b-4d99-897d-6fffa21da1a0",
+        "name": "Beras Premium 5kg",
+        "buy_price": 62000,
+        "price": 68000,
+        "qty": 2
+      }
+    ],
+    "subtotal": 136000,
+    "discount": 5000,
+    "tax": 13100,
+    "total": 144100,
+    "method": "Cash",
+    "paid": 150000,
+    "change": 5900,
+    "status": "completed",
+    "customer": "Budi Santoso",
+    "created_at": "2026-08-27T11:00:00Z"
+  }
+  ```
+* **Expected Errors:**
+  * `400 Bad Request` — `{"error": "Keranjang kosong."}`
+  * `400 Bad Request` — `{"error": "Jumlah bayar kurang dari total."}`
+  * `400 Bad Request` — `{"error": "Diskon melebihi subtotal."}`
+  * `400 Bad Request` — `{"error": "Ada produk yang tidak aktif."}`
+  * `409 Conflict` — `{"error": "Stok tidak cukup untuk menyelesaikan transaksi."}`
+
+#### `GET /transactions`
+Mendapatkan daftar data riwayat transaksi penjualan.
+* **Autentikasi:** Bearer Token (Semua Role)
+* **Penyaringan Otomatis (Penting!):** Jika login sebagai Kasir (`cashier`), endpoint ini otomatis hanya akan memunculkan daftar transaksi yang diproses oleh kasir tersebut saja. Admin toko dapat melihat semua data transaksi staff manapun.
+* **Query Parameters:**
+  * `q` (string, opsional): Pencarian berbasis teks kecocokan ID transaksi atau nama kasir.
+  * `method` (string, opsional): Filter cara pembayaran (misal: `"QRIS"`).
+  * `date` (string, opsional): Filter transaksi per tanggal format `YYYY-MM-DD` — hari kalender lokal toko (`00:00–23:59` zona waktu toko, default `Asia/Makassar`). Kosong/tak valid = diabaikan (tanpa `400`). Kombinasi dengan `q`/`method`/`page`/`limit` tetap jalan.
+  * `page` (int, opsional): Halaman keberapa (default: `1`).
+  * `limit` (int, opsional): Batas item per halaman (default: `20`, **maksimum `200`** — clamp otomatis, echo `limit` yang di-clamp).
+* **Response Sukses (`200 OK`):**
+  ```json
+  {
+    "items": [
+      {
+        "id": "TRX-0001",
+        "seq": 1,
+        "cashier_name": "Andi Kasir",
+        "items": [ ... ],
+        "subtotal": 136000,
+        "discount": 5000,
+        "tax": 13100,
+        "total": 144100,
+        "method": "Cash",
+        "paid": 150000,
+        "change": 5900,
+        "status": "completed",
+        "customer": "Budi Santoso",
+        "created_at": "2026-08-27T11:00:00Z"
+      }
+    ],
+    "total": 1,
+    "page": 1,
+    "limit": 20
+  }
+  ```
+
+#### `GET /transactions/{id}`
+Mendapatkan detail struk informasi dari satu transaksi penjualan berdasarkan ID.
+* **Autentikasi:** Bearer Token (Semua Role)
+* **Response Sukses (`200 OK`):** Format objek sama dengan respons transaksi.
+* **Expected Errors:**
+  * `404 Not Found` — `{"error": "Transaksi tidak ditemukan."}` (Jika kasir mencoba mengakses struk transaksi milik staff kasir lain).
+
+#### `POST /transactions/{id}/refund` 🔒 Admin
+Memproses pengembalian barang (Refund) sebagian atau seluruhnya dari suatu transaksi penjualan yang telah sukses (`completed`). Otomatis mengembalikan stok produk yang di-refund dan mencatat mutasi masuk ke histori pergudangan.
+* **Autentikasi:** Bearer Token (Hanya Admin)
+* **Request Expected:**
+  ```json
+  {
+    "items": [
+      {
+        "productId": "761da11a-1f0b-4d99-897d-6fffa21da1a0",
+        "qty": 1
+      }
+    ],
+    "reason": "Salah beli ukuran / varian"
+  }
+  ```
+* **Response Sukses (`200 OK`):** Mengembalikan data terbaru transaksi tersebut setelah pemutakhiran status refund (Status transaksi otomatis berubah menjadi `"refunded"` jika seluruh kuantitas item dalam transaksi dikembalikan sepenuhnya).
+* **Expected Errors:**
+  * `400 Bad Request` — `{"error": "Qty refund melebihi jumlah terjual."}`
+  * `400 Bad Request` — `{"error": "alasan refund wajib diisi"}`
+  * `409 Conflict` — `{"error": "Transaksi ini tidak dapat direfund."}` (Bukan berstatus `"completed"`).
+  * `404 Not Found` — `{"error": "Transaksi tidak ditemukan."}`
+
+---
+
+### ⏱️ Shift Kasir (Cashier Shifts)
+
+#### `GET /cashier/shift`
+Mendapatkan ringkasan shift kasir yang sedang berjalan beserta data analitik (omzet per jam dan produk terlaris).
+* **Autentikasi:** Bearer Token (Semua Role)
+* **Response Sukses (`200 OK`):**
+  ```json
+  {
+    "shift": {
+      "started_at": "2026-09-06T08:42:00Z",
+      "opening_cash": 500000,
+      "sales": 637500,
+      "trx_count": 1
+    },
+    "hourly": [
+      { "hour": 8, "omzet": 0 },
+      { "hour": 9, "omzet": 125000 }
+    ],
+    "top_products": [
+      { "product_id": 1, "name": "Beras Premium 5kg", "qty": 12 }
+    ]
+  }
+  ```
+
+#### `POST /cashier/shift/start`
+Memulai shift kasir baru. Shift aktif sebelumnya otomatis ditutup.
+* **Autentikasi:** Bearer Token (Semua Role)
+* **Request Expected:**
+  ```json
+  {
+    "opening_cash": 500000
+  }
+  ```
+* **Response Sukses (`201 Created`):**
+  ```json
+  {
+    "shift": {
+      "started_at": "2026-09-06T08:42:00Z",
+      "opening_cash": 500000,
+      "sales": 0,
+      "trx_count": 0
+    }
+  }
+  ```
+
+#### `POST /cashier/shift/close`
+Menutup shift kasir yang sedang berjalan dan mengembalikan ringkasan penjualan.
+* **Autentikasi:** Bearer Token (Semua Role)
+* **Request Expected:** `{}`
+* **Response Sukses (`200 OK`):**
+  ```json
+  {
+    "message": "Shift ditutup.",
+    "summary": {
+      "sales": 637500,
+      "trx_count": 1
+    }
+  }
+  ```
+* **Expected Errors:**
+  * `400 Bad Request` — `{"error": "Tidak ada shift yang berjalan."}`
+
+#### `GET /shifts` 🔒 Admin
+Mendapatkan log seluruh riwayat shift toko (terbaru dulu) untuk rekapitulasi kinerja kasir.
+* **Autentikasi:** Bearer Token (Hanya Admin)
+* **Response Sukses (`200 OK`):**
+  ```json
+  {
+    "shifts": [
+      {
+        "id": 1,
+        "cashier_name": "Andi Kasir",
+        "started_at": "2026-09-06T08:42:00Z",
+        "closed_at": "2026-09-06T15:30:00Z",
+        "opening_cash": 500000,
+        "sales": 637500,
+        "trx_count": 1
+      }
+    ]
+  }
+  ```
+
+---
+
+### ⚙️ Pengaturan Toko (Store Settings)
+
+#### `GET /settings`
+Mengambil konfigurasi informasi identitas fisik toko, format struk, dan struktur perpajakan.
+* **Autentikasi:** Bearer Token (Semua Role)
+* **Response Sukses (`200 OK`):**
+  ```json
+  {
+    "storeName": "Toko Sembako Sari",
+    "address": "Jl. Merdeka No. 1",
+    "phone": "081234567890",
+    "taxEnabled": true,
+    "taxPct": 10,
+    "receiptHeader": "Terima kasih sudah berbelanja",
+    "receiptFooter": "Barang yang sudah dibeli tidak dapat ditukar",
+    "paper": "58mm",
+    "timezone": "Asia/Makassar"
+  }
+  ```
+
+#### `PUT /settings` 🔒 Admin
+Memperbarui konfigurasi parameter data toko dan struk.
+* **Autentikasi:** Bearer Token (Hanya Admin)
+* **Request Expected:** Struktur payload JSON sama persis dengan response `GET /settings`.
+* **Response Sukses (`200 OK`):** Mengembalikan data terbaru hasil konfigurasi yang telah diupdate.
+* **Expected Errors:**
+  * `400 Bad Request` — `{"error": "nama toko wajib diisi"}`
+  * `400 Bad Request` — `{"error": "Zona waktu tidak valid."}` (Misal: format timezone tidak dikenali).
+
+---
+
+### 📊 Ringkasan Dashboard (Dashboard)
+
+#### `GET /dashboard`
+Mendapatkan laporan matriks ringkas harian yang disesuaikan secara dinamis berdasarkan role akun login (*Role-Aware Dashboard*).
+* **Autentikasi:** Bearer Token (Semua Role)
+* **Query Parameters:**
+  * `date` (string, opsional): Tanggal acuan `YYYY-MM-DD` (kalender lokal toko, default `Asia/Makassar`). Tanpa `date` (atau kosong/tak valid) = hari ini. Dengan `date=D`: `today`/`methods`/`top_products`/`recent` dihitung untuk D, `sales7` = 7 hari berjalan `D-6…D`, `low_stock` tetap live. Tak valid = diabaikan, jangan `400`.
+
+* **Response Sukses Admin (`200 OK`):**
+  ```json
+  {
+    "role": "admin",
+    "today": {
+      "omzet": 1500000,
+      "trx_count": 12,
+      "items_sold": 34,
+      "low_stock": 3
+    },
+    "sales7": [
+      { "date": "2026-08-21", "omzet": 1200000 },
+      { "date": "2026-08-22", "omzet": 1400000 },
+      { "date": "2026-08-23", "omzet": 1000000 },
+      { "date": "2026-08-24", "omzet": 1100000 },
+      { "date": "2026-08-25", "omzet": 1300000 },
+      { "date": "2026-08-26", "omzet": 950000 },
+      { "date": "2026-08-27", "omzet": 1500000 }
+    ],
+    "methods": [
+      { "method": "Cash", "total": 800000 },
+      { "method": "QRIS", "total": 700000 }
+    ],
+    "top_products": [
+      {
+        "product_id": "761da11a-1f0b-4d99-897d-6fffa21da1a0",
+        "name": "Beras Premium 5kg",
+        "qty": 10,
+        "revenue": 680000
+      }
+    ],
+    "recent": [
+      {
+        "id": "TRX-0012",
+        "cashier_name": "Andi Kasir",
+        "total": 131000,
+        "status": "completed",
+        "created_at": "2026-08-27T10:30:00Z"
+      }
+    ]
+  }
+  ```
+
+* **Response Sukses Kasir (`200 OK`):**
+  ```json
+  {
+    "role": "cashier",
+    "today": {
+      "omzet": 500000,
+      "trx_count": 5,
+      "items_sold": 12
+    },
+    "recent": [
+      {
+        "id": "TRX-0010",
+        "cashier_name": "Andi Kasir",
+        "total": 50000,
+        "status": "completed",
+        "created_at": "2026-08-27T09:45:00Z"
+      }
+    ]
+  }
+  ```
+
+---
+
+### 📝 Penarikan Laporan Penjualan (Reports) 🔒 Admin
+
+#### `GET /reports`
+Menarik sekumpulan bundle laporan terperinci toko berdasarkan pilihan filter periode waktu tertentu. Sangat berguna untuk kebutuhan pencetakan laporan dan grafik rekapitulasi performa.
+* **Autentikasi:** Bearer Token (Hanya Admin)
+* **Query Parameters:**
+  * `period` (string, opsional): Batasan waktu penarikan laporan.  
+    **Pilihan Periode:** `"today"`, `"yesterday"`, `"week"`, `"month"`, `"all"` (default: `"all"` / `""`).
+  * `date` (string, opsional, hanya untuk `period=today|yesterday`): Tanggal acuan `YYYY-MM-DD` (kalender lokal toko). `today+D` = rentang D `00:00–23:59`, `yesterday+D` = rentang D−1. Period lain mengabaikan `date`. Kosong/tak valid = perilaku lama (tanpa `400`). `summary`/`by_method`/`by_status`/`products`/`transactions` dihitung dari rentang itu; `stock` tetap snapshot live.
+* **Response Sukses (`200 OK`):**
+  ```json
+  {
+    "period": "today",
+    "summary": {
+      "omzet": 1500000,
+      "trx_count": 12,
+      "items_sold": 34,
+      "gross_profit": 300000
+    },
+    "by_method": [
+      { "method": "Cash", "total": 800000 },
+      { "method": "QRIS", "total": 700000 }
+    ],
+    "by_status": [
+      { "status": "completed", "count": 10 },
+      { "status": "refunded", "count": 2 }
+    ],
+    "products": [
+      {
+        "product_id": "761da11a-1f0b-4d99-897d-6fffa21da1a0",
+        "name": "Beras Premium 5kg",
+        "sku": "BR-001",
+        "qty": 10,
+        "revenue": 680000,
+        "profit": 60000
+      }
+    ],
+    "transactions": [
+      {
+        "date": "2026-08-27",
+        "id": "TRX-0001",
+        "cashier": "Andi Kasir",
+        "method": "Cash",
+        "total": 131000,
+        "hpp": 124000,
+        "profit": 7000,
+        "status": "completed"
+      }
+    ],
+    "stock": [
+      {
+        "name": "Beras Premium 5kg",
+        "sku": "BR-001",
+        "stock": 24,
+        "buy_price": 62000,
+        "sell_price": 68000,
+        "stock_value": 1488000
+      }
+    ]
+  }
+  ```
+* **Expected Errors:**
+  * `400 Bad Request` — `{"error": "Periode tidak valid."}`
+
+---
+
+### 🔔 Sistem Notifikasi (Notifications)
+
+#### `GET /notifications`
+Mengambil daftar notifikasi toko dengan dukungan paginasi dan filter unread.
+* **Autentikasi:** Bearer Token (Admin / Kasir)
+* **Query Parameters:**
+  * `page` (integer, opsional): Nomor halaman (default: `1`).
+  * `limit` (integer, opsional): Jumlah item per halaman (default: `20`).
+  * `unread` (boolean, opsional): Jika `true`, hanya menampilkan notifikasi yang belum dibaca.
+* **Response Sukses (`200 OK`):**
+  ```json
+  {
+    "items": [
+      {
+        "id": 1,
+        "created_at": "2026-09-09T12:00:00Z",
+        "updated_at": "2026-09-09T12:00:00Z",
+        "store_id": 1,
+        "title": "Stok Menipis",
+        "message": "Produk Beras Premium 5kg tersisa 3 unit.",
+        "type": "low_stock",
+        "read": false,
+        "reference_id": 12
+      }
+    ],
+    "total": 1,
+    "page": 1,
+    "limit": 20
+  }
+  ```
+
+#### `PATCH /notifications/:id/read`
+Menandai satu notifikasi tertentu sebagai sudah dibaca (`read = true`).
+* **Autentikasi:** Bearer Token (Admin / Kasir)
+* **Response Sukses (`200 OK`):** `{"status": "ok"}`
+
+#### `PATCH /notifications/read-all`
+Menandai seluruh notifikasi toko sebagai sudah dibaca.
+* **Autentikasi:** Bearer Token (Admin / Kasir)
+* **Response Sukses (`200 OK`):** `{"status": "ok"}`
+
+#### `DELETE /notifications/:id`
+Menghapus notifikasi berdasarkan ID.
+* **Autentikasi:** Bearer Token (Admin / Kasir)
+* **Response Sukses (`200 OK`):** `{"status": "ok"}`
+
+---
+
+## ⚙️ Variabel Lingkungan (Environment Variables)
+
+Isi file konfigurasi `.env` sebelum menjalankan aplikasi:
+
+| Nama Variabel | Wajib | Nilai Default | Penjelasan |
+|---|---|---|---|
+| `PORT` | Tidak | `8080` | Port HTTP lokal untuk server Gin. |
+| `DB_DRIVER` | Tidak | _(unset)_ | `sqlite` = file DB lokal, `postgres`/kosong = Supabase. Di Vercel biarkan kosong. |
+| `LOG_SQL` | Tidak | — | Set `true` untuk log query GORM verbose (default verbose hanya saat sqlite). |
+| `DATABASE_URL` | **Ya** | — | Connection string PostgreSQL (`postgres://user:pass@host:port/db`). |
+| `JWT_SECRET` | **Ya** | — | Kunci enkripsi rahasia penandatanganan token JWT HS256. |
+| `ACCESS_TTL_MINUTES` | Tidak | `15` | Masa kadaluwarsa Access Token (Menit). |
+| `REFRESH_TTL_DAYS` | Tidak | `7` | Masa kadaluwarsa Refresh Token (Hari). |
+| `CORS_ORIGINS` | Tidak | `http://localhost:5173` | Daftar asal URL frontend yang diijinkan (pisah koma). |
+| `SMTP_HOST` | Tidak | `smtp.gmail.com` | Host server SMTP Gmail untuk pengiriman OTP. |
+| `SMTP_PORT` | Tidak | `587` | Port server SMTP Gmail. |
+| `SMTP_EMAIL` | Tidak | — | Alamat email pengirim (Gmail). |
+| `SMTP_PASSWORD` | Tidak | — | App Password email Gmail. |
+
+---
+
+## 🚀 Cara Menjalankan Server Lokal
+
+1. Salin konfigurasi environment default:
+   ```bash
+   cp .env.example .env
+   ```
+2. Sesuaikan isi nilai `.env` dengan kredensial database lokal Anda.
+3. Jalankan migrasi database dan jalankan server web:
+   ```bash
+   make run
+   ```
+4. Server REST API Anda kini siap diakses pada alamat lokal `http://localhost:8080/api/v1`.
