@@ -6,7 +6,7 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/adrr-dev/openPOS/backend/model"
+	"github.com/rayhanvito/nojpos/backend/model"
 )
 
 var ErrBadTaxMonth = errors.New("format bulan tidak valid")

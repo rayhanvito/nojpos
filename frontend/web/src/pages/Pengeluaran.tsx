@@ -10,7 +10,7 @@ import { DatePicker, ModalActions, AlertStrip, Button, CardGrid, DataCard, Empty
 import { Skeleton } from '@/components/ui/skeleton'
 
 const PRESET_CATEGORIES = ['Listrik & Air', 'Internet', 'Sewa', 'Kemasan & Perlengkapan', 'Transportasi', 'Gaji & Komisi', 'Lainnya']
-const METHODS = ['Cash', 'Bank Transfer', 'QRIS', 'E-Wallet', 'Card']
+const METHODS = ['Cash', 'QRIS', 'Bank Transfer']
 
 type Draft = {
   id?: number

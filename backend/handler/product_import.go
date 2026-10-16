@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/adrr-dev/openPOS/backend/middleware"
-	"github.com/adrr-dev/openPOS/backend/service"
+	"github.com/rayhanvito/nojpos/backend/middleware"
+	"github.com/rayhanvito/nojpos/backend/service"
 	"github.com/gin-gonic/gin"
 )
 

@@ -4,7 +4,7 @@ import { DMA, LoginIcon, PJS } from './login-icons'
 import Navbar from './Navbar'
 import Footer from './Footer'
 
-const REPO = '0xMinomus/OpenPOS'
+const REPO = 'rayhanvito/nojpos'
 const RELEASES_URL = `https://github.com/${REPO}/releases`
 
 function WinIcon({ className = 'size-[27px]' }: { className?: string }) {
@@ -115,8 +115,8 @@ export default function Unduh() {
                   <span className={`text-[12px]/[17px] text-[#667085] ${PJS} font-normal`}>Unduh APK resmi lalu izinkan instalasi saat pertama kali.</span>
                 </span>
                 <a
-                  href="/openpos.apk"
-                  download="OpenPOS.apk"
+                  href="/nojpos.apk"
+                  download="NOJPOS.apk"
                   className={`w-full sm:w-[116px] shrink-0 h-[44px] flex flex-row gap-[8px] justify-center items-center bg-[#FFFEFA] outline outline-1 outline-[#DDD7CB] outline-offset-[-0.5px] rounded-[12px] text-[13px] text-[#102033] ${PJS} font-bold whitespace-nowrap transition-all duration-150 hover:outline-[#2F6FEB] active:scale-[0.98]`}
                 >
                   <LoginIcon name="download" size={16} className="shrink-0" style={{ filter: 'brightness(0.2)' }} />
@@ -141,7 +141,7 @@ export default function Unduh() {
               </span>
               <span className="flex-1 min-w-0 flex flex-col gap-[3px]">
                 <span className={`text-[12px] text-[#102033] ${PJS} font-bold`}>Butuh sinkron antar perangkat?</span>
-                <span className={`text-[11px] text-[#667085] ${PJS} font-normal`}>Gunakan OpenPOS Cloud kapan pun bisnis Anda siap.</span>
+                <span className={`text-[11px] text-[#667085] ${PJS} font-normal`}>Gunakan NOJPOS Cloud kapan pun bisnis Anda siap.</span>
               </span>
               <LoginIcon name="arrow-up-right" size={18} className="shrink-0" />
             </Link>

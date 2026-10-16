@@ -7,7 +7,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
-	"github.com/adrr-dev/openPOS/backend/model"
+	"github.com/rayhanvito/nojpos/backend/model"
 )
 
 var ErrOutletDefault = errors.New("outlet default tidak dapat dinonaktifkan")

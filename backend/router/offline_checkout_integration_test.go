@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/adrr-dev/openPOS/backend/model"
+	"github.com/rayhanvito/nojpos/backend/model"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -19,7 +19,7 @@ func TestOfflineCheckoutIdempotencyAndStoreScope(t *testing.T) {
 	key := "550e8400-e29b-41d4-a716-446655440000"
 	body := map[string]any{
 		"items":      []any{map[string]any{"productId": productID, "qty": 2}},
-		"method":     "Card",
+		"method":     "QRIS",
 		"clientTxId": key,
 	}
 
@@ -51,7 +51,7 @@ func TestOfflineCheckoutIdempotencyAndStoreScope(t *testing.T) {
 	otherProductID := createInventoryProduct(t, api, otherAdminToken, "Kopi Offline", "OFFLINE-KOPI", 1000, 5, 0)
 	otherBody := map[string]any{
 		"items":      []any{map[string]any{"productId": otherProductID, "qty": 1}},
-		"method":     "Card",
+		"method":     "QRIS",
 		"clientTxId": key,
 	}
 	w, other := api.doReq(http.MethodPost, "/transactions", otherBody, otherAdminToken)
@@ -67,7 +67,7 @@ func TestOfflineCheckoutShortageAndNotification(t *testing.T) {
 	productID := createInventoryProduct(t, api, adminToken, "Gula Offline", "OFFLINE-GULA", 1000, 1, 0)
 	productBody := map[string]any{
 		"items":      []any{map[string]any{"productId": productID, "qty": 3}},
-		"method":     "Card",
+		"method":     "QRIS",
 		"clientTxId": "550e8400-e29b-41d4-a716-446655440001",
 	}
 	w, productShortage := api.doReq(http.MethodPost, "/transactions", productBody, adminToken)
@@ -94,7 +94,7 @@ func TestOfflineCheckoutShortageAndNotification(t *testing.T) {
 	variantID := uint(variant["id"].(float64))
 	variantBody := map[string]any{
 		"items":      []any{map[string]any{"productId": variantProductID, "variantId": variantID, "qty": 4}},
-		"method":     "Card",
+		"method":     "QRIS",
 		"clientTxId": "550e8400-e29b-41d4-a716-446655440002",
 	}
 	w, variantShortage := api.doReq(http.MethodPost, "/transactions", variantBody, adminToken)
@@ -140,7 +140,7 @@ func TestOfflineCheckoutWithoutClientTxIdKeepsOnlineBehavior(t *testing.T) {
 	productID := createInventoryProduct(t, api, adminToken, "Garam Online", "ONLINE-GARAM", 1000, 4, 0)
 	body := map[string]any{
 		"items":  []any{map[string]any{"productId": productID, "qty": 1}},
-		"method": "Card",
+		"method": "QRIS",
 	}
 	firstW, first := api.doReq(http.MethodPost, "/transactions", body, adminToken)
 	if firstW.Code != http.StatusCreated {
@@ -161,7 +161,7 @@ func TestOfflineCheckoutWithoutClientTxIdKeepsOnlineBehavior(t *testing.T) {
 	}
 	productID = createInventoryProduct(t, api, adminToken, "Lada Online", "ONLINE-LADA", 1000, 1, 0)
 	w, rejected := api.doReq(http.MethodPost, "/transactions", map[string]any{
-		"items": []any{map[string]any{"productId": productID, "qty": 2}}, "method": "Card",
+		"items": []any{map[string]any{"productId": productID, "qty": 2}}, "method": "QRIS",
 	}, adminToken)
 	if w.Code != http.StatusConflict || rejected["error"] == nil {
 		t.Fatalf("online checkout with insufficient stock must remain rejected: %d %s", w.Code, w.Body.String())
@@ -188,7 +188,7 @@ func TestOfflineCheckoutClientTxIndexScopesKeysAndIgnoresEmptyIDs(t *testing.T) 
 	}
 	create := func(storeID uint, clientTxID string) error {
 		return db.Create(&model.Trx{
-			StoreID: storeID, ClientTxID: clientTxID, CashierName: "Uji Indeks", Items: model.TrxItemList{}, Method: "Card",
+			StoreID: storeID, ClientTxID: clientTxID, CashierName: "Uji Indeks", Items: model.TrxItemList{}, Method: "QRIS",
 		}).Error
 	}
 	if err := create(1, "same-key"); err != nil {

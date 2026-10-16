@@ -22,8 +22,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/api/idtoken"
 
-	"github.com/adrr-dev/openPOS/backend/model"
-	"github.com/adrr-dev/openPOS/backend/repo"
+	"github.com/rayhanvito/nojpos/backend/model"
+	"github.com/rayhanvito/nojpos/backend/repo"
 )
 
 var (
@@ -342,14 +342,14 @@ func (s *AuthService) ChangePassword(ctx context.Context, claims *Claims, oldPas
 }
 
 func sendPasswordResetOTPEmail(toEmail, otpCode string) error {
-	subject := "Kode Pemulihan Kata Sandi OpenPOS"
-	body := fmt.Sprintf("Halo,\n\nKode pemulihan kata sandi OpenPOS Anda adalah: %s\n\nKode ini berlaku selama 10 menit. Jangan berikan kode ini kepada siapa pun.\n\nSalam,\nTim OpenPOS", otpCode)
+	subject := "Kode Pemulihan Kata Sandi NOJPOS"
+	body := fmt.Sprintf("Halo,\n\nKode pemulihan kata sandi NOJPOS Anda adalah: %s\n\nKode ini berlaku selama 10 menit. Jangan berikan kode ini kepada siapa pun.\n\nSalam,\nTim NOJPOS", otpCode)
 	return deliverOTPEmail(toEmail, subject, body, "Reset OTP Code", otpCode)
 }
 
 func sendOTPEmail(toEmail, otpCode string) error {
-	subject := "Kode Verifikasi OTP OpenPOS"
-	body := fmt.Sprintf("Halo,\n\nKode verifikasi OTP OpenPOS Anda adalah: %s\n\nKode ini berlaku selama 10 menit. Jangan berikan kode ini kepada siapa pun.\n\nSalam,\nTim OpenPOS", otpCode)
+	subject := "Kode Verifikasi OTP NOJPOS"
+	body := fmt.Sprintf("Halo,\n\nKode verifikasi OTP NOJPOS Anda adalah: %s\n\nKode ini berlaku selama 10 menit. Jangan berikan kode ini kepada siapa pun.\n\nSalam,\nTim NOJPOS", otpCode)
 	return deliverOTPEmail(toEmail, subject, body, "OTP Code", otpCode)
 }
 
@@ -404,7 +404,7 @@ func deliverOTPEmail(toEmail, subject, body, logLabel, otpCode string) error {
 // sendViaBrevoAPI mengirim satu email teks lewat Brevo Transactional API.
 func sendViaBrevoAPI(apiKey, sender, toEmail, subject, body string) error {
 	payload := map[string]any{
-		"sender":      map[string]string{"email": sender, "name": "OpenPOS"},
+		"sender":      map[string]string{"email": sender, "name": "NOJPOS"},
 		"to":          []map[string]string{{"email": toEmail}},
 		"subject":     subject,
 		"textContent": body,

@@ -38,7 +38,7 @@ export function ProfitTab({ data, profitDaily, profitInsights, prodProfit, profi
             })()}
             icon={BarChart3}
           />
-          <StatCard label="Pendapatan" value={fmtRp(data.summary.omzet)} sub="total penjualan" compare={delta(data.summary.omzet, prev?.summary.omzet, banding)} icon={Banknote} />
+          <StatCard label="Omzet (Neto)" value={fmtRp(data.summary.omzet)} sub="total penjualan setelah diskon & refund" compare={delta(data.summary.omzet, prev?.summary.omzet, banding)} icon={Banknote} />
           <StatCard label="HPP" value={fmtRp(data.transactions.reduce((n, t) => n + t.hpp, 0))} sub="modal barang terjual" compare={delta(data.transactions.reduce((n, t) => n + t.hpp, 0), prev ? prev.transactions.reduce((n, t) => n + t.hpp, 0) : undefined, banding)} invert icon={Wallet} />
           <StatCard label="Pengeluaran Operasional" value={fmtRp(data.summary.expense_total ?? 0)} sub="biaya operasional periode ini" icon={ReceiptText} />
           <StatCard label="Laba Bersih" value={fmtRp(data.summary.gross_profit - (data.summary.expense_total ?? 0))} sub="profit kotor − pengeluaran operasional" icon={Sigma} />

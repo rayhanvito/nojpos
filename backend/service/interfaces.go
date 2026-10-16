@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/adrr-dev/openPOS/backend/model"
-	"github.com/adrr-dev/openPOS/backend/repo"
+	"github.com/rayhanvito/nojpos/backend/model"
+	"github.com/rayhanvito/nojpos/backend/repo"
 )
 
 type UserRepository interface {

@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 
-	"github.com/adrr-dev/openPOS/backend/model"
+	"github.com/rayhanvito/nojpos/backend/model"
 )
 
 type ExportService struct {

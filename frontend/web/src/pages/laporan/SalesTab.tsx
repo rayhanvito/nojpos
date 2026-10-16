@@ -23,7 +23,7 @@ export function SalesTab({ data, daily, topProducts, prev, banding, animate, nee
     <>
       <div className="space-y-5">
         <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-          <StatCard label="Total Penjualan" value={fmtRp(data.summary.omzet)} sub={`${data.summary.trx_count} transaksi`} compare={delta(data.summary.omzet, prev?.summary.omzet, banding)} icon={Banknote} />
+          <StatCard label="Omzet (Neto)" value={fmtRp(data.summary.omzet)} sub={`${data.summary.trx_count} transaksi · setelah diskon & refund`} compare={delta(data.summary.omzet, prev?.summary.omzet, banding)} icon={Banknote} />
           <StatCard label="Jumlah Transaksi" value={String(data.summary.trx_count)} sub="selesai dalam periode ini" compare={delta(data.summary.trx_count, prev?.summary.trx_count, banding)} icon={ReceiptText} />
           <StatCard
             label="Rata-rata Transaksi"

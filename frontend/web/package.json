@@ -18,8 +18,8 @@
     "mobile:sync": "npm run build:offline && node -e \"require('fs').copyFileSync('dist-offline/offline.html','dist-offline/index.html')\" && cap sync android"
   },
   "build": {
-    "appId": "com.openpos.offline",
-    "productName": "OpenPOS",
+    "appId": "com.nojpos.offline",
+    "productName": "NOJPOS",
     "directories": {
       "output": "release-out"
     },
@@ -44,7 +44,7 @@
       "allowToChangeInstallationDirectory": true,
       "runAfterFinish": true,
       "createDesktopShortcut": true,
-      "shortcutName": "OpenPOS"
+      "shortcutName": "NOJPOS"
     },
     "compression": "maximum",
     "npmRebuild": false,

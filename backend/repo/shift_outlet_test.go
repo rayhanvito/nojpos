@@ -9,7 +9,7 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
-	"github.com/adrr-dev/openPOS/backend/model"
+	"github.com/rayhanvito/nojpos/backend/model"
 )
 
 func newShiftOutletRepos(t *testing.T) (*gorm.DB, *CashierRepo, *ShiftRepo, *model.Cashier) {

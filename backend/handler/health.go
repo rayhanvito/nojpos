@@ -24,6 +24,6 @@ func (h *HealthHandler) Health(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"status":   status,
 		"database": dbStatus,
-		"service":  "openpos-backend",
+		"service":  "nojpos-backend",
 	})
 }

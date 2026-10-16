@@ -3,6 +3,7 @@ package handler
 import (
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -47,6 +48,28 @@ func reportOutletFilter(c *gin.Context, admin bool, activeOutletID uint) (*uint,
 	}
 	outletID := uint(id)
 	return &outletID, true
+}
+
+// validRangeOr400 menolak pasangan from/to yang terbalik (keduanya tanggal
+// valid tetapi to < from). Nilai yang tidak terurai mempertahankan perilaku
+// lama (diabaikan oleh lapisan laporan); hanya rentang terbalik yang sah
+// secara format yang kini ditolak tegas, bukan diam-diam diganti periode
+// bawaan (temuan pembuktian kelompok 1, 2026-10-16).
+func validRangeOr400(c *gin.Context) bool {
+	from, to := c.Query("from"), c.Query("to")
+	if from == "" || to == "" {
+		return true
+	}
+	f, errF := time.Parse("2006-01-02", from)
+	tt, errT := time.Parse("2006-01-02", to)
+	if errF != nil || errT != nil {
+		return true
+	}
+	if tt.Before(f) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Rentang tanggal tidak valid: tanggal dari harus sebelum tanggal sampai."})
+		return false
+	}
+	return true
 }
 
 func clampLimit(limit int) int {

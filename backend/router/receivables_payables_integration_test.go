@@ -212,11 +212,11 @@ func TestPurchaseReceiptsCreateSeparatePayablesAndSettle(t *testing.T) {
 	if w.Code != http.StatusForbidden {
 		t.Fatalf("cashier payable list: %d %s", w.Code, w.Body.String())
 	}
-	w, paid := api.doReq(http.MethodPost, fmt.Sprintf("/payables/%d/payments", firstID), map[string]any{"amount": 1800, "method": "E-Wallet"}, adminToken)
+	w, paid := api.doReq(http.MethodPost, fmt.Sprintf("/payables/%d/payments", firstID), map[string]any{"amount": 1800, "method": "QRIS"}, adminToken)
 	if w.Code != http.StatusOK || paid["status"] != "paid" || paid["remaining"] != float64(0) || len(paid["payments"].([]any)) != 1 {
 		t.Fatalf("settle payable: %d %s", w.Code, w.Body.String())
 	}
-	w, _ = api.doReq(http.MethodPost, fmt.Sprintf("/payables/%d/payments", firstID), map[string]any{"amount": 1, "method": "Card"}, adminToken)
+	w, _ = api.doReq(http.MethodPost, fmt.Sprintf("/payables/%d/payments", firstID), map[string]any{"amount": 1, "method": "Bank Transfer"}, adminToken)
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("paid payable cannot be overpaid: %d %s", w.Code, w.Body.String())
 	}

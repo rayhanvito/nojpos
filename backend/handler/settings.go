@@ -8,10 +8,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/adrr-dev/openPOS/backend/middleware"
-	"github.com/adrr-dev/openPOS/backend/model"
-	"github.com/adrr-dev/openPOS/backend/repo"
-	"github.com/adrr-dev/openPOS/backend/service"
+	"github.com/rayhanvito/nojpos/backend/middleware"
+	"github.com/rayhanvito/nojpos/backend/model"
+	"github.com/rayhanvito/nojpos/backend/repo"
+	"github.com/rayhanvito/nojpos/backend/service"
 )
 
 type SettingsHandler struct {
@@ -218,6 +218,9 @@ func (h *SettingsHandler) Dashboard(c *gin.Context) {
 	if !ok {
 		return
 	}
+	if !validRangeOr400(c) {
+		return
+	}
 	data, err := h.svc.Dashboard(c.Request.Context(), claims.StoreID, cashierID, claims.Role != model.RoleAdmin, outletID, c.Query("date"), c.Query("from"), c.Query("to"))
 	if err != nil {
 		if errors.Is(err, repo.ErrOutletNotFound) {
@@ -234,6 +237,9 @@ func (h *SettingsHandler) Report(c *gin.Context) {
 	claims := middleware.ClaimsFrom(c)
 	outletID, ok := reportOutletFilter(c, claims.Role == model.RoleAdmin, claims.OutletID)
 	if !ok {
+		return
+	}
+	if !validRangeOr400(c) {
 		return
 	}
 	bundle, err := h.svc.Report(c.Request.Context(), claims.StoreID, outletID, c.Query("period"), c.Query("date"), c.Query("from"), c.Query("to"))

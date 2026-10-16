@@ -166,7 +166,7 @@ func TestCheckoutUsesVariantStockAndQuantityTiers(t *testing.T) {
 	}
 	for _, invalidVariantID := range []uint{uint(otherVariant["id"].(float64)), uint(foreignVariant["id"].(float64))} {
 		w, invalidVariantCheckout := api.doReq(http.MethodPost, "/transactions", map[string]any{
-			"items": []any{map[string]any{"productId": variantProductID, "variantId": invalidVariantID, "qty": 1}}, "method": "Card",
+			"items": []any{map[string]any{"productId": variantProductID, "variantId": invalidVariantID, "qty": 1}}, "method": "QRIS",
 		}, adminToken)
 		if w.Code != http.StatusBadRequest || invalidVariantCheckout["error"] == nil {
 			t.Fatalf("foreign or wrong-parent variant rejected: %d %s", w.Code, w.Body.String())
@@ -320,7 +320,7 @@ func TestVariantRefundRestoresSameVariantAndMovement(t *testing.T) {
 	}
 	variantID := uint(variant["id"].(float64))
 	w, trx := api.doReq(http.MethodPost, "/transactions", map[string]any{
-		"items": []any{map[string]any{"productId": productID, "variantId": variantID, "qty": 2}}, "method": "Card",
+		"items": []any{map[string]any{"productId": productID, "variantId": variantID, "qty": 2}}, "method": "QRIS",
 	}, adminToken)
 	if w.Code != http.StatusCreated {
 		t.Fatalf("checkout refundable variant: %d %s", w.Code, w.Body.String())
@@ -395,7 +395,7 @@ func TestLowStockAlertsUseThresholdAndDeduplicateDaily(t *testing.T) {
 
 	checkout := func(items []any) (*httptest.ResponseRecorder, map[string]any) {
 		t.Helper()
-		return api.doReq(http.MethodPost, "/transactions", map[string]any{"items": items, "method": "Card"}, adminToken)
+		return api.doReq(http.MethodPost, "/transactions", map[string]any{"items": items, "method": "QRIS"}, adminToken)
 	}
 	w, _ = checkout([]any{map[string]any{"productId": productID, "qty": 1}})
 	if w.Code != http.StatusCreated {

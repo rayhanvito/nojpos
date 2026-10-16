@@ -135,7 +135,7 @@ export function apiVerifyOtp(email: string, code: string) {
 }
 
 // ── Google login (GIS ID-token flow) ───────────────────────────────────
-// Kontrak: FRONTEND_AUTH.md di repo backend (adrr-dev/openPOS)
+// Kontrak: FRONTEND_AUTH.md di repo backend (rayhanvito/nojpos)
 
 // Google login. Akun ber-passcode: backend balas passcode_required →
 // pemanggil menampilkan form PIN lalu memanggil ulang dengan passcode.
@@ -178,10 +178,6 @@ export function apiSetPasscode(id: string, passcode: string, role?: string) {
 
 export function apiSendPasswordResetOtp(email: string) {
   return request<{ message: string }>('POST', '/auth/forgot-password/send', { email }, false)
-}
-
-export function apiVerifyPasswordResetOtp(email: string, code: string) {
-  return request<{ message: string }>('POST', '/auth/forgot-password/verify', { email, code }, false)
 }
 
 export function apiResetPassword(email: string, code: string, newPassword: string) {

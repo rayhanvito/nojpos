@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/adrr-dev/openPOS/backend/model"
-	"github.com/adrr-dev/openPOS/backend/repo"
+	"github.com/rayhanvito/nojpos/backend/model"
+	"github.com/rayhanvito/nojpos/backend/repo"
 )
 
 // ErrShiftRequired: checkout ditolak karena kasir pelaku belum punya shift

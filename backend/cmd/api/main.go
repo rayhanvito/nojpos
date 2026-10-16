@@ -11,7 +11,7 @@ import (
 	"time"
 	_ "time/tzdata"
 
-	router "github.com/adrr-dev/openPOS/backend/router"
+	router "github.com/rayhanvito/nojpos/backend/router"
 )
 
 func main() {
@@ -33,7 +33,7 @@ func main() {
 	}
 
 	go func() {
-		log.Printf("OpenPOS backend (Gin + GORM) berjalan di http://localhost:%s", app.Port)
+		log.Printf("NOJPOS backend (Gin + GORM) berjalan di http://localhost:%s", app.Port)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatalf("server: %v", err)
 		}

@@ -12,8 +12,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/adrr-dev/openPOS/backend/middleware"
-	"github.com/adrr-dev/openPOS/backend/service"
+	"github.com/rayhanvito/nojpos/backend/middleware"
+	"github.com/rayhanvito/nojpos/backend/service"
 )
 
 type ExportHandler struct {

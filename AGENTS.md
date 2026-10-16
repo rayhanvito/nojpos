@@ -1,9 +1,9 @@
-# AGENTS.md — OpenPOS (pos-pakesigap)
+# AGENTS.md — NOJPOS (pos-pakesigap)
 
 Panduan wajib untuk setiap agen (Codex) dan manusia yang mengubah project ini.
-Project: OpenPOS di https://pos.pakesigap.com — backend Go (repo `backend/`,
+Project: NOJPOS di https://pos.pakesigap.com — backend Go (repo `backend/`,
 github.com/adrr-dev/openPOS) + frontend React/Vite (repo `frontend/`,
-github.com/0xMinomus/OpenPOS), di-deploy dari /opt/pos-pakesigap di VPS 2.
+github.com/0xMinomus/NOJPOS), di-deploy dari /opt/pos-pakesigap di VPS 2.
 Pemilik project: Rayhan. Orkestrator & QA: Muse (PM). Agen pengkode: Codex.
 
 ## Aturan emas

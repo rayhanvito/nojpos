@@ -31,6 +31,7 @@ const payConfig = {
   QRIS: { label: 'QRIS', color: 'var(--chart-3)' },
   'E-Wallet': { label: 'E-Wallet', color: 'var(--chart-4)' },
   Card: { label: 'Card', color: 'var(--chart-5)' },
+  Credit: { label: 'Kredit', color: 'var(--chart-6)' },
 } as const
 
 function localDay(d: Date): string {

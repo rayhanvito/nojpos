@@ -149,7 +149,7 @@ export function SignupStory() {
             </div>
             <div className="h-[64px]" aria-hidden="true" />
             <div className="flex flex-row justify-between items-center">
-              <span className={`text-[12px] text-[#DCE7FF] ${PJS} font-extrabold tracking-[1.4px] whitespace-nowrap`}>OPENPOS</span>
+              <span className={`text-[12px] text-[#DCE7FF] ${PJS} font-extrabold tracking-[1.4px] whitespace-nowrap`}>NOJPOS</span>
               <span className="flex flex-row gap-[9px] items-center" aria-hidden="true">
                 <span className="w-[10px] h-[10px] bg-[#D9F28E] rounded-full" />
                 <span className="w-[10px] h-[10px] bg-[#FFFFFF66] rounded-full" />

@@ -290,7 +290,7 @@ export function saveSettings(s: OfflineSettings) {
 
 export function exportDB(): string {
   return JSON.stringify(
-    { app: 'openpos-offline', version: VERSION, exportedAt: new Date().toISOString(), data: db },
+    { app: 'nojpos-offline', version: VERSION, exportedAt: new Date().toISOString(), data: db },
     null,
     2,
   )
@@ -299,7 +299,7 @@ export function exportDB(): string {
 export function validateImport(raw: string): OfflineDB | null {
   try {
     const parsed = JSON.parse(raw) as { app?: string; data?: OfflineDB }
-    if (parsed.app !== 'openpos-offline' || !parsed.data) return null
+    if (parsed.app !== 'nojpos-offline' || !parsed.data) return null
     if (!Array.isArray(parsed.data.products) || !Array.isArray(parsed.data.transactions) || !Array.isArray(parsed.data.categories)) return null
     return { ...defaultDB(), ...parsed.data, settings: { ...emptySettings, ...(parsed.data.settings ?? {}) } }
   } catch {

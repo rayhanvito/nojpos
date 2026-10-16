@@ -17,6 +17,7 @@ export const payConfig: Record<string, string> = {
   QRIS: 'var(--chart-3)',
   'E-Wallet': 'var(--chart-4)',
   Card: 'var(--chart-5)',
+  Credit: 'var(--chart-6)',
 }
 
 export const salesChartConfig = {

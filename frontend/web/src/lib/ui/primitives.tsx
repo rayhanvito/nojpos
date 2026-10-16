@@ -5,10 +5,10 @@ export function Logo({ className = 'h-8 w-auto', tone = 'auto' }: { className?: 
   // BASE_URL = '/' di cloud, './' di bundle offline (file://) — path absolut
   // '/Logo-*.png' tak resolve di Electron, jadi prefix ikut base.
   const base = import.meta.env.BASE_URL || '/'
-  if (tone === 'dark') return <img src={`${base}Logo-Putih.png`} alt="OpenPOS" draggable={false} className={className} />
-  if (tone === 'light') return <img src={`${base}Logo-Hitam.png`} alt="OpenPOS" draggable={false} className={className} />
+  if (tone === 'dark') return <img src={`${base}Logo-Putih.png`} alt="NOJPOS" draggable={false} className={className} />
+  if (tone === 'light') return <img src={`${base}Logo-Hitam.png`} alt="NOJPOS" draggable={false} className={className} />
   return (
-    <span className={`relative inline-flex shrink-0 ${className}`} role="img" aria-label="OpenPOS">
+    <span className={`relative inline-flex shrink-0 ${className}`} role="img" aria-label="NOJPOS">
       <img src={`${base}Logo-Hitam.png`} alt="" aria-hidden="true" draggable={false} className="h-full w-auto transition-opacity duration-150 dark:opacity-0" />
       <img src={`${base}Logo-Putih.png`} alt="" aria-hidden="true" draggable={false} className="absolute inset-0 h-full w-auto opacity-0 transition-opacity duration-150 dark:opacity-100" />
     </span>

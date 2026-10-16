@@ -1,5 +1,5 @@
 const buildId = new URL(self.location.href).searchParams.get('build') || 'dev'
-const cacheName = `openpos-main-shell-${buildId.replace(/[^a-z0-9._-]/gi, '_')}`
+const cacheName = `nojpos-main-shell-${buildId.replace(/[^a-z0-9._-]/gi, '_')}`
 const scopePath = new URL(self.registration.scope).pathname
 const basePath = scopePath.endsWith('/') ? scopePath : `${scopePath}/`
 const rootUrl = new URL(basePath, self.location.origin).href
@@ -56,7 +56,7 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
-    const oldCaches = (await caches.keys()).filter((name) => name.startsWith('openpos-main-shell-') && name !== cacheName)
+    const oldCaches = (await caches.keys()).filter((name) => name.startsWith('nojpos-main-shell-') && name !== cacheName)
     await Promise.all(oldCaches.map((name) => caches.delete(name)))
     await self.clients.claim()
   })())

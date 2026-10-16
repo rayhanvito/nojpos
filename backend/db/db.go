@@ -13,7 +13,7 @@ import (
 	"gorm.io/gorm/clause"
 	"gorm.io/gorm/logger"
 
-	"github.com/adrr-dev/openPOS/backend/model"
+	"github.com/rayhanvito/nojpos/backend/model"
 )
 
 // DB_DRIVER selects the database explicitly:

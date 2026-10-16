@@ -6,7 +6,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/adrr-dev/openPOS/backend/model"
+	"github.com/rayhanvito/nojpos/backend/model"
 )
 
 func decodeStoreHours(raw string) []model.StoreHours {

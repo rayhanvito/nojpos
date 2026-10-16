@@ -9,7 +9,7 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
-	"github.com/adrr-dev/openPOS/backend/model"
+	"github.com/rayhanvito/nojpos/backend/model"
 )
 
 // Agregat per kasir di bundle laporan: neto = bruto - refund kasir itu,

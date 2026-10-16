@@ -7,9 +7,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/adrr-dev/openPOS/backend/middleware"
-	"github.com/adrr-dev/openPOS/backend/repo"
-	"github.com/adrr-dev/openPOS/backend/service"
+	"github.com/rayhanvito/nojpos/backend/middleware"
+	"github.com/rayhanvito/nojpos/backend/repo"
+	"github.com/rayhanvito/nojpos/backend/service"
 )
 
 type ExpenseHandler struct {

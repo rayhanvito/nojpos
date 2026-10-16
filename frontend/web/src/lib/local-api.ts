@@ -363,7 +363,7 @@ export function fetchAll<T>(pageFn: (page: number) => Promise<Page<T>>): Promise
   })()
 }
 
-export const METHODS: PayMethod[] = ['Cash', 'Bank Transfer', 'QRIS', 'E-Wallet', 'Card']
+export const METHODS: PayMethod[] = ['Cash', 'Bank Transfer', 'QRIS']
 
 export function useLocalHasAccount(): boolean {
   return hasAccount()

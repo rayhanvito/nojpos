@@ -23,7 +23,7 @@ const TABS: { id: LedgerTab; label: string }[] = [
   { id: 'payables', label: 'Hutang' },
 ]
 
-const STANDARD_METHODS: StandardPayMethod[] = ['Cash', 'Bank Transfer', 'QRIS', 'E-Wallet', 'Card']
+const STANDARD_METHODS: StandardPayMethod[] = ['Cash', 'QRIS', 'Bank Transfer']
 
 const FILTERS: { id: DebtFilter; label: string }[] = [
   { id: 'all', label: 'Semua' },

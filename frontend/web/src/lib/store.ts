@@ -156,7 +156,7 @@ const X_WHITE = 'FFFFFFFF'
 export async function exportExcel(filename: string, sheets: ExcelSheet[]) {
   const ExcelJS = await import('exceljs')
   const wb = new ExcelJS.Workbook()
-  wb.creator = 'OpenPOS'
+  wb.creator = 'NOJPOS'
   wb.created = new Date()
   const stamp = new Date().toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
   const grid = () => ({ top: { style: 'thin', color: { argb: X_LINE } }, left: { style: 'thin', color: { argb: X_LINE } }, right: { style: 'thin', color: { argb: X_LINE } }, bottom: { style: 'thin', color: { argb: X_LINE } } }) as const

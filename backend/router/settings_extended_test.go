@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/adrr-dev/openPOS/backend/service"
+	"github.com/rayhanvito/nojpos/backend/service"
 )
 
 // Kontrak Extended Store Settings: key baru selalu ada, validasi §3,

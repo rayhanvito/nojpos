@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/adrr-dev/openPOS/backend/service"
+	"github.com/rayhanvito/nojpos/backend/service"
 )
 
 func TestNotificationEndpoints(t *testing.T) {

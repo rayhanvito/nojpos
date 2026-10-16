@@ -19,7 +19,7 @@ export default function Footer() {
           <a href="#fitur" className="text-sm hover:text-jet">Fitur</a>
         </nav>
         <div className="flex flex-col gap-1.5 text-right md:items-end">
-          <span className="font-mono text-xs">© 2026 OpenPOS</span>
+          <span className="font-mono text-xs">© 2026 NOJPOS</span>
           <span className="font-mono text-xs">gratis selamanya · untuk UMKM</span>
         </div>
       </div>

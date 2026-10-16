@@ -181,7 +181,7 @@ function Onboarding() {
       <div className="w-full max-w-md">
         <Logo className="mx-auto h-10 w-auto" />
         <div className="mt-8 rounded-2xl border bg-card p-8 shadow-sm">
-          <h1 className="text-2xl font-semibold tracking-tight">Selamat datang di OpenPOS</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Selamat datang di NOJPOS</h1>
           <p className="mt-1.5 text-sm text-muted-foreground">
             {db.settings.ownerName
               ? `Akun "${db.settings.ownerName}" ada di perangkat ini — lanjutkan untuk masuk.`
@@ -194,7 +194,7 @@ function Onboarding() {
             <Button type="submit" className="w-full">Masuk</Button>
           </form>
         </div>
-        <p className="mt-4 text-center text-[13px] text-muted-foreground">OpenPOS · tanpa internet, data di perangkat.</p>
+        <p className="mt-4 text-center text-[13px] text-muted-foreground">NOJPOS · tanpa internet, data di perangkat.</p>
       </div>
     </div>
   )

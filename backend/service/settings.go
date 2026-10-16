@@ -9,7 +9,7 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/adrr-dev/openPOS/backend/model"
+	"github.com/rayhanvito/nojpos/backend/model"
 )
 
 type SettingsService struct {

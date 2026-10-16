@@ -26,7 +26,7 @@ export interface OfflineQueueItem {
 
 type CheckoutSender = (payload: CheckoutBody) => Promise<Trx>
 
-const DB_NAME = 'openpos-main-offline-queue'
+const DB_NAME = 'nojpos-main-offline-queue'
 const DB_VERSION = 1
 const STORE_NAME = 'transactions'
 const CHANGE_EVENT = 'op:offline-queue-change'

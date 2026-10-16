@@ -98,8 +98,6 @@ func TestShiftCloseStoresCashSummaryWithCashRefund(t *testing.T) {
 		{name: "Cash", qty: 1},
 		{name: "Bank Transfer", qty: 2},
 		{name: "QRIS", qty: 3},
-		{name: "E-Wallet", qty: 4},
-		{name: "Card", qty: 5},
 		{name: "Credit", qty: 6},
 	}
 	var cashTransactionID uint
@@ -134,14 +132,13 @@ func TestShiftCloseStoresCashSummaryWithCashRefund(t *testing.T) {
 		t.Fatalf("review current shift: %d %s", w.Code, w.Body.String())
 	}
 	review := current["shift"].(map[string]any)
-	assertShiftNumber(t, review, "sales", 21000)
-	assertShiftNumber(t, review, "trx_count", 6)
+	assertShiftNumber(t, review, "sales", 12000)
+	assertShiftNumber(t, review, "trx_count", 4)
 	assertShiftNumber(t, review, "refund_total", 1000)
 	assertShiftNumber(t, review, "expected_cash", 10000)
 	methodSales := review["sales_by_method"].(map[string]any)
 	for method, want := range map[string]float64{
-		"Cash": 1000, "Bank Transfer": 2000, "QRIS": 3000,
-		"E-Wallet": 4000, "Card": 5000, "Credit": 6000,
+		"Cash": 1000, "Bank Transfer": 2000, "QRIS": 3000, "Credit": 6000,
 	} {
 		assertShiftNumber(t, methodSales, method, want)
 	}
@@ -151,8 +148,8 @@ func TestShiftCloseStoresCashSummaryWithCashRefund(t *testing.T) {
 		t.Fatalf("close shift: %d %s", w.Code, w.Body.String())
 	}
 	summary := closed["summary"].(map[string]any)
-	assertShiftNumber(t, summary, "sales", 21000)
-	assertShiftNumber(t, summary, "trx_count", 6)
+	assertShiftNumber(t, summary, "sales", 12000)
+	assertShiftNumber(t, summary, "trx_count", 4)
 	assertShiftNumber(t, summary, "refund_total", 1000)
 	assertShiftNumber(t, summary, "expected_cash", 10000)
 	assertShiftNumber(t, summary, "closing_cash_actual", 12000)

@@ -24,7 +24,7 @@ func ValidPayMethod(m string) bool {
 
 func ValidStandardPayMethod(m string) bool {
 	switch PayMethod(m) {
-	case PayCash, PayBankTransfer, PayQRIS, PayEWallet, PayCard:
+	case PayCash, PayBankTransfer, PayQRIS:
 		return true
 	}
 	return false

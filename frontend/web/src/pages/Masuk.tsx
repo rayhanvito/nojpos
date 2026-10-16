@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
-import { ApiError, apiGoogleLogin, apiHasActiveCashiers, apiLogin, apiResetPassword, apiSendPasswordResetOtp, apiVerifyPasswordResetOtp } from '../lib/api'
+import { ApiError, apiGoogleLogin, apiHasActiveCashiers, apiLogin, apiResetPassword, apiSendPasswordResetOtp } from '../lib/api'
 import { setSession, toSession } from '../lib/store'
 import { GoogleButton } from '../lib/google'
 import { DMA, LoginIcon, PJS } from './login-icons'
@@ -102,27 +102,14 @@ export default function Masuk() {
     }
   }
 
-  // Langkah 2 → 3: verifikasi OTP ke server bila endpoint tersedia;
-  // backend lama (404) = lanjut langsung, error asli muncul di reset.
-  async function submitForgotOtp(e: React.FormEvent) {
+  // Langkah 2 → 3 murni lokal: format kode dicek di sini, kebenaran kode
+  // divalidasi server pada langkah reset (submitForgot) yang memantulkan
+  // error 400/410/429 kembali ke langkah OTP ini.
+  function submitForgotOtp(e: React.FormEvent) {
     e.preventDefault()
     if (fOtp.length !== 6) return setErr('Masukkan kode OTP 6 digit.')
-    setErr(''); setBusy(true)
-    try {
-      await apiVerifyPasswordResetOtp(fEmail, fOtp)
-      setFStep('newpw')
-    } catch (x) {
-      if (x instanceof ApiError && x.status === 404) {
-        // Endpoint belum live — fallback perilaku lama.
-        setFStep('newpw')
-        return
-      }
-      if (x instanceof ApiError && (x.status === 410 || x.status === 429)) setCooldown(0)
-      if (x instanceof ApiError && x.status === 400) setFOtp('')
-      setErr(x instanceof Error ? x.message : 'Kode salah. Coba lagi.')
-    } finally {
-      setBusy(false)
-    }
+    setErr('')
+    setFStep('newpw')
   }
 
   async function submitForgot(e: React.FormEvent) {
@@ -184,7 +171,7 @@ export default function Masuk() {
           <div className="login-rise box-border w-full max-w-[440px] mx-auto px-6 lg:mx-0 lg:px-0 lg:max-w-none lg:ml-[90px] lg:mr-8 lg:w-[440px] flex flex-col gap-[22px]">
             <div className="flex flex-col gap-[9px]">
               <div className={`text-[12px]/[16px] text-[#2F6FEB] ${PJS} font-extrabold tracking-[1px] whitespace-nowrap`}>
-                MASUK KE OPENPOS
+                MASUK KE NOJPOS
               </div>
               <h1 ref={pageTitleRef} tabIndex={-1} className={`landing-route-title text-[clamp(30px,4vw,38px)]/[1.15] text-[#102033] ${DMA} font-normal`}>
                 Selamat datang kembali

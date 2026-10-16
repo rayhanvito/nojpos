@@ -5,8 +5,8 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/adrr-dev/openPOS/backend/model"
-	"github.com/adrr-dev/openPOS/backend/repo"
+	"github.com/rayhanvito/nojpos/backend/model"
+	"github.com/rayhanvito/nojpos/backend/repo"
 )
 
 var (

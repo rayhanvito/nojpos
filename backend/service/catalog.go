@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/adrr-dev/openPOS/backend/model"
-	"github.com/adrr-dev/openPOS/backend/repo"
+	"github.com/rayhanvito/nojpos/backend/model"
+	"github.com/rayhanvito/nojpos/backend/repo"
 )
 
 var (
@@ -134,6 +134,9 @@ func (s *CatalogService) CreateProduct(ctx context.Context, storeID, outletID ui
 		}
 		return nil, err
 	}
+	if s.notif != nil {
+		_ = s.notif.CheckAndNotifyLowStock(ctx, storeID, out.ID, out.Name, "", out.Stock, out.MinStock, out.Unit, "product")
+	}
 	return out, nil
 }
 
@@ -181,7 +184,14 @@ func (s *CatalogService) UpdateProduct(ctx context.Context, storeID, outletID, i
 		}
 		return nil, err
 	}
-	return s.prods.GetByIDAtOutlet(ctx, storeID, outletID, out.ID)
+	updated, err := s.prods.GetByIDAtOutlet(ctx, storeID, outletID, out.ID)
+	if err != nil {
+		return nil, err
+	}
+	if s.notif != nil {
+		_ = s.notif.CheckAndNotifyLowStock(ctx, storeID, updated.ID, updated.Name, "", updated.Stock, updated.MinStock, updated.Unit, "product")
+	}
+	return updated, nil
 }
 
 type VariantInput struct {

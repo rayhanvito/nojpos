@@ -1,4 +1,4 @@
-module github.com/adrr-dev/openPOS/backend
+module github.com/rayhanvito/nojpos/backend
 
 go 1.26.0
 

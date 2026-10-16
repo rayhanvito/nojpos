@@ -8,8 +8,8 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	"github.com/adrr-dev/openPOS/backend/db"
-	"github.com/adrr-dev/openPOS/backend/model"
+	"github.com/rayhanvito/nojpos/backend/db"
+	"github.com/rayhanvito/nojpos/backend/model"
 )
 
 func TestPriceTierOwnerAndQuantityAreUnique(t *testing.T) {

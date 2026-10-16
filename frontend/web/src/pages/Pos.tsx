@@ -18,7 +18,7 @@ const CASH_QUICK: { v: number; label: string }[] = [
   { v: 50000, label: '50rb' }, { v: 100000, label: '100rb' },
 ]
 
-const METHODS: PayMethod[] = ['Cash', 'Bank Transfer', 'QRIS', 'E-Wallet', 'Card', 'Credit']
+const METHODS: PayMethod[] = ['Cash', 'QRIS', 'Bank Transfer', 'Credit']
 
 interface CartLine { product: Product; variant?: Variant; qty: number }
 

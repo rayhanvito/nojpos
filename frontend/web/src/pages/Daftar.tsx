@@ -206,7 +206,7 @@ export default function Daftar() {
           <div className="login-rise box-border w-full max-w-[440px] mx-auto px-6 lg:mx-0 lg:px-0 lg:max-w-none lg:ml-[120px] lg:mr-8 lg:w-[440px] flex flex-col gap-[18px]">
             <div className="flex flex-col gap-[8px]">
               <div className={`text-[12px]/[16px] text-[#2F6FEB] ${PJS} font-extrabold tracking-[1px] whitespace-nowrap`}>
-                BUAT AKUN OPENPOS
+                BUAT AKUN NOJPOS
               </div>
               <h1 ref={pageTitleRef} tabIndex={-1} className={`landing-route-title text-[clamp(30px,4vw,38px)]/[1.15] text-[#102033] ${DMA} font-normal`}>
                 Buat toko Anda hari ini

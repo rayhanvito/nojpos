@@ -14,8 +14,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/adrr-dev/openPOS/backend/model"
-	"github.com/adrr-dev/openPOS/backend/service"
+	"github.com/rayhanvito/nojpos/backend/model"
+	"github.com/rayhanvito/nojpos/backend/service"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )

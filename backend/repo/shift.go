@@ -10,7 +10,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
-	"github.com/adrr-dev/openPOS/backend/model"
+	"github.com/rayhanvito/nojpos/backend/model"
 )
 
 var ErrShiftClosed = errors.New("shift sudah ditutup")

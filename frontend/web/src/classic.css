@@ -1,4 +1,4 @@
-/* OpenPOS classic admin theme — HANYA untuk sandbox /redesign.
+/* NOJPOS classic admin theme — HANYA untuk sandbox /redesign.
    Scope .op-classic menimpa token + komponen agar live app (/app, landing)
    100% tak tersentuh. Token mengikuti MASTER_PROMPT §6/§7.
    Catatan: CSS tak ber-layer menang atas utilities Tailwind (v4 @layer). */
@@ -50,6 +50,7 @@
   --chart-3: #f2b323;
   --chart-4: #8b5cf6;
   --chart-5: #df4747;
+  --chart-6: #0891b2;
   --chart-omzet: #2f8de4;
   --radius: 6px;
   --sidebar: #1f2d3a;

@@ -9,13 +9,13 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 
-	"github.com/adrr-dev/openPOS/backend/config"
-	"github.com/adrr-dev/openPOS/backend/db"
-	"github.com/adrr-dev/openPOS/backend/handler"
-	"github.com/adrr-dev/openPOS/backend/middleware"
-	"github.com/adrr-dev/openPOS/backend/model"
-	"github.com/adrr-dev/openPOS/backend/repo"
-	"github.com/adrr-dev/openPOS/backend/service"
+	"github.com/rayhanvito/nojpos/backend/config"
+	"github.com/rayhanvito/nojpos/backend/db"
+	"github.com/rayhanvito/nojpos/backend/handler"
+	"github.com/rayhanvito/nojpos/backend/middleware"
+	"github.com/rayhanvito/nojpos/backend/model"
+	"github.com/rayhanvito/nojpos/backend/repo"
+	"github.com/rayhanvito/nojpos/backend/service"
 )
 
 type Server struct {

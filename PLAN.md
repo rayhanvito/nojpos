@@ -1,4 +1,4 @@
-# PLAN.md — Pengembangan OpenPOS Fase 0–2
+# PLAN.md — Pengembangan NOJPOS Fase 0–2
 
 Spec resmi dari PM (Muse) untuk agen pengkode (Codex). Aturan umum di
 AGENTS.md berlaku penuh. Setiap unit di bawah ini adalah satu tugas terpisah:

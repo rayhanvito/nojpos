@@ -12,7 +12,7 @@ export default function OfflineBackup() {
 
   async function doExport() {
     const ok = await downloadBlob(
-      `openpos-backup-${new Date().toISOString().slice(0, 10)}.json`,
+      `nojpos-backup-${new Date().toISOString().slice(0, 10)}.json`,
       new Blob([exportDB()], { type: 'application/json' }),
     )
     setMsg(ok ? 'Backup diunduh. Simpan file ini — data semua tercakup (produk, kategori, transaksi, pengaturan).' : 'Penyimpanan backup dibatalkan.')
@@ -24,7 +24,7 @@ export default function OfflineBackup() {
     reader.onload = () => {
       const next = validateImport(String(reader.result))
       if (!next) {
-        setErr('File bukan backup OpenPOS yang valid.')
+        setErr('File bukan backup NOJPOS yang valid.')
         setMsg('')
         return
       }

@@ -10,7 +10,7 @@ import { downloadBlob, exportCSV, exportExcel, fmtDate, fmtRp, fmtTime, useDB } 
 import { MetaList, ModalActions, AlertStrip, Button, CardGrid, DataCard, Empty, ExportMenu, FilterChips, FilterField, FilterPanel, Modal, NumInput, Pager, PeriodPicker, RowAction, SearchInput, Select, SkeletonRows, StatCard, StatusPill, TableWrap, Td, Th, TrxItems } from '../lib/ui'
 import { Skeleton } from '@/components/ui/skeleton'
 
-const METHODS = ['Semua', 'Cash', 'Bank Transfer', 'QRIS', 'E-Wallet', 'Card']
+const METHODS = ['Semua', 'Cash', 'Bank Transfer', 'QRIS']
 
 const fmtInv = (id: string) => (isNaN(Number(id)) ? `#${id}` : `#TRX-${String(Number(id)).padStart(5, '0')}`)
 

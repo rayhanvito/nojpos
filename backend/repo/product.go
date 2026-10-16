@@ -7,7 +7,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/adrr-dev/openPOS/backend/model"
+	"github.com/rayhanvito/nojpos/backend/model"
 )
 
 var ErrStockInsufficient = errors.New("stok tidak cukup")

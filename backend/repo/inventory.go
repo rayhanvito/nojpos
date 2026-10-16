@@ -7,7 +7,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/adrr-dev/openPOS/backend/model"
+	"github.com/rayhanvito/nojpos/backend/model"
 )
 
 func (r *ProductRepo) attachInventory(ctx context.Context, storeID uint, products []*model.Product) error {

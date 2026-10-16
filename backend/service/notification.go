@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/adrr-dev/openPOS/backend/model"
+	"github.com/rayhanvito/nojpos/backend/model"
 )
 
 type NotificationRepository interface {

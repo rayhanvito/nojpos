@@ -15,7 +15,7 @@ import (
 
 	"google.golang.org/api/idtoken"
 
-	"github.com/adrr-dev/openPOS/backend/service"
+	"github.com/rayhanvito/nojpos/backend/service"
 )
 
 func googleTestServer(t *testing.T, clientID string) (func(method, path string, body any, token string) (*httptest.ResponseRecorder, map[string]any), func()) {

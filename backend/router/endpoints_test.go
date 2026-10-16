@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/adrr-dev/openPOS/backend/service"
+	"github.com/rayhanvito/nojpos/backend/service"
 )
 
 func TestAllEndpoints(t *testing.T) {
