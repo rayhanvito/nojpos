@@ -1,0 +1,83 @@
+package database
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"strings"
+	"time"
+
+	"gorm.io/driver/postgres"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
+)
+
+// DB_DRIVER selects the database explicitly:
+//
+//	DB_DRIVER=sqlite   -> local file DB (dev/test, no Supabase needed)
+//	DB_DRIVER=postgres  -> force Supabase/Postgres even if URL looks like a file
+//	DB_DRIVER unset     -> auto-detect: file:/.db/sqlite in DATABASE_URL means
+//	                       sqlite, otherwise postgres. On Vercel just leave it
+//	                       unset and set DATABASE_URL to the pooler string.
+func Connect(ctx context.Context, databaseURL string) (*gorm.DB, error) {
+	var dialector gorm.Dialector
+
+	driver := strings.ToLower(strings.TrimSpace(os.Getenv("DB_DRIVER")))
+	lowerURL := strings.ToLower(databaseURL)
+	isSQLite := driver == "sqlite" ||
+		(driver == "" && (strings.HasPrefix(lowerURL, "file:") ||
+			strings.Contains(lowerURL, ".db") ||
+			strings.Contains(lowerURL, "sqlite")))
+
+	if isSQLite {
+		if databaseURL == "" || databaseURL == "postgres://..." {
+			databaseURL = "openpos_test.db"
+		}
+		dialector = sqlite.Open(databaseURL)
+	} else {
+		// Force simple protocol so Supabase PgBouncer (port 6543,
+		// transaction mode) works, which doesn't support prepared statements.
+		dialector = postgres.New(postgres.Config{
+			DSN:                  databaseURL,
+			PreferSimpleProtocol: true,
+		})
+	}
+
+	// Quiet SQL logs on hosted Postgres (Vercel log spam), verbose locally.
+	// Set LOG_SQL=true to force query logging anywhere.
+	logLevel := logger.Warn
+	if isSQLite || strings.EqualFold(os.Getenv("LOG_SQL"), "true") {
+		logLevel = logger.Info
+	}
+
+	db, err := gorm.Open(dialector, &gorm.Config{
+		Logger: logger.Default.LogMode(logLevel),
+		// All auto timestamps in UTC: sqlite compares datetimes
+		// lexicographically, so a single offset keeps range filters
+		// (dashboard/reports "today") chronological. Postgres stores
+		// the same instants as timestamptz either way.
+		NowFunc: func() time.Time { return time.Now().UTC() },
+	})
+	if err != nil {
+		return nil, fmt.Errorf("gagal terhubung ke database via GORM: %w", err)
+	}
+
+	sqlDB, err := db.DB()
+	if err != nil {
+		return nil, fmt.Errorf("gagal mendapatkan sql.DB: %w", err)
+	}
+
+	if err := sqlDB.PingContext(ctx); err != nil {
+		return nil, fmt.Errorf("gagal ping database: %w", err)
+	}
+
+	return db, nil
+}
+
+// IsSQLite melaporkan apakah koneksi memakai driver SQLite.
+// Postgres tidak lagi di-AutoMigrate: skemanya dikelola migrasi goose
+// (lihat folder migrations/ dan cmd/migrate).
+func IsSQLite(database *gorm.DB) bool {
+	return database != nil && database.Dialector != nil && database.Dialector.Name() == "sqlite"
+}

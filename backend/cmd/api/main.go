@@ -11,14 +11,14 @@ import (
 	"time"
 	_ "time/tzdata"
 
-	router "github.com/rayhanvito/nojpos/backend/router"
+	"github.com/rayhanvito/nojpos/backend/internal/app"
 )
 
 func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	app, err := router.New(ctx)
+	app, err := app.New(ctx)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -1,0 +1,39 @@
+package integration
+
+import (
+	"context"
+	"github.com/rayhanvito/nojpos/backend/internal/app"
+	"net/http/httptest"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+)
+
+func TestNewHealth(t *testing.T) {
+	t.Setenv("DB_DRIVER", "sqlite")
+	t.Setenv("DATABASE_URL", filepath.Join(t.TempDir(), "health.db"))
+	t.Setenv("JWT_SECRET", "test-secret")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	srv, err := app.New(ctx)
+	if err != nil {
+		t.Fatalf("New(): %v", err)
+	}
+	if srv.Cleanup != nil {
+		defer srv.Cleanup()
+	}
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("GET", "/api/v1/health", nil)
+	srv.Handler.ServeHTTP(w, r)
+
+	if w.Code != 200 {
+		t.Fatalf("status = %d, body = %s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), `"database":"up"`) {
+		t.Fatalf("body tidak menunjukkan database up: %s", w.Body.String())
+	}
+}
