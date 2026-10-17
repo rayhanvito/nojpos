@@ -1,0 +1,86 @@
+[
+  {
+    "type": "dependency",
+    "from": "src/features/auth/AccountPickerPage.tsx",
+    "to": "src/pages/Footer.tsx",
+    "unresolvedTo": "../../pages/Footer",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "features-no-pages-offline"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/features/auth/AccountPickerPage.tsx",
+    "to": "src/pages/login-icons.tsx",
+    "unresolvedTo": "../../pages/login-icons",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "features-no-pages-offline"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/features/auth/AccountPickerPage.tsx",
+    "to": "src/pages/Navbar.tsx",
+    "unresolvedTo": "../../pages/Navbar",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "features-no-pages-offline"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/features/auth/components/login-story.tsx",
+    "to": "src/pages/login-icons.tsx",
+    "unresolvedTo": "../../../pages/login-icons",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "features-no-pages-offline"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/features/auth/LoginPage.tsx",
+    "to": "src/pages/login-icons.tsx",
+    "unresolvedTo": "../../pages/login-icons",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "features-no-pages-offline"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/features/auth/RegisterPage.tsx",
+    "to": "src/pages/login-icons.tsx",
+    "unresolvedTo": "../../pages/login-icons",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "features-no-pages-offline"
+    }
+  }
+]

@@ -1,0 +1,43 @@
+name: CI
+
+# Workflow CI frontend NOJPOS — file ini baru di-commit lokal dan BELUM
+# diaktifkan (belum di-push ke GitHub). Aplikasi tinggal di subfolder
+# app/, jadi semua langkah run memakai working-directory app.
+
+on:
+  push:
+  pull_request:
+
+defaults:
+  run:
+    working-directory: app
+
+jobs:
+  build-test:
+    name: Typecheck, build & test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22 (LTS)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npx tsc -b
+
+      - name: Build
+        run: npm run build
+
+      - name: Unit tests
+        run: node --test tests/*.mjs
+
+      - name: Build offline
+        run: npm run build:offline

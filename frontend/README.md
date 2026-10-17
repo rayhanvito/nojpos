@@ -32,7 +32,6 @@
   - [Environment variables](#environment-variables)
   - [Run the web app](#run-the-web-app)
   - [npm scripts](#npm-scripts)
-  - [Build the Windows desktop app](#build-the-windows-desktop-app)
   - [Build the Android app](#build-the-android-app)
 - [Project structure](#project-structure)
 - [Backend API](#backend-api)
@@ -47,17 +46,16 @@ It covers the daily workflow of a small retail store end to end: cashier
 checkout, product catalog, stock control, transaction history, sales reports,
 and staff management, in Indonesian, with Rupiah formatting throughout.
 
-One codebase in the `web/` workspace ships three products:
+One codebase in the `web/` workspace ships two products:
 
 | Product | Data | Distribution |
 |---|---|---|
 | **Cloud web app** | Go + PostgreSQL REST API | Vercel, deploys automatically on every push to `main` |
-| **Desktop app (Windows)** | Device-local, works fully offline | NSIS installer from [GitHub Releases](https://github.com/0xMinomus/OpenPOS/releases) |
 | **Android app** | Device-local, works fully offline | Sideloaded APK from the [Downloads page](https://open-pos-deploy.vercel.app/unduh) |
 
 The cloud app is the reference implementation: multi-account stores,
-role-based access, email OTP, and Google sign-in. The desktop and Android
-builds reuse the same UI against a local adapter, so they trade multi-device
+role-based access, email OTP, and Google sign-in. The Android build
+reuses the same UI against a local adapter, so it trades multi-device
 sync for working without internet.
 
 ## Features
@@ -92,7 +90,6 @@ sync for working without internet.
 |---|---|
 | UI | React 19, TypeScript 6, Tailwind CSS v4, shadcn/ui on Base UI, Recharts, lucide-react, Poppins |
 | Web tooling | Vite 8, React Router 8, oxlint |
-| Desktop | Electron 44 + electron-builder (NSIS installer) |
 | Mobile | Capacitor 8 (Android), same offline bundle, sideloaded APK |
 | Backend | Go (Gin + GORM), PostgreSQL, JWT, separate repo: [adrr-dev/openPOS](https://github.com/adrr-dev/openPOS) |
 | Hosting | Vercel (frontend auto-deploys on every push to `main`) |
@@ -104,7 +101,6 @@ sync for working without internet.
 | Requirement | Needed for |
 |---|---|
 | Node.js 22.12+ and npm | Everything: dev server, builds, Capacitor sync |
-| Windows x64 | `npm run electron:build` (installer) |
 | Android SDK Platform 36 (compile/target SDK 36, min SDK 24) and JDK 21 | `npm run mobile:sync`, Gradle build, `adb install` |
 
 ### Environment variables
@@ -143,21 +139,7 @@ All commands run inside `web/`:
 | `npm run build` | Type-check (`tsc -b`) + cloud bundle in `dist/` |
 | `npm run lint` | oxlint |
 | `npm run build:offline` | Offline bundle in `dist-offline/` |
-| `npm run electron:smoke` | Headless render test of the offline app |
-| `npm run electron:build` | Cloud + offline builds, then the Windows installer in `release-out/` |
 | `npm run mobile:sync` | Offline build + Capacitor sync for Android |
-
-### Build the Windows desktop app
-
-```bash
-cd web
-npm run electron:build
-```
-
-The installer lands in `web/release-out/`. Publish a release by uploading it to
-[GitHub Releases](https://github.com/0xMinomus/OpenPOS/releases); the
-[Downloads page](https://open-pos-deploy.vercel.app/unduh) always picks up the
-latest release.
 
 ### Build the Android app
 
@@ -187,7 +169,6 @@ updates are manual by design, and the finished APK is published to
 │   │   ├── components/ui/  # shadcn/ui (Base UI) primitives
 │   │   ├── App.tsx         # cloud routes (/masuk, /daftar, /app/*, /unduh, /demo)
 │   │   └── offline-main.tsx
-│   ├── electron/           # desktop shell (main + preload)
 │   ├── android/            # Capacitor Android project (com.openpos.mobile)
 │   ├── build/              # installer icon
 │   └── public/openpos.apk  # latest sideloadable APK, served from /unduh
