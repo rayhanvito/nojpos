@@ -19,18 +19,7 @@ func NewHandler(svc *Service) *Handler {
 	return &Handler{svc: svc}
 }
 
-// requireAdmin dan pathUint adalah salinan privat slice dari helper
-// paket handler lama (handler/notification.go dan handler/params.go)
-// — badan verbatim.
-func requireAdmin(c *gin.Context) bool {
-	claims := middleware.ClaimsFrom(c)
-	if claims.Role != middleware.RoleAdmin {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Akses khusus admin."})
-		return false
-	}
-	return true
-}
-
+// pathUint adalah salinan privat slice dari helper paket handler lama.
 func pathUint(c *gin.Context, name string) (uint, bool) {
 	n, err := strconv.ParseUint(c.Param(name), 10, 64)
 	if err != nil {
@@ -41,9 +30,6 @@ func pathUint(c *gin.Context, name string) (uint, bool) {
 }
 
 func (h *Handler) List(c *gin.Context) {
-	if !requireAdmin(c) {
-		return
-	}
 	claims := middleware.ClaimsFrom(c)
 	q := c.Query
 
@@ -62,9 +48,6 @@ func (h *Handler) List(c *gin.Context) {
 }
 
 func (h *Handler) UnreadCount(c *gin.Context) {
-	if !requireAdmin(c) {
-		return
-	}
 	claims := middleware.ClaimsFrom(c)
 	total, err := h.svc.UnreadCount(c.Request.Context(), claims.StoreID)
 	if err != nil {
@@ -75,9 +58,6 @@ func (h *Handler) UnreadCount(c *gin.Context) {
 }
 
 func (h *Handler) MarkAsRead(c *gin.Context) {
-	if !requireAdmin(c) {
-		return
-	}
 	claims := middleware.ClaimsFrom(c)
 	id, ok := pathUint(c, "id")
 	if !ok {
@@ -92,9 +72,6 @@ func (h *Handler) MarkAsRead(c *gin.Context) {
 }
 
 func (h *Handler) MarkAllAsRead(c *gin.Context) {
-	if !requireAdmin(c) {
-		return
-	}
 	claims := middleware.ClaimsFrom(c)
 	if err := h.svc.MarkAllAsRead(c.Request.Context(), claims.StoreID); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui notifikasi."})
@@ -104,9 +81,6 @@ func (h *Handler) MarkAllAsRead(c *gin.Context) {
 }
 
 func (h *Handler) Delete(c *gin.Context) {
-	if !requireAdmin(c) {
-		return
-	}
 	claims := middleware.ClaimsFrom(c)
 	id, ok := pathUint(c, "id")
 	if !ok {

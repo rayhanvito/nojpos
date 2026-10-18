@@ -56,6 +56,23 @@ type Outlet struct {
 
 func (Outlet) TableName() string { return "outlets" }
 
+// OutletSettings adalah baris override pengaturan per outlet (Unit C):
+// subset field pengaturan toko yang boleh berbeda per outlet — tarif
+// pajak, footer struk, dan jam operasional. Semua kolom override
+// NULLABLE; nil berarti outlet mewarisi nilai pengaturan toko. Hours
+// disimpan sebagai JSON []StoreHours ter-encode, representasi yang sama
+// persis dengan Store.Hours. Satu baris per (StoreID, OutletID).
+type OutletSettings struct {
+	database.BaseModel
+	StoreID       uint     `gorm:"not null;uniqueIndex:idx_outlet_settings_store_outlet" json:"store_id"`
+	OutletID      uint     `gorm:"not null;uniqueIndex:idx_outlet_settings_store_outlet" json:"outlet_id"`
+	TaxPct        *float64 `json:"taxPct"`
+	ReceiptFooter *string  `json:"receiptFooter"`
+	Hours         *string  `gorm:"type:text" json:"-"`
+}
+
+func (OutletSettings) TableName() string { return "outlet_settings" }
+
 // StoreSettings adalah DTO pengaturan toko (dipindahkan verbatim dari
 // model/reporting.go; bukan entitas, tidak ada di registri migrasi).
 // Tipe jam operasional adalah StoreHours di paket ini.

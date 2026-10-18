@@ -118,7 +118,7 @@ func TestOutletAPIAndSessionSwitchRespectOutletBindings(t *testing.T) {
 		t.Fatalf("list users: %d %s", w.Code, w.Body.String())
 	}
 	foundOutlet := false
-	for _, user := range userList["users"].([]any) {
+	for _, user := range userList["items"].([]any) {
 		row := user.(map[string]any)
 		if uint(row["id"].(float64)) == cashierBID {
 			foundOutlet = uint(row["outlet_id"].(float64)) == defaultOutletID

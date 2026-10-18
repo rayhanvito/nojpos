@@ -13,6 +13,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/rayhanvito/nojpos/backend/internal/platform/httpx"
 	"github.com/rayhanvito/nojpos/backend/internal/platform/middleware"
 )
 
@@ -174,8 +175,7 @@ func (h *Handler) ListShifts(c *gin.Context) {
 		respondShiftReadError(c, err, "Gagal memuat daftar shift.")
 		return
 	}
-	// Keep the existing key while following the shared list response contract.
-	c.JSON(http.StatusOK, gin.H{"items": items, "shifts": items})
+	c.JSON(http.StatusOK, httpx.PaginateList(c, items))
 }
 
 func (h *Handler) GetShift(c *gin.Context) {

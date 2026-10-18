@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/rayhanvito/nojpos/backend/internal/platform/httpx"
 	"github.com/rayhanvito/nojpos/backend/internal/platform/middleware"
 )
 
@@ -285,7 +286,7 @@ func (h *SupplierHandler) List(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memuat supplier."})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"items": items})
+	c.JSON(http.StatusOK, httpx.PaginateList(c, items))
 }
 
 func (h *SupplierHandler) Get(c *gin.Context) {

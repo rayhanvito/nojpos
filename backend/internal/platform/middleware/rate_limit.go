@@ -95,6 +95,34 @@ func RateLimitForgot() gin.HandlerFunc {
 	}
 }
 
+// RateLimitOTP membatasi pengiriman kode OTP per IP: maks 5 per 10 menit.
+// Ketat karena setiap pengiriman membakar kuota email (Brevo); kode hanya
+// perlu diminta ulang bila email tak kunjung tiba.
+func RateLimitOTP() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		key := "otp:" + clientIP(c)
+		if !checkLimit(key, 5, 10*time.Minute) {
+			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{"error": "Terlalu banyak permintaan kode OTP. Coba lagi dalam 10 menit."})
+			return
+		}
+		c.Next()
+	}
+}
+
+// RateLimitRegister membatasi pembuatan akun per IP: maks 10 per 10 menit.
+// Satu kunci "register" dipakai bersama oleh /auth/register dan
+// /auth/google karena keduanya sama-sama membuat akun/toko baru.
+func RateLimitRegister() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		key := "register:" + clientIP(c)
+		if !checkLimit(key, 10, 10*time.Minute) {
+			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{"error": "Terlalu banyak percobaan pendaftaran. Coba lagi dalam 10 menit."})
+			return
+		}
+		c.Next()
+	}
+}
+
 func ResetRateLimiters() {
 	limiterMu.Lock()
 	defer limiterMu.Unlock()

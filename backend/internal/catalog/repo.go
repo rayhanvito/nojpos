@@ -74,6 +74,18 @@ func (r *CategoryRepo) Create(ctx context.Context, storeID uint, name string) (*
 	return &c, nil
 }
 
+func (r *CategoryRepo) Rename(ctx context.Context, storeID, id uint, name string) (*Category, error) {
+	c, err := r.GetByID(ctx, storeID, id)
+	if err != nil {
+		return nil, err
+	}
+	c.Name = name
+	if err := r.DB(ctx).Save(c).Error; err != nil {
+		return nil, mapDBErr(err)
+	}
+	return c, nil
+}
+
 func (r *CategoryRepo) Delete(ctx context.Context, storeID, id uint) (softDeleted bool, err error) {
 	var c Category
 	err = r.DB(ctx).Transaction(func(tx *gorm.DB) error {

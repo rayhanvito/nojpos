@@ -41,11 +41,15 @@ type fakeCats struct {
 	createErr  error
 	getErr     error
 	deleteErr  error
+	renameErr  error
 	createCall int
+	renameCall int
+	renameName string
+	items      []*Category
 }
 
 func (f *fakeCats) ListByStore(ctx context.Context, storeID uint) ([]*Category, error) {
-	return nil, nil
+	return f.items, nil
 }
 
 func (f *fakeCats) GetByID(ctx context.Context, storeID, id uint) (*Category, error) {
@@ -63,6 +67,15 @@ func (f *fakeCats) Create(ctx context.Context, storeID uint, name string) (*Cate
 	c := &Category{StoreID: storeID, Name: name, Active: true}
 	c.ID = 3
 	return c, nil
+}
+
+func (f *fakeCats) Rename(ctx context.Context, storeID, id uint, name string) (*Category, error) {
+	f.renameCall++
+	f.renameName = name
+	if f.renameErr != nil {
+		return nil, f.renameErr
+	}
+	return &Category{StoreID: storeID, Name: name}, nil
 }
 
 func (f *fakeCats) Delete(ctx context.Context, storeID, id uint) (bool, error) {
@@ -236,6 +249,45 @@ func TestDeleteCategoryNotFoundBecomesStoreMismatch(t *testing.T) {
 	_, err := svc.DeleteCategory(context.Background(), 1, 99)
 	if !errors.Is(err, user.ErrStoreMismatch) {
 		t.Fatalf("err = %v, mau user.ErrStoreMismatch", err)
+	}
+}
+
+func TestRenameCategoryTrimsNameBeforeRepo(t *testing.T) {
+	cats := &fakeCats{}
+	svc := NewService(cats, &fakeProds{}, nil)
+	got, err := svc.RenameCategory(context.Background(), 1, 9, "  Minuman  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cats.renameCall != 1 || cats.renameName != "Minuman" || got.Name != "Minuman" {
+		t.Fatalf("Rename harus menerima nama ter-trim sekali, call=%d name=%q hasil=%+v", cats.renameCall, cats.renameName, got)
+	}
+}
+
+func TestRenameCategoryBlankNameRejected(t *testing.T) {
+	cats := &fakeCats{}
+	svc := NewService(cats, &fakeProds{}, nil)
+	if _, err := svc.RenameCategory(context.Background(), 1, 9, "  "); err == nil || err.Error() != "nama kategori wajib diisi" {
+		t.Fatalf("nama kosong harus menghasilkan pesan validasi CreateCategory, dapat %v", err)
+	}
+	if cats.renameCall != 0 {
+		t.Fatalf("repo tidak boleh dipanggil untuk nama kosong, call=%d", cats.renameCall)
+	}
+}
+
+func TestRenameCategoryDuplicateBecomesCategoryTaken(t *testing.T) {
+	cats := &fakeCats{renameErr: ErrDuplicate}
+	svc := NewService(cats, &fakeProds{}, nil)
+	if _, err := svc.RenameCategory(context.Background(), 1, 9, "Minuman"); !errors.Is(err, ErrCategoryTaken) {
+		t.Fatalf("ErrDuplicate harus dipetakan ke ErrCategoryTaken, dapat %v", err)
+	}
+}
+
+func TestRenameCategoryNotFoundBecomesStoreMismatch(t *testing.T) {
+	cats := &fakeCats{renameErr: ErrNotFound}
+	svc := NewService(cats, &fakeProds{}, nil)
+	if _, err := svc.RenameCategory(context.Background(), 1, 9, "Minuman"); !errors.Is(err, user.ErrStoreMismatch) {
+		t.Fatalf("ErrNotFound harus dipetakan ke ErrStoreMismatch, dapat %v", err)
 	}
 }
 

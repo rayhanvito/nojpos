@@ -205,38 +205,6 @@ func (s *Service) SendOTP(ctx context.Context, email string) error {
 	return nil
 }
 
-func (s *Service) SendLoginOTP(ctx context.Context, email string) error {
-	email = strings.ToLower(strings.TrimSpace(email))
-	if !isEmail(email) {
-		return ErrInvalidEmail
-	}
-	existing, err := s.otps.GetOTP(ctx, email)
-	if err == nil && existing != nil {
-		if time.Since(existing.LastSentAt) < 60*time.Second {
-			return ErrOtpCooldown
-		}
-	}
-	code, err := generate6DigitOTP()
-	if err != nil {
-		return err
-	}
-	hash, err := bcrypt.GenerateFromPassword([]byte(code), bcrypt.DefaultCost)
-	if err != nil {
-		return err
-	}
-	expiresAt := time.Now().Add(10 * time.Minute)
-	if err := s.otps.UpsertOTP(ctx, email, string(hash), expiresAt); err != nil {
-		return err
-	}
-	if TestOnOTPSent != nil {
-		TestOnOTPSent(email, code)
-	}
-	if err := sendOTPEmail(email, code); err != nil {
-		return err
-	}
-	return nil
-}
-
 func (s *Service) VerifyOTP(ctx context.Context, email, code string) error {
 	email = strings.ToLower(strings.TrimSpace(email))
 	code = strings.TrimSpace(code)
@@ -552,7 +520,7 @@ func (s *Service) Register(ctx context.Context, name, email, password, storeName
 	return user, pair, nil
 }
 
-func (s *Service) Login(ctx context.Context, email, password, passcode, otp string) (*User, *TokenPair, error) {
+func (s *Service) Login(ctx context.Context, email, password string) (*User, *TokenPair, error) {
 	email = strings.ToLower(strings.TrimSpace(email))
 
 	user, err := s.users.GetByEmail(ctx, email)
@@ -587,7 +555,7 @@ func (s *Service) Login(ctx context.Context, email, password, passcode, otp stri
 // Existing emails auto-link (password keeps working); new emails get a
 // fresh store + admin, mirroring Register without the OTP gate or password.
 // Login Google mengikuti aturan yang sama: tanpa passcode.
-func (s *Service) GoogleLogin(ctx context.Context, idToken, storeName, passcode string) (*User, *TokenPair, error) {
+func (s *Service) GoogleLogin(ctx context.Context, idToken, storeName string) (*User, *TokenPair, error) {
 	if s.googleClientID == "" {
 		return nil, nil, ErrGoogleNotConfigured
 	}

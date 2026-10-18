@@ -84,6 +84,16 @@ type fakeSettingsRepo struct {
 	updateCalls    int
 	updated        *StoreSettings
 	updatedStoreID uint
+
+	// Unit C: outlet + override pengaturan per outlet. outletErr
+	// mengembalikan error GetOutlet (ErrNotFound untuk outlet asing);
+	// tanpa konfigurasi, outlet dianggap ada. ovOut adalah baris
+	// override tersimpan; Upsert menyimpan argumennya ke sana.
+	outletErr   error
+	ovOut       *OutletSettings
+	upsertErr   error
+	upsertCalls int
+	upserted    *OutletSettings
 }
 
 func (f *fakeSettingsRepo) GetSettings(ctx context.Context, storeID uint) (*StoreSettings, error) {
@@ -101,6 +111,29 @@ func (f *fakeSettingsRepo) UpdateSettings(ctx context.Context, storeID uint, s *
 		return nil, f.updateErr
 	}
 	return s, nil
+}
+
+func (f *fakeSettingsRepo) GetOutlet(ctx context.Context, storeID, outletID uint) (*Outlet, error) {
+	if f.outletErr != nil {
+		return nil, f.outletErr
+	}
+	o := &Outlet{StoreID: storeID}
+	o.ID = outletID
+	return o, nil
+}
+
+func (f *fakeSettingsRepo) GetOutletSettings(ctx context.Context, storeID, outletID uint) (*OutletSettings, error) {
+	return f.ovOut, nil
+}
+
+func (f *fakeSettingsRepo) UpsertOutletSettings(ctx context.Context, row *OutletSettings) (*OutletSettings, error) {
+	f.upsertCalls++
+	f.upserted = row
+	if f.upsertErr != nil {
+		return nil, f.upsertErr
+	}
+	f.ovOut = row
+	return row, nil
 }
 
 func strPtr(s string) *string { return &s }

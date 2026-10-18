@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/rayhanvito/nojpos/backend/internal/webhook"
 )
 
 // StockOpnameRepository adalah kontrak penyimpanan stock opname yang
@@ -20,11 +22,18 @@ type StockOpnameRepository interface {
 }
 
 type OpnameService struct {
-	opnames StockOpnameRepository
+	opnames  StockOpnameRepository
+	webhooks WebhookEmitter
 }
 
 func NewOpnameService(opnames StockOpnameRepository) *OpnameService {
 	return &OpnameService{opnames: opnames}
+}
+
+// SetWebhookEmitter memasang dispatcher webhook (Unit F). Tanpa
+// emitter, posting opname tidak memancarkan event stock.updated.
+func (s *OpnameService) SetWebhookEmitter(e WebhookEmitter) {
+	s.webhooks = e
 }
 
 func (s *OpnameService) List(ctx context.Context, storeID, outletID uint) ([]StockOpnameSession, error) {
@@ -61,7 +70,30 @@ func (s *OpnameService) UpdateItems(ctx context.Context, storeID, outletID, id u
 
 func (s *OpnameService) Post(ctx context.Context, storeID, outletID, id uint, actor string) (*StockOpnameSession, error) {
 	session, err := s.opnames.Post(ctx, storeID, outletID, id, actor)
-	return session, s.mapOpnameError(err)
+	if err != nil {
+		return session, s.mapOpnameError(err)
+	}
+	// Webhook stock.updated per item yang stoknya benar-benar berubah
+	// (selisih hitung != 0), sesudah posting berhasil.
+	if s.webhooks != nil && session != nil {
+		for _, item := range session.Items {
+			if item.CountedStock == nil {
+				continue
+			}
+			delta := *item.CountedStock - item.SystemStock
+			if item.Difference != nil {
+				delta = *item.Difference
+			}
+			if delta == 0 {
+				continue
+			}
+			s.webhooks.EmitStockUpdated(ctx, storeID, webhook.StockData{
+				Source: "opname", ProductID: item.ProductID, VariantID: item.VariantID,
+				QtyDelta: delta, OutletID: outletID, OpnameSessionID: session.ID,
+			})
+		}
+	}
+	return session, nil
 }
 
 func (s *OpnameService) Cancel(ctx context.Context, storeID, outletID, id uint) (*StockOpnameSession, error) {

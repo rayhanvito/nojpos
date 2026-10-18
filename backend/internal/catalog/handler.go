@@ -32,7 +32,7 @@ func (h *Handler) ListCategories(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memuat kategori."})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"categories": cats})
+	c.JSON(http.StatusOK, httpx.PaginateList(c, cats))
 }
 
 func (h *Handler) CreateCategory(c *gin.Context) {
@@ -48,6 +48,25 @@ func (h *Handler) CreateCategory(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusCreated, gin.H{"category": cat})
+}
+
+func (h *Handler) RenameCategory(c *gin.Context) {
+	claims := middleware.ClaimsFrom(c)
+	id, ok := pathUint(c, "id")
+	if !ok {
+		return
+	}
+	var req categoryReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "body JSON tidak valid"})
+		return
+	}
+	cat, err := h.svc.RenameCategory(c.Request.Context(), claims.StoreID, id, req.Name)
+	if err != nil {
+		respondCatalogErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"category": cat})
 }
 
 func (h *Handler) DeleteCategory(c *gin.Context) {

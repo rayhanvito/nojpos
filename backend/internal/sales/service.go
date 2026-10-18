@@ -12,6 +12,7 @@ import (
 	"github.com/rayhanvito/nojpos/backend/internal/promo"
 	"github.com/rayhanvito/nojpos/backend/internal/shift"
 	"github.com/rayhanvito/nojpos/backend/internal/staff"
+	"github.com/rayhanvito/nojpos/backend/internal/webhook"
 )
 
 // Transactions adalah kontrak penyimpanan transaksi yang dipakai
@@ -55,6 +56,23 @@ type Notifier interface {
 	CheckAndNotifyLowStock(ctx context.Context, storeID, itemID uint, productName, variantName string, currentStock, minStock int, unit, referenceType string) error
 }
 
+// SettingsResolver adalah kontrak resolusi pengaturan efektif per
+// outlet (diimplementasikan outlet.SettingsService): Service memakai
+// baris override-nya untuk mengambil tarif pajak efektif outlet
+// transaksi saat checkout (Unit C).
+type SettingsResolver interface {
+	EffectiveSettings(ctx context.Context, storeID, outletID uint) (*outlet.StoreSettings, *outlet.OutletSettings, error)
+}
+
+// WebhookEmitter adalah potongan webhook.Dispatcher yang dipakai
+// Service (Unit F): event transaksi untuk sistem luar. Pengiriman
+// asinkron di sisi dispatcher — memanggilnya tidak pernah menunda
+// atau menggagalkan checkout/refund.
+type WebhookEmitter interface {
+	EmitTransactionCreated(ctx context.Context, storeID uint, data webhook.TransactionData)
+	EmitTransactionRefunded(ctx context.Context, storeID uint, data webhook.TransactionData)
+}
+
 // Service adalah TrxService lama di service/transaction.go, dipindah
 // verbatim; orkestrasi transaksi checkout/refund kini di sini —
 // pemanggilan repo dibungkus tx.WithinTx dan repo ikut bergabung
@@ -66,10 +84,38 @@ type Service struct {
 	shifts       Shifts
 	notif        Notifier
 	tx           *database.Transactor
+	settings     SettingsResolver
+	webhooks     WebhookEmitter
 }
 
 func NewService(transactions Transactions, cashiers Cashiers, prods Products, shifts Shifts, notif Notifier, tx *database.Transactor) *Service {
 	return &Service{transactions: transactions, cashiers: cashiers, prods: prods, shifts: shifts, notif: notif, tx: tx}
+}
+
+// SetSettingsResolver memasang resolver pengaturan per outlet (Unit C).
+// Tanpa resolver, checkout memakai tarif pajak toko apa adanya —
+// perilaku sebelum Unit C.
+func (s *Service) SetSettingsResolver(r SettingsResolver) {
+	s.settings = r
+}
+
+// SetWebhookEmitter memasang dispatcher webhook (Unit F). Tanpa
+// emitter, checkout/refund tidak memancarkan event ke sistem luar.
+func (s *Service) SetWebhookEmitter(e WebhookEmitter) {
+	s.webhooks = e
+}
+
+// transactionWebhookData merangkum transaksi untuk payload webhook.
+func transactionWebhookData(trx *Trx) webhook.TransactionData {
+	return webhook.TransactionData{
+		TransactionID: trx.ID,
+		Number:        fmt.Sprintf("TRX-%05d", trx.ID),
+		Status:        string(trx.Status),
+		Total:         trx.Total,
+		Method:        trx.Method,
+		OutletID:      trx.OutletID,
+		CashierName:   trx.CashierName,
+	}
 }
 
 func (s *Service) Checkout(ctx context.Context, storeID, outletID uint, actingAsCashierID *uint, fallbackName string, cmd CheckoutCmd) (*Trx, bool, error) {
@@ -102,6 +148,20 @@ func (s *Service) Checkout(ctx context.Context, storeID, outletID uint, actingAs
 		}
 	}
 
+	// Tarif pajak efektif outlet transaksi (Unit C): bila resolver
+	// terpasang dan outlet menetapkan override tarif, tarif itu yang
+	// diteruskan ke repo; selain itu repo memakai tarif toko.
+	var taxPctOverride *float64
+	if s.settings != nil {
+		_, ov, serr := s.settings.EffectiveSettings(ctx, storeID, outletID)
+		if serr != nil {
+			return nil, false, serr
+		}
+		if ov != nil {
+			taxPctOverride = ov.TaxPct
+		}
+	}
+
 	items := make([]CheckoutItem, len(cmd.Items))
 	for i, it := range cmd.Items {
 		items[i] = CheckoutItem{ProductID: it.ProductID, VariantID: it.VariantID, Qty: it.Qty}
@@ -115,6 +175,7 @@ func (s *Service) Checkout(ctx context.Context, storeID, outletID uint, actingAs
 			Items: items, Discount: cmd.Discount, Method: cmd.Method,
 			VoucherCode: cmd.VoucherCode, Paid: cmd.Paid, Customer: cmd.Customer,
 			CustomerID: cmd.CustomerID, PointsRedeem: cmd.PointsRedeem, ClientTxID: cmd.ClientTxID,
+			TaxPctOverride: taxPctOverride,
 		})
 		return err
 	})
@@ -133,6 +194,12 @@ func (s *Service) Checkout(ctx context.Context, storeID, outletID uint, actingAs
 		}
 
 		s.checkLowStock(ctx, storeID, outletID, resTrx)
+	}
+	// Webhook transaction.created hanya untuk transaksi yang benar-benar
+	// baru tercipta (created) — putar ulang idempoten sinkronisasi
+	// offline tidak memancarkan event ganda.
+	if err == nil && created && s.webhooks != nil {
+		s.webhooks.EmitTransactionCreated(ctx, storeID, transactionWebhookData(resTrx))
 	}
 	return resTrx, created, err
 }
@@ -166,6 +233,9 @@ func (s *Service) Refund(ctx context.Context, storeID, outletID, trxID uint, ite
 		title := "Refund"
 		message := fmt.Sprintf("Invoice #TRX-%05d oleh %s", trxID, byName)
 		_ = s.notif.Emit(ctx, storeID, title, message, notification.CategoryTransaksi, "refund_created", "", byName, "transaction", refIDStr)
+	}
+	if err == nil && s.webhooks != nil && trx != nil {
+		s.webhooks.EmitTransactionRefunded(ctx, storeID, transactionWebhookData(trx))
 	}
 	return trx, err
 }

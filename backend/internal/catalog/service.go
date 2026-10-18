@@ -17,6 +17,7 @@ type CategoryRepository interface {
 	ListByStore(ctx context.Context, storeID uint) ([]*Category, error)
 	GetByID(ctx context.Context, storeID, id uint) (*Category, error)
 	Create(ctx context.Context, storeID uint, name string) (*Category, error)
+	Rename(ctx context.Context, storeID, id uint, name string) (*Category, error)
 	Delete(ctx context.Context, storeID, id uint) (softDeleted bool, err error)
 }
 
@@ -96,6 +97,21 @@ func (s *Service) CreateCategory(ctx context.Context, storeID uint, name string)
 		return nil, err
 	}
 	return c, nil
+}
+
+func (s *Service) RenameCategory(ctx context.Context, storeID, id uint, name string) (*Category, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return nil, fmt.Errorf("nama kategori wajib diisi")
+	}
+	category, err := s.cats.Rename(ctx, storeID, id, name)
+	if errors.Is(err, ErrDuplicate) {
+		return nil, ErrCategoryTaken
+	}
+	if errors.Is(err, ErrNotFound) {
+		return nil, user.ErrStoreMismatch
+	}
+	return category, err
 }
 
 func (s *Service) DeleteCategory(ctx context.Context, storeID, id uint) (soft bool, err error) {

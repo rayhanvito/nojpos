@@ -170,7 +170,7 @@ func TestAllEndpoints(t *testing.T) {
 	cashier2 := num(resp["user"].(map[string]any), "id")
 	w, resp = doReq("GET", "/users", nil, adminTok)
 	expect("list users -> 200", w, 200)
-	if len(resp["users"].([]any)) != 3 {
+	if len(resp["items"].([]any)) != 3 {
 		t.Fatalf("users len: %v", resp)
 	}
 
@@ -230,7 +230,7 @@ func TestAllEndpoints(t *testing.T) {
 
 	w, resp = doReq("GET", "/users", nil, adminTok)
 	expect("get users -> 200", w, 200)
-	usersList := resp["users"].([]any)
+	usersList := resp["items"].([]any)
 	if len(usersList) == 0 {
 		t.Fatalf("users list empty")
 	}

@@ -14,6 +14,7 @@ func RegisterRoutes(auth, admin *gin.RouterGroup, h *Handler) {
 	auth.GET("/products/:id/variants/:variantId/price-tiers", h.ListPriceTiers)
 
 	admin.POST("/categories", h.CreateCategory)
+	admin.PATCH("/categories/:id", h.RenameCategory)
 	admin.DELETE("/categories/:id", h.DeleteCategory)
 	admin.POST("/products", h.CreateProduct)
 	admin.POST("/products/import", h.ImportProducts)

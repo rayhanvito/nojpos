@@ -234,6 +234,47 @@ func (r *StoreRepo) GetSettings(ctx context.Context, storeID uint) (*StoreSettin
 	return s, nil
 }
 
+// GetOutlet mengambil satu outlet milik toko (dipakai SettingsService
+// untuk memastikan outlet sasaran ada di toko pemanggil sebelum membaca
+// atau menulis override-nya; ErrNotFound bila tidak ada / milik toko
+// lain).
+func (r *StoreRepo) GetOutlet(ctx context.Context, storeID, outletID uint) (*Outlet, error) {
+	var o Outlet
+	if err := r.DB(ctx).Where("id = ? AND store_id = ?", outletID, storeID).First(&o).Error; err != nil {
+		return nil, mapDBErr(err)
+	}
+	return &o, nil
+}
+
+// GetOutletSettings mengambil baris override pengaturan outlet. Hasil
+// (nil, nil) berarti outlet belum punya baris override sama sekali —
+// bukan error.
+func (r *StoreRepo) GetOutletSettings(ctx context.Context, storeID, outletID uint) (*OutletSettings, error) {
+	var row OutletSettings
+	err := r.DB(ctx).Where("store_id = ? AND outlet_id = ?", storeID, outletID).First(&row).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &row, nil
+}
+
+// UpsertOutletSettings menyisipkan baris override outlet atau
+// memperbarui kolom override-nya bila baris (store_id, outlet_id) sudah
+// ada, lalu mengembalikan baris tersimpan.
+func (r *StoreRepo) UpsertOutletSettings(ctx context.Context, row *OutletSettings) (*OutletSettings, error) {
+	err := r.DB(ctx).Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "store_id"}, {Name: "outlet_id"}},
+		DoUpdates: clause.AssignmentColumns([]string{"tax_pct", "receipt_footer", "hours", "updated_at"}),
+	}).Create(row).Error
+	if err != nil {
+		return nil, mapDBErr(err)
+	}
+	return r.GetOutletSettings(ctx, row.StoreID, row.OutletID)
+}
+
 func (r *StoreRepo) GetTimezone(ctx context.Context, storeID uint) (string, error) {
 	var st Store
 	if err := r.DB(ctx).Where("id = ?", storeID).First(&st).Error; err != nil {

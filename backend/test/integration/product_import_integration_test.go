@@ -121,7 +121,7 @@ func TestProductImportPartialSuccess(t *testing.T) {
 	}
 	w, cats := api.doReq(http.MethodGet, "/categories", nil, token)
 	names := ""
-	for _, item := range cats["categories"].([]any) {
+	for _, item := range cats["items"].([]any) {
 		names += item.(map[string]any)["name"].(string) + ","
 	}
 	if !strings.Contains(names, "Minuman") || !strings.Contains(names, "Bahan") {

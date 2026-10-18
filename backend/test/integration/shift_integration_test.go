@@ -55,9 +55,6 @@ func shiftByStartTime(t *testing.T, api *promoTestAPI, adminToken, startedAt str
 	}
 	items, ok := response["items"].([]any)
 	if !ok {
-		items, ok = response["shifts"].([]any)
-	}
-	if !ok {
 		t.Fatalf("shift list has no items: %v", response)
 	}
 	for _, raw := range items {
@@ -323,8 +320,11 @@ func TestShiftAdminReportsFilterOutletAndPaginateDetail(t *testing.T) {
 	outletAID := uint(shiftA["outlet_id"].(float64))
 
 	w, combined := api.doReq(http.MethodGet, "/shifts", nil, adminToken)
-	if w.Code != http.StatusOK || len(combined["items"].([]any)) != 2 || len(combined["shifts"].([]any)) != 2 {
-		t.Fatalf("admin shifts without outlet filter must combine outlets and keep the existing key: %d %s", w.Code, w.Body.String())
+	if w.Code != http.StatusOK || len(combined["items"].([]any)) != 2 {
+		t.Fatalf("admin shifts without outlet filter must combine outlets: %d %s", w.Code, w.Body.String())
+	}
+	if _, ok := combined["shifts"]; ok {
+		t.Fatalf("admin shifts response must not contain legacy shifts key: %v", combined)
 	}
 	w, filtered := api.doReq(http.MethodGet, fmt.Sprintf("/shifts?outletId=%d", outletBID), nil, adminToken)
 	if w.Code != http.StatusOK || len(filtered["items"].([]any)) != 1 || uint(filtered["items"].([]any)[0].(map[string]any)["id"].(float64)) != shiftBID {

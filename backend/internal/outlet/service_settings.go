@@ -8,11 +8,15 @@ import (
 )
 
 // SettingsStoreRepository adalah kontrak penyimpanan pengaturan
-// toko yang dipakai SettingsService — hanya GetSettings dan
-// UpdateSettings (tipe StoreSettings paket ini).
+// toko yang dipakai SettingsService — GetSettings dan UpdateSettings
+// (tipe StoreSettings paket ini), plus akses override pengaturan per
+// outlet sejak Unit C.
 type SettingsStoreRepository interface {
 	GetSettings(ctx context.Context, storeID uint) (*StoreSettings, error)
 	UpdateSettings(ctx context.Context, storeID uint, s *StoreSettings) (*StoreSettings, error)
+	GetOutlet(ctx context.Context, storeID, outletID uint) (*Outlet, error)
+	GetOutletSettings(ctx context.Context, storeID, outletID uint) (*OutletSettings, error)
+	UpsertOutletSettings(ctx context.Context, row *OutletSettings) (*OutletSettings, error)
 }
 
 // SettingsService adalah SettingsService lama di service/settings.go
@@ -99,28 +103,11 @@ func validateExtendedSettings(in *StoreSettings) error {
 			return ErrBadCurrency
 		}
 	}
-	if in.Hours == nil {
-		in.Hours = []StoreHours{}
+	hours, err := validateHours(in.Hours)
+	if err != nil {
+		return err
 	}
-	if len(in.Hours) != 0 && len(in.Hours) != 3 {
-		return ErrBadHours
-	}
-	for i, h := range in.Hours {
-		if h.Days != validHoursDays[i] {
-			return ErrBadHours
-		}
-		if h.Open == nil && h.Close == nil {
-			continue
-		}
-		if h.Open == nil || h.Close == nil {
-			return ErrBadHours
-		}
-		open, close := strings.TrimSpace(*h.Open), strings.TrimSpace(*h.Close)
-		if !validHourMinute(open) || !validHourMinute(close) || open >= close {
-			return ErrBadHours
-		}
-		in.Hours[i].Open, in.Hours[i].Close = &open, &close
-	}
+	in.Hours = hours
 	if len(in.ReceiptFooter) > 200 {
 		return ErrBadReceiptFooter
 	}
@@ -164,4 +151,159 @@ func validHourMinute(s string) bool {
 func isEmail(s string) bool {
 	at := strings.IndexByte(s, '@')
 	return at > 0 && at < len(s)-1 && strings.Contains(s[at:], ".") && !strings.ContainsAny(s, " \t")
+}
+
+// validateHours memvalidasi dan menormalisasi jam operasional — aturan
+// yang sama persis untuk pengaturan toko (validateExtendedSettings) dan
+// override per outlet: 0 entri (tidak diatur) atau tepat 3 entri
+// berlabel validHoursDays; tiap entri open & close keduanya kosong atau
+// keduanya HH:MM valid dengan open < close (open/close hasil trim
+// ditulis kembali ke slice).
+func validateHours(hours []StoreHours) ([]StoreHours, error) {
+	if hours == nil {
+		hours = []StoreHours{}
+	}
+	if len(hours) != 0 && len(hours) != 3 {
+		return nil, ErrBadHours
+	}
+	for i, h := range hours {
+		if h.Days != validHoursDays[i] {
+			return nil, ErrBadHours
+		}
+		if h.Open == nil && h.Close == nil {
+			continue
+		}
+		if h.Open == nil || h.Close == nil {
+			return nil, ErrBadHours
+		}
+		open, close := strings.TrimSpace(*h.Open), strings.TrimSpace(*h.Close)
+		if !validHourMinute(open) || !validHourMinute(close) || open >= close {
+			return nil, ErrBadHours
+		}
+		hours[i].Open, hours[i].Close = &open, &close
+	}
+	return hours, nil
+}
+
+// ── Pengaturan per outlet (Unit C) ──────────────────────────────────
+
+// OutletSettingsPatch adalah perubahan parsial override outlet dari
+// PUT /outlets/:id/settings. Flag *Set menandai kunci hadir di body:
+// hadir dengan nilai = tetapkan override; hadir dengan null (pointer
+// nilai nil) = hapus override (kembali mewarisi); tidak hadir = tidak
+// berubah.
+type OutletSettingsPatch struct {
+	TaxPctSet        bool
+	TaxPct           *float64
+	ReceiptFooterSet bool
+	ReceiptFooter    *string
+	HoursSet         bool
+	Hours            *[]StoreHours
+}
+
+// EffectiveSettings menyelesaikan pengaturan efektif sebuah outlet:
+// pengaturan toko dengan override outlet diterapkan di atasnya untuk
+// ketiga field yang dapat dioverride (taxPct, receiptFooter, hours);
+// field lain selalu nilai toko. Hasil kedua adalah baris override
+// mentah (nil bila outlet belum punya override) supaya pemanggil tahu
+// field mana yang berasal dari outlet. Outlet yang tidak ada di toko
+// mengembalikan ErrNotFound.
+func (s *SettingsService) EffectiveSettings(ctx context.Context, storeID, outletID uint) (*StoreSettings, *OutletSettings, error) {
+	if _, err := s.stores.GetOutlet(ctx, storeID, outletID); err != nil {
+		return nil, nil, err
+	}
+	eff, err := s.stores.GetSettings(ctx, storeID)
+	if err != nil {
+		return nil, nil, err
+	}
+	ov, err := s.stores.GetOutletSettings(ctx, storeID, outletID)
+	if err != nil {
+		return nil, nil, err
+	}
+	applyOutletOverrides(eff, ov)
+	return eff, ov, nil
+}
+
+// applyOutletOverrides menimpa field yang dioverride outlet pada
+// pengaturan toko eff (diubah di tempat).
+func applyOutletOverrides(eff *StoreSettings, ov *OutletSettings) {
+	if ov == nil {
+		return
+	}
+	if ov.TaxPct != nil {
+		eff.TaxPct = *ov.TaxPct
+	}
+	if ov.ReceiptFooter != nil {
+		eff.ReceiptFooter = *ov.ReceiptFooter
+	}
+	if ov.Hours != nil {
+		eff.Hours = decodeStoreHours(*ov.Hours)
+	}
+}
+
+// UpdateOutletSettings menerapkan patch override outlet dengan validasi
+// yang meniru persis SettingsService toko (pajak: negatif dibulatkan ke
+// 0, di atas 100 ditolak ErrBadTaxPct; footer maksimal 200 karakter;
+// jam operasional aturan validateHours), menyimpan baris override
+// (upsert), lalu mengembalikan pengaturan efektif terbaru beserta baris
+// override-nya. Outlet yang tidak ada di toko mengembalikan
+// ErrNotFound.
+func (s *SettingsService) UpdateOutletSettings(ctx context.Context, storeID, outletID uint, patch OutletSettingsPatch) (*StoreSettings, *OutletSettings, error) {
+	if _, err := s.stores.GetOutlet(ctx, storeID, outletID); err != nil {
+		return nil, nil, err
+	}
+	row, err := s.stores.GetOutletSettings(ctx, storeID, outletID)
+	if err != nil {
+		return nil, nil, err
+	}
+	if row == nil {
+		row = &OutletSettings{StoreID: storeID, OutletID: outletID}
+	}
+	if patch.TaxPctSet {
+		if patch.TaxPct == nil {
+			row.TaxPct = nil
+		} else {
+			pct := *patch.TaxPct
+			if pct < 0 {
+				pct = 0
+			}
+			if pct > 100 {
+				return nil, nil, ErrBadTaxPct
+			}
+			row.TaxPct = &pct
+		}
+	}
+	if patch.ReceiptFooterSet {
+		if patch.ReceiptFooter == nil {
+			row.ReceiptFooter = nil
+		} else {
+			if len(*patch.ReceiptFooter) > 200 {
+				return nil, nil, ErrBadReceiptFooter
+			}
+			footer := *patch.ReceiptFooter
+			row.ReceiptFooter = &footer
+		}
+	}
+	if patch.HoursSet {
+		if patch.Hours == nil {
+			row.Hours = nil
+		} else {
+			normalized, err := validateHours(*patch.Hours)
+			if err != nil {
+				return nil, nil, err
+			}
+			encoded := encodeStoreHours(normalized)
+			row.Hours = &encoded
+		}
+	}
+	saved, err := s.stores.UpsertOutletSettings(ctx, row)
+	if err != nil {
+		return nil, nil, err
+	}
+	eff, err := s.stores.GetSettings(ctx, storeID)
+	if err != nil {
+		return nil, nil, err
+	}
+	applyOutletOverrides(eff, saved)
+	return eff, saved, nil
 }

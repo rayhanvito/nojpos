@@ -48,6 +48,10 @@ type CheckoutInput struct {
 	Customer     string
 	CustomerID   *uint
 	PointsRedeem int64
+	// TaxPctOverride adalah tarif pajak efektif outlet transaksi dari
+	// resolusi pengaturan per outlet (Unit C); nil = pakai tarif pajak
+	// toko. Diisi Service lewat SettingsResolver, bukan dari payload.
+	TaxPctOverride *float64
 }
 
 type PromoPreviewInput struct {
@@ -348,16 +352,23 @@ func (r *Repo) Checkout(ctx context.Context, in CheckoutInput) (*Trx, bool, erro
 			return ErrBadDiscount
 		}
 
+		// Tarif pajak efektif: override per outlet (Unit C) menimpa
+		// tarif toko bila Service menyelesaikannya; TaxEnabled,
+		// TaxInclusive, dan TaxRounding tetap milik toko.
+		taxPct := store.TaxPct
+		if in.TaxPctOverride != nil {
+			taxPct = *in.TaxPctOverride
+		}
 		var tax int64
 		base := subtotal - discount - promoDiscount - voucherDiscount
 		total := base
-		if store.TaxEnabled && store.TaxPct > 0 {
+		if store.TaxEnabled && taxPct > 0 {
 			if store.TaxInclusive {
 				// Harga sudah termasuk pajak: total tetap = base,
 				// tax = base - base/(1+pct/100).
-				tax = applyTaxRounding(float64(base)-float64(base)/(1+store.TaxPct/100), store.TaxRounding)
+				tax = applyTaxRounding(float64(base)-float64(base)/(1+taxPct/100), store.TaxRounding)
 			} else {
-				tax = applyTaxRounding(float64(base)*store.TaxPct/100, store.TaxRounding)
+				tax = applyTaxRounding(float64(base)*taxPct/100, store.TaxRounding)
 				total = base + tax
 			}
 		}

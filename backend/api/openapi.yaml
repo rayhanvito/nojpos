@@ -2,27 +2,1535 @@ openapi: 3.0.3
 info:
   title: NOJPOS API
   version: 1.0.0
-  description: >-
-    Spesifikasi OpenAPI NOJPOS. Dokumen ini adalah pilot untuk domain
-    promo: cakupan jalurnya baru domain promo (CRUD admin /promos dan
-    pratinjau /promos/preview); domain lain menyusul.
+  description: 'API NOJPOS memakai base path /api/v1. Endpoint publik tidak memerlukan autentikasi. Endpoint data dan admin umumnya menerima Bearer JWT atau API key melalui header X-Api-Key; API key mewakili admin toko dan dibatasi ke scope toko. API key tidak dapat dipakai pada /api-keys/*, /users/*, /webhooks/*, endpoint /auth/* yang terautentikasi, POST /presence/heartbeat, penulisan /outlets (POST/PUT), dan PUT /settings; operasi tersebut wajib memakai Bearer JWT. Endpoint admin memerlukan role admin; kasir menerima 403. Respons daftar berpaginasi menggunakan amplop {items,total,page,limit}; beberapa daftar tanpa paginasi hanya memakai {items}. Error berbentuk {error,code}, dengan code opsional jika handler tidak menyediakan kode mesin. Webhook dikirim dengan header X-NOJPOS-Signature: sha256=HMAC_SHA256(secret, raw_body) dan X-NOJPOS-Event. Event sah: transaction.created, transaction.refunded, stock.updated. Rate limit: POST /auth/login 5 per IP/menit; POST /auth/forgot-password/send 3 per IP/menit; POST /auth/switch 10 per pengguna+IP/menit; POST /auth/otp/send 5 per IP/10 menit; POST /auth/register dan POST /auth/google berbagi 10 per IP/10 menit.'
 servers:
-  - url: /api/v1
-security:
-  - bearerAuth: []
+- url: /api/v1
+tags:
+- name: Auth
+- name: Catalog
+- name: Inventory
+- name: Promo
+- name: Customers
+- name: Sales
+- name: Shifts
+- name: Purchasing
+- name: Finance
+- name: Reports
+- name: Outlets
+- name: Users
+- name: Notifications
+- name: Activity
+- name: System
+- name: ApiKeys
+- name: Webhooks
 paths:
-  /promos:
+  /health:
     get:
-      summary: Daftar promo toko
+      summary: Periksa status layanan dan koneksi basis data.
+      tags:
+      - System
+      security: []
       responses:
         '200':
-          description: Daftar promo
+          description: Periksa status layanan dan koneksi basis data.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+  /auth/register:
+    post:
+      summary: Daftarkan pemilik dan toko baru.
+      tags:
+      - Auth
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Daftarkan pemilik dan toko baru.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '410':
+          $ref: '#/components/responses/Gone'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /auth/login:
+    post:
+      summary: Masuk dengan email dan kata sandi.
+      tags:
+      - Auth
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Masuk dengan email dan kata sandi.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /auth/google:
+    post:
+      summary: Masuk atau daftar menggunakan token Google.
+      tags:
+      - Auth
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GoogleLoginRequest'
+      responses:
+        '200':
+          description: Masuk atau daftar menggunakan token Google.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /auth/refresh:
+    post:
+      summary: Perbarui token menggunakan refresh token.
+      tags:
+      - Auth
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '200':
+          description: Perbarui token menggunakan refresh token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /auth/logout:
+    post:
+      summary: Cabut refresh token dan akhiri sesi.
+      tags:
+      - Auth
+      security: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogoutRequest'
+      responses:
+        '200':
+          description: Cabut refresh token dan akhiri sesi.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+  /auth/otp/send:
+    post:
+      summary: Kirim kode OTP untuk verifikasi email.
+      tags:
+      - Auth
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailRequest'
+      responses:
+        '200':
+          description: Kirim kode OTP untuk verifikasi email.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /auth/otp/verify:
+    post:
+      summary: Verifikasi kode OTP untuk email.
+      tags:
+      - Auth
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OtpVerifyRequest'
+      responses:
+        '200':
+          description: Verifikasi kode OTP untuk email.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Verified'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '410':
+          $ref: '#/components/responses/Gone'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /auth/forgot-password/send:
+    post:
+      summary: Kirim kode OTP untuk pemulihan kata sandi.
+      tags:
+      - Auth
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailRequest'
+      responses:
+        '200':
+          description: Kirim kode OTP untuk pemulihan kata sandi.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /auth/forgot-password/reset:
+    post:
+      summary: Atur kata sandi baru dengan kode OTP.
+      tags:
+      - Auth
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetPasswordRequest'
+      responses:
+        '200':
+          description: Atur kata sandi baru dengan kode OTP.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '410':
+          $ref: '#/components/responses/Gone'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /presence/heartbeat:
+    post:
+      summary: Catat kehadiran pengguna yang sedang aktif.
+      tags:
+      - Auth
+      security:
+      - bearerAuth: []
+      description: Wajib memakai Bearer JWT; autentikasi X-Api-Key ditolak.
+      responses:
+        '200':
+          description: Catat kehadiran pengguna yang sedang aktif.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /auth/me:
+    get:
+      summary: Ambil profil pengguna dari sesi aktif.
+      tags:
+      - Auth
+      security:
+      - bearerAuth: []
+      description: Wajib memakai Bearer JWT; autentikasi X-Api-Key ditolak.
+      responses:
+        '200':
+          description: Ambil profil pengguna dari sesi aktif.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /outlets/switch:
+    post:
+      summary: Pindahkan sesi ke outlet lain.
+      tags:
+      - Auth
+      security:
+      - bearerAuth: []
+      description: Wajib memakai Bearer JWT; autentikasi X-Api-Key ditolak.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SwitchOutletRequest'
+      responses:
+        '200':
+          description: Pindahkan sesi ke outlet lain.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /auth/password:
+    put:
+      summary: Ubah kata sandi akun pemilik.
+      tags:
+      - Auth
+      security:
+      - bearerAuth: []
+      description: Wajib memakai Bearer JWT; autentikasi X-Api-Key ditolak.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '200':
+          description: Ubah kata sandi akun pemilik.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /auth/switch:
+    post:
+      summary: Beralih ke akun kasir menggunakan passcode.
+      tags:
+      - Auth
+      security:
+      - bearerAuth: []
+      description: Wajib memakai Bearer JWT; autentikasi X-Api-Key ditolak. Bila akun tujuan memasang passcode, server membalas 401 dengan code PASSCODE_REQUIRED atau PASSCODE_WRONG.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SwitchUserRequest'
+      responses:
+        '200':
+          description: Beralih ke akun kasir menggunakan passcode.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /categories:
+    get:
+      summary: Daftar kategori produk.
+      tags:
+      - Catalog
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Daftar kategori produk.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      summary: Buat kategori produk.
+      tags:
+      - Catalog
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryInput'
+      responses:
+        '201':
+          description: Buat kategori produk.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /products:
+    get:
+      summary: Daftar produk dengan filter dan paginasi.
+      tags:
+      - Catalog
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      parameters:
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: categoryId
+        in: query
+        required: false
+        schema:
+          type: integer
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+      - name: active
+        in: query
+        required: false
+        schema:
+          type: boolean
+      responses:
+        '200':
+          description: Daftar produk dengan filter dan paginasi.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      summary: Buat produk.
+      tags:
+      - Catalog
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductInput'
+      responses:
+        '201':
+          description: Buat produk.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /products/{id}:
+    get:
+      summary: Ambil detail produk.
+      tags:
+      - Catalog
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Ambil detail produk.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    put:
+      summary: Ubah data produk.
+      tags:
+      - Catalog
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductInput'
+      responses:
+        '200':
+          description: Ubah data produk.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      summary: Hapus produk.
+      tags:
+      - Catalog
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Hapus produk.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /products/{id}/variants:
+    get:
+      summary: Daftar varian produk.
+      tags:
+      - Catalog
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Daftar varian produk.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VariantList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      summary: Buat varian produk.
+      tags:
+      - Catalog
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VariantInput'
+      responses:
+        '201':
+          description: Buat varian produk.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Variant'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /products/{id}/price-tiers:
+    get:
+      summary: Daftar harga bertingkat produk.
+      tags:
+      - Catalog
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Daftar harga bertingkat produk.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceTierList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      summary: Tambahkan harga bertingkat produk.
+      tags:
+      - Catalog
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PriceTierInput'
+      responses:
+        '201':
+          description: Tambahkan harga bertingkat produk.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceTier'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /products/{id}/variants/{variantId}/price-tiers:
+    get:
+      summary: Daftar harga bertingkat varian.
+      tags:
+      - Catalog
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      - $ref: '#/components/parameters/VariantId'
+      responses:
+        '200':
+          description: Daftar harga bertingkat varian.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceTierList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      summary: Tambahkan harga bertingkat varian.
+      tags:
+      - Catalog
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      - $ref: '#/components/parameters/VariantId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PriceTierInput'
+      responses:
+        '201':
+          description: Tambahkan harga bertingkat varian.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceTier'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /categories/{id}:
+    patch:
+      summary: Ubah nama kategori.
+      tags:
+      - Catalog
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryInput'
+      responses:
+        '200':
+          description: Ubah nama kategori.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      summary: Hapus atau nonaktifkan kategori.
+      tags:
+      - Catalog
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Hapus atau nonaktifkan kategori.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SoftDeleteResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /products/import:
+    post:
+      summary: Impor produk dari berkas CSV.
+      tags:
+      - Catalog
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      responses:
+        '200':
+          description: Impor produk dari berkas CSV.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ProductImportRequest'
+  /products/{id}/active:
+    patch:
+      summary: Aktifkan atau nonaktifkan produk.
+      tags:
+      - Catalog
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActiveRequest'
+      responses:
+        '200':
+          description: Aktifkan atau nonaktifkan produk.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /products/{id}/variants/{variantId}:
+    put:
+      summary: Ubah varian produk.
+      tags:
+      - Catalog
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      - $ref: '#/components/parameters/VariantId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VariantInput'
+      responses:
+        '200':
+          description: Ubah varian produk.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Variant'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      summary: Hapus varian produk.
+      tags:
+      - Catalog
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      - $ref: '#/components/parameters/VariantId'
+      responses:
+        '200':
+          description: Hapus varian produk.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /products/{id}/price-tiers/{tierId}:
+    put:
+      summary: Ubah harga bertingkat produk.
+      tags:
+      - Catalog
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      - $ref: '#/components/parameters/TierId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PriceTierInput'
+      responses:
+        '200':
+          description: Ubah harga bertingkat produk.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceTier'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      summary: Hapus harga bertingkat produk.
+      tags:
+      - Catalog
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      - $ref: '#/components/parameters/TierId'
+      responses:
+        '200':
+          description: Hapus harga bertingkat produk.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /products/{id}/variants/{variantId}/price-tiers/{tierId}:
+    put:
+      summary: Ubah harga bertingkat varian.
+      tags:
+      - Catalog
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      - $ref: '#/components/parameters/VariantId'
+      - $ref: '#/components/parameters/TierId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PriceTierInput'
+      responses:
+        '200':
+          description: Ubah harga bertingkat varian.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceTier'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      summary: Hapus harga bertingkat varian.
+      tags:
+      - Catalog
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      - $ref: '#/components/parameters/VariantId'
+      - $ref: '#/components/parameters/TierId'
+      responses:
+        '200':
+          description: Hapus harga bertingkat varian.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /stock-opnames:
+    get:
+      summary: Daftar sesi stock opname.
+      tags:
+      - Inventory
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      responses:
+        '200':
+          description: Daftar sesi stock opname.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockOpnameList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      summary: Buat sesi stock opname.
+      tags:
+      - Inventory
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StockOpnameCreateRequest'
+      responses:
+        '201':
+          description: Buat sesi stock opname.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockOpname'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /stock-opnames/{id}:
+    get:
+      summary: Ambil detail sesi stock opname.
+      tags:
+      - Inventory
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Ambil detail sesi stock opname.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockOpname'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /stock-opnames/{id}/items:
+    put:
+      summary: Simpan hitungan item stock opname.
+      tags:
+      - Inventory
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StockOpnameCountRequest'
+      responses:
+        '200':
+          description: Simpan hitungan item stock opname.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockOpname'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /stock-opnames/{id}/post:
+    post:
+      summary: Posting hasil stock opname ke stok.
+      tags:
+      - Inventory
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Posting hasil stock opname ke stok.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockOpname'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /stock-opnames/{id}/cancel:
+    post:
+      summary: Batalkan sesi stock opname.
+      tags:
+      - Inventory
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Batalkan sesi stock opname.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockOpname'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /movements:
+    get:
+      summary: Daftar riwayat pergerakan stok.
+      tags:
+      - Inventory
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      parameters:
+      - name: type
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: productId
+        in: query
+        required: false
+        schema:
+          type: integer
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+      - name: outletId
+        in: query
+        required: false
+        schema:
+          type: integer
+        description: Filter berdasarkan outlet.
+      responses:
+        '200':
+          description: Daftar riwayat pergerakan stok.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MovementPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /stock/adjustments:
+    post:
+      summary: Sesuaikan jumlah stok produk.
+      tags:
+      - Inventory
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StockAdjustmentRequest'
+      responses:
+        '200':
+          description: Sesuaikan jumlah stok produk.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /stock/transfers:
+    get:
+      summary: Daftar transfer stok antar outlet.
+      tags:
+      - Inventory
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      parameters:
+      - name: fromOutletId
+        in: query
+        required: false
+        schema:
+          type: integer
+      - name: toOutletId
+        in: query
+        required: false
+        schema:
+          type: integer
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Daftar transfer stok antar outlet.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockTransferPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      summary: Pindahkan stok antar outlet.
+      tags:
+      - Inventory
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: 'Khusus admin. Kode error khusus: TRANSFER_SAME_OUTLET, TRANSFER_ITEMS_EMPTY, TRANSFER_INVALID_QTY, TRANSFER_INVALID_ITEM.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StockTransferInput'
+      responses:
+        '201':
+          description: Pindahkan stok antar outlet.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockTransfer'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /promos:
+    get:
+      summary: Daftar promo toko.
+      tags:
+      - Promo
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Daftar promo toko.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/PromoList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
     post:
-      summary: Buat promo baru
+      summary: Buat promo baru.
+      tags:
+      - Promo
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
       requestBody:
         required: true
         content:
@@ -31,37 +1539,59 @@ paths:
               $ref: '#/components/schemas/PromoInput'
       responses:
         '201':
-          description: Promo terbuat
+          description: Buat promo baru.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Promo'
         '400':
-          description: Masukan promo tidak valid
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /promos/{id}:
-    parameters:
-      - $ref: '#/components/parameters/PromoId'
     get:
-      summary: Ambil satu promo
+      summary: Ambil satu promo.
+      tags:
+      - Promo
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      parameters:
+      - $ref: '#/components/parameters/Id'
       responses:
         '200':
-          description: Promo ditemukan
+          description: Ambil satu promo.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Promo'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
-          description: Promo tidak ditemukan
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
     put:
-      summary: Ubah promo
+      summary: Ubah promo.
+      tags:
+      - Promo
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      parameters:
+      - $ref: '#/components/parameters/Id'
       requestBody:
         required: true
         content:
@@ -70,76 +1600,96 @@ paths:
               $ref: '#/components/schemas/PromoInput'
       responses:
         '200':
-          description: Promo terubah
+          description: Ubah promo.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Promo'
         '400':
-          description: Masukan promo tidak valid
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
-          description: Promo tidak ditemukan
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
     delete:
-      summary: Hapus promo
+      summary: Hapus promo.
+      tags:
+      - Promo
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      parameters:
+      - $ref: '#/components/parameters/Id'
       responses:
         '200':
-          description: Promo terhapus
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Message'
-        '404':
-          description: Promo tidak ditemukan
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-  /promos/{id}/active:
-    parameters:
-      - $ref: '#/components/parameters/PromoId'
-    patch:
-      summary: Aktif/nonaktifkan promo
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - active
-              properties:
-                active:
-                  type: boolean
-      responses:
-        '200':
-          description: Status promo diperbarui
+          description: Hapus promo.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Message'
         '400':
-          description: Status aktif wajib diisi
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
-          description: Promo tidak ditemukan
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    parameters:
+    - $ref: '#/components/parameters/PromoId'
+  /promos/{id}/active:
+    patch:
+      summary: Aktifkan atau nonaktifkan promo.
+      tags:
+      - Promo
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PromoActiveRequest'
+      responses:
+        '200':
+          description: Aktifkan atau nonaktifkan promo.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/Message'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    parameters:
+    - $ref: '#/components/parameters/PromoId'
   /promos/preview:
     post:
-      summary: Pratinjau diskon promo untuk keranjang
+      summary: Pratinjau diskon promo untuk keranjang.
+      tags:
+      - Promo
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -148,55 +1698,2550 @@ paths:
               $ref: '#/components/schemas/PreviewRequest'
       responses:
         '200':
-          description: Hasil pratinjau promo
+          description: Pratinjau diskon promo untuk keranjang.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/PromoPreview'
         '400':
-          description: Pratinjau tidak valid (mis. voucher tidak berlaku)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
-          description: Produk tidak ditemukan
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /customers:
+    get:
+      summary: Daftar pelanggan dengan pencarian dan paginasi.
+      tags:
+      - Customers
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      parameters:
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Daftar pelanggan dengan pencarian dan paginasi.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/CustomerPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      summary: Tambahkan pelanggan.
+      tags:
+      - Customers
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerInput'
+      responses:
+        '201':
+          description: Tambahkan pelanggan.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /customers/{id}:
+    get:
+      summary: Ambil detail pelanggan.
+      tags:
+      - Customers
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Ambil detail pelanggan.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    put:
+      summary: Ubah data pelanggan.
+      tags:
+      - Customers
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerInput'
+      responses:
+        '200':
+          description: Ubah data pelanggan.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      summary: Hapus pelanggan.
+      tags:
+      - Customers
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Hapus pelanggan.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /customers/{id}/transactions:
+    get:
+      summary: Daftar transaksi milik pelanggan.
+      tags:
+      - Customers
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Daftar transaksi milik pelanggan.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /transactions:
+    post:
+      summary: Selesaikan checkout transaksi.
+      tags:
+      - Sales
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckoutRequest'
+      responses:
+        '201':
+          description: Selesaikan checkout transaksi.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction'
+        '200':
+          description: Transaksi idempoten yang telah dibuat.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      description: Wajib ada shift aktif untuk kasir pada outlet transaksi; tanpa shift aktif server membalas 409 dengan code SHIFT_REQUIRED (termasuk sinkronisasi checkout offline).
+    get:
+      summary: Daftar transaksi dengan filter dan paginasi.
+      tags:
+      - Sales
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      parameters:
+      - name: outletId
+        in: query
+        required: false
+        schema:
+          type: integer
+        description: Filter outlet admin; kasir dibatasi ke outlet pada token.
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: method
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: date
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: cashierId
+        in: query
+        required: false
+        schema:
+          type: integer
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Daftar transaksi dengan filter dan paginasi.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /transactions/{id}:
+    get:
+      summary: Ambil detail transaksi dan riwayat refund.
+      tags:
+      - Sales
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Ambil detail transaksi dan riwayat refund.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /transactions/{id}/refund:
+    post:
+      summary: Refund sebagian atau seluruh item transaksi.
+      tags:
+      - Sales
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefundRequest'
+      responses:
+        '200':
+          description: Refund sebagian atau seluruh item transaksi.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /cashier/shift:
+    get:
+      summary: Ambil shift kasir yang sedang berjalan.
+      tags:
+      - Shifts
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      responses:
+        '200':
+          description: Ambil shift kasir yang sedang berjalan.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentShift'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /cashier/shift/start:
+    post:
+      summary: Buka shift kasir.
+      tags:
+      - Shifts
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartShiftRequest'
+      responses:
+        '201':
+          description: Buka shift kasir.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShiftStarted'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /cashier/shift/close:
+    post:
+      summary: Tutup shift kasir.
+      tags:
+      - Shifts
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CloseShiftRequest'
+      responses:
+        '200':
+          description: Tutup shift kasir.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShiftClosed'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /shifts:
+    get:
+      summary: Daftar shift dengan filter outlet dan tanggal.
+      tags:
+      - Shifts
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      parameters:
+      - name: outletId
+        in: query
+        required: false
+        schema:
+          type: integer
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Daftar shift dengan filter outlet dan tanggal.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShiftPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /shifts/{id}:
+    get:
+      summary: Ambil ringkasan dan transaksi dalam satu shift.
+      tags:
+      - Shifts
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      - name: outletId
+        in: query
+        required: false
+        schema:
+          type: integer
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Ambil ringkasan dan transaksi dalam satu shift.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShiftDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /shifts/{id}/force-close:
+    post:
+      summary: Tutup paksa shift oleh admin.
+      tags:
+      - Shifts
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CloseShiftRequest'
+      responses:
+        '200':
+          description: Tutup paksa shift oleh admin.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShiftClosed'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /shifts/export:
+    get:
+      summary: Ekspor laporan shift dalam format CSV.
+      tags:
+      - Shifts
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      parameters:
+      - name: outletId
+        in: query
+        required: false
+        schema:
+          type: integer
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Ekspor laporan shift dalam format CSV.
+          content:
+            text/csv:
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /suppliers:
+    get:
+      summary: Daftar supplier dengan paginasi.
+      tags:
+      - Purchasing
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Daftar supplier dengan paginasi.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupplierPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      summary: Buat supplier.
+      tags:
+      - Purchasing
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SupplierInput'
+      responses:
+        '201':
+          description: Buat supplier.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Supplier'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /suppliers/{id}:
+    get:
+      summary: Ambil detail supplier.
+      tags:
+      - Purchasing
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Ambil detail supplier.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Supplier'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    put:
+      summary: Ubah supplier.
+      tags:
+      - Purchasing
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SupplierInput'
+      responses:
+        '200':
+          description: Ubah supplier.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Supplier'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      summary: Hapus supplier.
+      tags:
+      - Purchasing
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Hapus supplier.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /purchase-orders:
+    get:
+      summary: Daftar purchase order.
+      tags:
+      - Purchasing
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: supplierId
+        in: query
+        required: false
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Daftar purchase order.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PurchaseOrderList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      summary: Buat draft purchase order.
+      tags:
+      - Purchasing
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PurchaseOrderInput'
+      responses:
+        '201':
+          description: Buat draft purchase order.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PurchaseOrder'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /purchase-orders/{id}:
+    get:
+      summary: Ambil detail purchase order.
+      tags:
+      - Purchasing
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Ambil detail purchase order.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PurchaseOrder'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    put:
+      summary: Ubah draft purchase order.
+      tags:
+      - Purchasing
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PurchaseOrderInput'
+      responses:
+        '200':
+          description: Ubah draft purchase order.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PurchaseOrder'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      summary: Hapus draft purchase order.
+      tags:
+      - Purchasing
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Hapus draft purchase order.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /purchase-orders/{id}/order:
+    post:
+      summary: Tandai purchase order sebagai dipesan.
+      tags:
+      - Purchasing
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Tandai purchase order sebagai dipesan.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PurchaseOrder'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /purchase-orders/{id}/receive:
+    post:
+      summary: Catat penerimaan barang purchase order.
+      tags:
+      - Purchasing
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PurchaseOrderReceiveRequest'
+      responses:
+        '200':
+          description: Catat penerimaan barang purchase order.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PurchaseOrder'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /purchase-orders/{id}/cancel:
+    post:
+      summary: Batalkan purchase order.
+      tags:
+      - Purchasing
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Batalkan purchase order.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PurchaseOrder'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /expenses:
+    get:
+      summary: Daftar pengeluaran dengan filter dan paginasi.
+      tags:
+      - Finance
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: category
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Daftar pengeluaran dengan filter dan paginasi.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExpensePage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      summary: Catat pengeluaran.
+      tags:
+      - Finance
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExpenseInput'
+      responses:
+        '201':
+          description: Catat pengeluaran.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Expense'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /expenses/{id}:
+    put:
+      summary: Ubah pengeluaran.
+      tags:
+      - Finance
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExpenseInput'
+      responses:
+        '200':
+          description: Ubah pengeluaran.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Expense'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      summary: Hapus pengeluaran.
+      tags:
+      - Finance
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Hapus pengeluaran.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /receivables:
+    get:
+      summary: Daftar piutang.
+      tags:
+      - Finance
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: overdue
+        in: query
+        required: false
+        schema:
+          type: boolean
+      responses:
+        '200':
+          description: Daftar piutang.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReceivableList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /receivables/{id}:
+    get:
+      summary: Ambil detail piutang.
+      tags:
+      - Finance
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Ambil detail piutang.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Receivable'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /receivables/{id}/payments:
+    post:
+      summary: Catat pembayaran piutang.
+      tags:
+      - Finance
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DebtPaymentRequest'
+      responses:
+        '200':
+          description: Catat pembayaran piutang.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Receivable'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /payables:
+    get:
+      summary: Daftar utang.
+      tags:
+      - Finance
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Daftar utang.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayableList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /payables/{id}:
+    get:
+      summary: Ambil detail utang.
+      tags:
+      - Finance
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Ambil detail utang.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payable'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /payables/{id}/payments:
+    post:
+      summary: Catat pembayaran utang.
+      tags:
+      - Finance
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DebtPaymentRequest'
+      responses:
+        '200':
+          description: Catat pembayaran utang.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payable'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /dashboard:
+    get:
+      summary: Ambil ringkasan dashboard toko.
+      tags:
+      - Reports
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      parameters:
+      - name: outletId
+        in: query
+        required: false
+        schema:
+          type: integer
+        description: Filter outlet admin; kasir dibatasi ke outlet pada token.
+      - name: date
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Ambil ringkasan dashboard toko.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dashboard'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /reports:
+    get:
+      summary: Ambil laporan penjualan, produk, kasir, stok, dan pengeluaran.
+      tags:
+      - Reports
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      parameters:
+      - name: outletId
+        in: query
+        required: false
+        schema:
+          type: integer
+      - name: period
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - ''
+          - today
+          - yesterday
+          - week
+          - month
+          - all
+      - name: date
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Ambil laporan penjualan, produk, kasir, stok, dan pengeluaran.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportBundle'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /reports/tax:
+    get:
+      summary: Ambil laporan pajak bulanan.
+      tags:
+      - Reports
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      parameters:
+      - name: outletId
+        in: query
+        required: false
+        schema:
+          type: integer
+      - name: month
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Bulan laporan dalam format YYYY-MM.
+      responses:
+        '200':
+          description: Ambil laporan pajak bulanan.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaxReport'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /reports/tax/export:
+    get:
+      summary: Ekspor laporan pajak bulanan dalam format CSV.
+      tags:
+      - Reports
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      parameters:
+      - name: outletId
+        in: query
+        required: false
+        schema:
+          type: integer
+      - name: month
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Bulan laporan dalam format YYYY-MM.
+      responses:
+        '200':
+          description: Ekspor laporan pajak bulanan dalam format CSV.
+          content:
+            text/csv:
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /transactions/export:
+    get:
+      summary: Ekspor transaksi dalam format CSV.
+      tags:
+      - Reports
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      parameters:
+      - name: period
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - ''
+          - today
+          - yesterday
+          - week
+          - month
+          - all
+      - name: date
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Ekspor transaksi dalam format CSV.
+          content:
+            text/csv:
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /products/export:
+    get:
+      summary: Ekspor produk dalam format CSV.
+      tags:
+      - Reports
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      responses:
+        '200':
+          description: Ekspor produk dalam format CSV.
+          content:
+            text/csv:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /outlets:
+    get:
+      summary: Daftar outlet toko.
+      tags:
+      - Outlets
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      responses:
+        '200':
+          description: Daftar outlet toko.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OutletList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      summary: Buat outlet toko.
+      tags:
+      - Outlets
+      security:
+      - bearerAuth: []
+      description: Khusus admin. Wajib memakai Bearer JWT; autentikasi X-Api-Key ditolak.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OutletInput'
+      responses:
+        '201':
+          description: Buat outlet toko.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Outlet'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /outlets/{id}:
+    put:
+      summary: Ubah outlet toko.
+      tags:
+      - Outlets
+      security:
+      - bearerAuth: []
+      description: Khusus admin. Wajib memakai Bearer JWT; autentikasi X-Api-Key ditolak.
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OutletInput'
+      responses:
+        '200':
+          description: Ubah outlet toko.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Outlet'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /settings:
+    get:
+      summary: Ambil pengaturan toko.
+      tags:
+      - Outlets
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      responses:
+        '200':
+          description: Ambil pengaturan toko.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoreSettings'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    put:
+      summary: Perbarui pengaturan toko secara parsial.
+      tags:
+      - Outlets
+      security:
+      - bearerAuth: []
+      description: Khusus admin. Wajib memakai Bearer JWT; autentikasi X-Api-Key ditolak.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreSettingsInput'
+      responses:
+        '200':
+          description: Perbarui pengaturan toko secara parsial.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoreSettings'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /outlets/{id}/settings:
+    get:
+      summary: Ambil pengaturan efektif outlet dan nilai override.
+      tags:
+      - Outlets
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Ambil pengaturan efektif outlet dan nilai override.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OutletSettings'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    put:
+      summary: Perbarui override pengaturan outlet.
+      tags:
+      - Outlets
+      security:
+      - bearerAuth: []
+      description: Khusus admin. Wajib memakai Bearer JWT; autentikasi X-Api-Key ditolak.
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OutletSettingsInput'
+      responses:
+        '200':
+          description: Perbarui override pengaturan outlet.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OutletSettings'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /users:
+    get:
+      summary: Daftar akun kasir.
+      tags:
+      - Users
+      security:
+      - bearerAuth: []
+      description: Khusus admin. Wajib memakai Bearer JWT; autentikasi X-Api-Key ditolak.
+      parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Daftar akun kasir.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      summary: Buat akun kasir.
+      tags:
+      - Users
+      security:
+      - bearerAuth: []
+      description: Khusus admin. Wajib memakai Bearer JWT; autentikasi X-Api-Key ditolak.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCreateRequest'
+      responses:
+        '201':
+          description: Buat akun kasir.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /users/{id}:
+    patch:
+      summary: Ubah nama atau outlet akun kasir.
+      tags:
+      - Users
+      security:
+      - bearerAuth: []
+      description: Khusus admin. Wajib memakai Bearer JWT; autentikasi X-Api-Key ditolak.
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdateRequest'
+      responses:
+        '200':
+          description: Ubah nama atau outlet akun kasir.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      summary: Hapus akun kasir.
+      tags:
+      - Users
+      security:
+      - bearerAuth: []
+      description: Khusus admin. Wajib memakai Bearer JWT; autentikasi X-Api-Key ditolak.
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Hapus akun kasir.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /users/{id}/active:
+    patch:
+      summary: Aktifkan atau nonaktifkan akun kasir.
+      tags:
+      - Users
+      security:
+      - bearerAuth: []
+      description: Khusus admin. Wajib memakai Bearer JWT; autentikasi X-Api-Key ditolak.
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActiveRequest'
+      responses:
+        '200':
+          description: Aktifkan atau nonaktifkan akun kasir.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /users/{id}/passcode:
+    put:
+      summary: Atur atau hapus passcode akun.
+      tags:
+      - Users
+      security:
+      - bearerAuth: []
+      description: Khusus admin. Wajib memakai Bearer JWT; autentikasi X-Api-Key ditolak.
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasscodeRequest'
+      responses:
+        '200':
+          description: Atur atau hapus passcode akun.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /notifications:
+    get:
+      summary: Daftar notifikasi dengan filter dan paginasi.
+      tags:
+      - Notifications
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      parameters:
+      - name: category
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: unread
+        in: query
+        required: false
+        schema:
+          type: boolean
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Daftar notifikasi dengan filter dan paginasi.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /notifications/unread-count:
+    get:
+      summary: Hitung notifikasi yang belum dibaca.
+      tags:
+      - Notifications
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      responses:
+        '200':
+          description: Hitung notifikasi yang belum dibaca.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Total'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /notifications/read-all:
+    patch:
+      summary: Tandai semua notifikasi sebagai sudah dibaca.
+      tags:
+      - Notifications
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      responses:
+        '200':
+          description: Tandai semua notifikasi sebagai sudah dibaca.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /notifications/{id}/read:
+    patch:
+      summary: Tandai satu notifikasi sebagai sudah dibaca.
+      tags:
+      - Notifications
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Tandai satu notifikasi sebagai sudah dibaca.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /notifications/{id}:
+    delete:
+      summary: Hapus notifikasi.
+      tags:
+      - Notifications
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Hapus notifikasi.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /activity:
+    get:
+      summary: Daftar aktivitas toko dengan filter dan paginasi.
+      tags:
+      - Activity
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+      - name: actor
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: action
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: date
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Daftar aktivitas toko dengan filter dan paginasi.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api-keys:
+    get:
+      summary: Daftar kunci API toko.
+      tags:
+      - ApiKeys
+      security:
+      - bearerAuth: []
+      description: Khusus admin. Wajib memakai Bearer JWT; autentikasi X-Api-Key ditolak.
+      parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Daftar kunci API toko.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiKeyPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      summary: Buat kunci API.
+      tags:
+      - ApiKeys
+      security:
+      - bearerAuth: []
+      description: Khusus admin. Wajib memakai Bearer JWT; autentikasi X-Api-Key ditolak.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiKeyCreateRequest'
+      responses:
+        '201':
+          description: Buat kunci API.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiKeyCreated'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api-keys/{id}:
+    delete:
+      summary: Cabut kunci API.
+      tags:
+      - ApiKeys
+      security:
+      - bearerAuth: []
+      description: Khusus admin. Wajib memakai Bearer JWT; autentikasi X-Api-Key ditolak.
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Cabut kunci API.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /webhooks:
+    get:
+      summary: Daftar langganan webhook.
+      tags:
+      - Webhooks
+      security:
+      - bearerAuth: []
+      description: Khusus admin. Wajib memakai Bearer JWT; autentikasi X-Api-Key ditolak.
+      parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Daftar langganan webhook.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      summary: Daftarkan webhook.
+      tags:
+      - Webhooks
+      security:
+      - bearerAuth: []
+      description: Khusus admin. Wajib memakai Bearer JWT; autentikasi X-Api-Key ditolak.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookCreateRequest'
+      responses:
+        '201':
+          description: Daftarkan webhook.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookCreated'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /webhooks/{id}:
+    delete:
+      summary: Hapus langganan webhook.
+      tags:
+      - Webhooks
+      security:
+      - bearerAuth: []
+      description: Khusus admin. Wajib memakai Bearer JWT; autentikasi X-Api-Key ditolak.
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Hapus langganan webhook.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-Api-Key
   parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    VariantId:
+      name: variantId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    TierId:
+      name: tierId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     PromoId:
       name: id
       in: path
       required: true
       schema:
         type: integer
+  responses:
+    BadRequest:
+      description: Permintaan tidak valid.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Autentikasi gagal atau sesi tidak valid.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: Akses ditolak untuk peran atau jenis autentikasi ini.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Data tidak ditemukan.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Conflict:
+      description: Permintaan bertentangan dengan status data saat ini.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Gone:
+      description: Kode OTP telah kedaluwarsa.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    TooManyRequests:
+      description: Batas permintaan tercapai.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    InternalError:
+      description: Terjadi kesalahan pada server.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
   schemas:
-    Promo:
+    Error:
       type: object
+      properties:
+        error:
+          type: string
+          description: Pesan kesalahan yang dapat dibaca manusia.
+        code:
+          type: string
+          description: Kode mesin bila dikirim handler, misalnya SHIFT_REQUIRED, PASSCODE_REQUIRED, PASSCODE_WRONG, OTP_REQUIRED, OTP_WRONG, OTP_EXPIRED, OTP_MAX_ATTEMPTS, PROMO_INVALID, PROMO_CODE_TAKEN, BAD_DIRECTION, TRANSFER_SAME_OUTLET, TRANSFER_ITEMS_EMPTY, TRANSFER_INVALID_QTY, TRANSFER_INVALID_ITEM, API_KEY_NAME_REQUIRED, NOT_FOUND, WEBHOOK_NOT_FOUND, WEBHOOK_URL_INVALID, WEBHOOK_URL_PRIVATE, WEBHOOK_EVENTS_INVALID, atau INTERNAL.
       required:
-        - id
-        - created_at
-        - updated_at
-        - store_id
-        - name
-        - type
-        - value
-        - scope
-        - voucher_code
-        - starts_at
-        - ends_at
-        - min_purchase
-        - max_discount
-        - combinable
-        - active
+      - error
+    Page:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+      required:
+      - items
+      - total
+      - page
+      - limit
+    Message:
+      type: object
+      properties:
+        message:
+          type: string
+      required:
+      - message
+    Status:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+      - status
+    Total:
+      type: object
+      properties:
+        total:
+          type: integer
+          format: int64
+      required:
+      - total
+    OkResult:
+      type: object
+      properties:
+        ok:
+          type: boolean
+      required:
+      - ok
+    Verified:
+      type: object
+      properties:
+        verified:
+          type: boolean
+        message:
+          type: string
+      required:
+      - verified
+      - message
+    Health:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - ok
+          - degraded
+        database:
+          type: string
+          enum:
+          - up
+          - down
+        service:
+          type: string
+      required:
+      - status
+      - database
+      - service
+    Category:
+      type: object
       properties:
         id:
           type: integer
@@ -204,33 +4249,470 @@ components:
         created_at:
           type: string
           format: date-time
+          nullable: true
         updated_at:
           type: string
           format: date-time
+          nullable: true
         store_id:
           type: integer
+          format: int64
+        name:
+          type: string
+        active:
+          type: boolean
+      required:
+      - id
+      - created_at
+      - updated_at
+      - store_id
+      - name
+      - active
+    PriceTier:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+        product_id:
+          type: integer
+          format: int64
+        variant_id:
+          type: integer
+          format: int64
+          nullable: true
+        min_qty:
+          type: integer
+        sell_price:
+          type: integer
+          format: int64
+          nullable: true
+      required:
+      - id
+      - created_at
+      - updated_at
+      - product_id
+      - min_qty
+      - sell_price
+    Variant:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+        outlet_id:
+          type: integer
+          format: int64
+          nullable: true
+        product_id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        sku:
+          type: string
+        buy_price:
+          type: integer
+          format: int64
+          nullable: true
+        sell_price:
+          type: integer
+          format: int64
+          nullable: true
+        stock:
+          type: integer
+        min_stock:
+          type: integer
+        price_tiers:
+          type: array
+          items:
+            $ref: '#/components/schemas/PriceTier'
+          nullable: true
+      required:
+      - id
+      - created_at
+      - updated_at
+      - product_id
+      - name
+      - sku
+      - buy_price
+      - sell_price
+      - stock
+      - min_stock
+      - price_tiers
+    Product:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+        outlet_id:
+          type: integer
+          format: int64
+          nullable: true
+        category_id:
+          type: integer
+          format: int64
+          nullable: true
+        category_name:
+          type: string
+          nullable: true
+        name:
+          type: string
+        sku:
+          type: string
+        barcode:
+          type: string
+        buy_price:
+          type: integer
+          format: int64
+          nullable: true
+        sell_price:
+          type: integer
+          format: int64
+          nullable: true
+        stock:
+          type: integer
+        min_stock:
+          type: integer
+        unit:
+          type: string
+        active:
+          type: boolean
+        variants:
+          type: array
+          items:
+            $ref: '#/components/schemas/Variant'
+          nullable: true
+        price_tiers:
+          type: array
+          items:
+            $ref: '#/components/schemas/PriceTier'
+          nullable: true
+      required:
+      - id
+      - created_at
+      - updated_at
+      - category_id
+      - category_name
+      - name
+      - sku
+      - barcode
+      - buy_price
+      - sell_price
+      - stock
+      - min_stock
+      - unit
+      - active
+      - variants
+      - price_tiers
+    Customer:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+        store_id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        address:
+          type: string
+        points:
+          type: integer
+          format: int64
+          nullable: true
+      required:
+      - id
+      - created_at
+      - updated_at
+      - store_id
+      - name
+      - phone
+      - email
+      - address
+      - points
+    TransactionItem:
+      type: object
+      properties:
+        product_id:
+          type: integer
+          format: int64
+        variant_id:
+          type: integer
+          format: int64
+          nullable: true
+        variant_name:
+          type: string
+        name:
+          type: string
+        buy_price:
+          type: integer
+          format: int64
+          nullable: true
+        price:
+          type: integer
+          format: int64
+          nullable: true
+        qty:
+          type: integer
+      required:
+      - product_id
+      - name
+      - buy_price
+      - price
+      - qty
+    FinalStock:
+      type: object
+      properties:
+        product_id:
+          type: integer
+          format: int64
+        variant_id:
+          type: integer
+          format: int64
+          nullable: true
+        stock:
+          type: integer
+      required:
+      - product_id
+      - variant_id
+      - stock
+    RefundDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransactionItem'
+        reason:
+          type: string
+        actor:
+          type: string
+      required:
+      - id
+      - created_at
+      - items
+      - reason
+      - actor
+    Transaction:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+        outlet_id:
+          type: integer
+          format: int64
+          nullable: true
+        client_tx_id:
+          type: string
+        cashier_name:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransactionItem'
+        subtotal:
+          type: integer
+          format: int64
+          nullable: true
+        discount:
+          type: integer
+          format: int64
+          nullable: true
+        promo_id:
+          type: integer
+          format: int64
+          nullable: true
+        promo_name:
+          type: string
+        promo_discount:
+          type: integer
+          format: int64
+          nullable: true
+        voucher_id:
+          type: integer
+          format: int64
+          nullable: true
+        voucher_code:
+          type: string
+        voucher_discount:
+          type: integer
+          format: int64
+          nullable: true
+        tax:
+          type: integer
+          format: int64
+          nullable: true
+        total:
+          type: integer
+          format: int64
+          nullable: true
+        method:
+          type: string
+        paid:
+          type: integer
+          format: int64
+          nullable: true
+        change:
+          type: integer
+          format: int64
+          nullable: true
+        status:
+          type: string
+          enum:
+          - pending
+          - completed
+          - completed_offline_shortage
+          - cancelled
+          - refunded
+        customer:
+          type: string
+        customer_id:
+          type: integer
+          format: int64
+          nullable: true
+        points_earned:
+          type: integer
+          format: int64
+          nullable: true
+        points_redeemed:
+          type: integer
+          format: int64
+          nullable: true
+        points_discount:
+          type: integer
+          format: int64
+          nullable: true
+        final_stocks:
+          type: array
+          items:
+            $ref: '#/components/schemas/FinalStock'
+      required:
+      - id
+      - created_at
+      - updated_at
+      - cashier_name
+      - items
+      - subtotal
+      - discount
+      - promo_discount
+      - voucher_discount
+      - tax
+      - total
+      - method
+      - paid
+      - change
+      - status
+      - customer
+      - customer_id
+      - points_earned
+      - points_redeemed
+      - points_discount
+    TransactionDetail:
+      allOf:
+      - $ref: '#/components/schemas/Transaction'
+      - type: object
+        properties:
+          refunds:
+            type: array
+            items:
+              $ref: '#/components/schemas/RefundDetail'
+    Promo:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+          nullable: false
+        updated_at:
+          type: string
+          format: date-time
+          nullable: false
+        store_id:
+          type: integer
+          format: int64
         name:
           type: string
         type:
           type: string
           enum:
-            - percent
-            - amount
+          - percent
+          - amount
         value:
           oneOf:
-            - type: number
-            - type: integer
+          - type: number
+          - type: integer
+            format: int64
         scope:
           type: string
           enum:
-            - all
-            - category
-            - product
+          - all
+          - category
+          - product
         category_id:
           type: integer
+          format: int64
           nullable: true
         product_id:
           type: integer
+          format: int64
           nullable: true
         voucher_code:
           type: string
@@ -238,9 +4720,11 @@ components:
         starts_at:
           type: string
           format: date-time
+          nullable: false
         ends_at:
           type: string
           format: date-time
+          nullable: false
         happy_start:
           type: string
           nullable: true
@@ -250,52 +4734,1886 @@ components:
         min_purchase:
           type: integer
           format: int64
+          nullable: false
         max_discount:
           type: integer
           format: int64
+          nullable: false
         combinable:
           type: boolean
         active:
           type: boolean
-    PromoList:
-      type: object
       required:
-        - items
+      - id
+      - created_at
+      - updated_at
+      - store_id
+      - name
+      - type
+      - value
+      - scope
+      - voucher_code
+      - starts_at
+      - ends_at
+      - min_purchase
+      - max_discount
+      - combinable
+      - active
+    PromoPreview:
+      type: object
+      properties:
+        promo_id:
+          type: integer
+          format: int64
+        promo_name:
+          type: string
+        promo_discount:
+          type: integer
+          format: int64
+          nullable: true
+        voucher_id:
+          type: integer
+          format: int64
+        voucher_name:
+          type: string
+        voucher_code:
+          type: string
+        voucher_discount:
+          type: integer
+          format: int64
+          nullable: true
+      required:
+      - promo_id
+      - promo_name
+      - promo_discount
+      - voucher_id
+      - voucher_name
+      - voucher_code
+      - voucher_discount
+    Supplier:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+        store_id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        contact:
+          type: string
+        address:
+          type: string
+      required:
+      - id
+      - created_at
+      - updated_at
+      - store_id
+      - name
+      - contact
+      - address
+    PurchaseOrderItem:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        purchase_order_id:
+          type: integer
+          format: int64
+        product_id:
+          type: integer
+          format: int64
+        variant_id:
+          type: integer
+          format: int64
+          nullable: true
+        qty_ordered:
+          type: integer
+        qty_received:
+          type: integer
+        buy_price:
+          type: integer
+          format: int64
+          nullable: true
+      required:
+      - id
+      - purchase_order_id
+      - product_id
+      - qty_ordered
+      - qty_received
+      - buy_price
+    PurchaseOrder:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+        store_id:
+          type: integer
+          format: int64
+        outlet_id:
+          type: integer
+          format: int64
+          nullable: true
+        supplier_id:
+          type: integer
+          format: int64
+        number:
+          type: string
+        status:
+          type: string
+          enum:
+          - draft
+          - ordered
+          - partially_received
+          - fully_received
+          - cancelled
+        supplier:
+          $ref: '#/components/schemas/Supplier'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PurchaseOrderItem'
+      required:
+      - id
+      - created_at
+      - updated_at
+      - store_id
+      - supplier_id
+      - number
+      - status
+    Expense:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+        store_id:
+          type: integer
+          format: int64
+        outlet_id:
+          type: integer
+          format: int64
+          nullable: true
+        date:
+          type: string
+          format: date-time
+        category:
+          type: string
+        note:
+          type: string
+        amount:
+          type: integer
+          format: int64
+          nullable: true
+        method:
+          type: string
+        source:
+          type: string
+          enum:
+          - drawer
+          - outside
+        shift_id:
+          type: integer
+          format: int64
+          nullable: true
+        created_by_id:
+          type: integer
+          format: int64
+        created_by_name:
+          type: string
+      required:
+      - id
+      - created_at
+      - updated_at
+      - store_id
+      - outlet_id
+      - date
+      - category
+      - note
+      - amount
+      - method
+      - source
+      - shift_id
+      - created_by_id
+      - created_by_name
+    ReceivablePayment:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+        receivable_id:
+          type: integer
+          format: int64
+        amount:
+          type: integer
+          format: int64
+          nullable: true
+        method:
+          type: string
+        created_by:
+          type: string
+      required:
+      - id
+      - created_at
+      - updated_at
+      - receivable_id
+      - amount
+      - method
+      - created_by
+    PayablePayment:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+        payable_id:
+          type: integer
+          format: int64
+        amount:
+          type: integer
+          format: int64
+          nullable: true
+        method:
+          type: string
+        created_by:
+          type: string
+      required:
+      - id
+      - created_at
+      - updated_at
+      - payable_id
+      - amount
+      - method
+      - created_by
+    Receivable:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+        customer_id:
+          type: integer
+          format: int64
+        transaction_id:
+          type: integer
+          format: int64
+        amount:
+          type: integer
+          format: int64
+          nullable: true
+        due_date:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          type: string
+          enum:
+          - unpaid
+          - partially_paid
+          - paid
+        remaining:
+          type: integer
+          format: int64
+          nullable: true
+        customer_name:
+          type: string
+        invoice_number:
+          type: string
+        payments:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReceivablePayment'
+      required:
+      - id
+      - created_at
+      - updated_at
+      - customer_id
+      - transaction_id
+      - amount
+      - due_date
+      - status
+      - remaining
+      - customer_name
+      - invoice_number
+    Payable:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+        supplier_id:
+          type: integer
+          format: int64
+        purchase_order_id:
+          type: integer
+          format: int64
+        amount:
+          type: integer
+          format: int64
+          nullable: true
+        status:
+          type: string
+          enum:
+          - unpaid
+          - partially_paid
+          - paid
+        remaining:
+          type: integer
+          format: int64
+          nullable: true
+        supplier_name:
+          type: string
+        purchase_order_number:
+          type: string
+        payments:
+          type: array
+          items:
+            $ref: '#/components/schemas/PayablePayment'
+      required:
+      - id
+      - created_at
+      - updated_at
+      - supplier_id
+      - purchase_order_id
+      - amount
+      - status
+      - remaining
+      - supplier_name
+      - purchase_order_number
+    Shift:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        outlet_id:
+          type: integer
+          format: int64
+          nullable: true
+        cashier_name:
+          type: string
+        closed_by_name:
+          type: string
+          nullable: true
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        closed_at:
+          type: string
+          format: date-time
+          nullable: true
+        opening_cash:
+          type: integer
+          format: int64
+          nullable: true
+        sales_by_method:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int64
+            nullable: true
+        refund_total:
+          type: integer
+          format: int64
+          nullable: true
+        sales:
+          type: integer
+          format: int64
+          nullable: true
+        trx_count:
+          type: integer
+          format: int64
+        expected_cash:
+          type: integer
+          format: int64
+          nullable: true
+        cash_expenses:
+          type: integer
+          format: int64
+          nullable: true
+        closing_cash_actual:
+          type: integer
+          format: int64
+          nullable: true
+        cash_variance:
+          type: integer
+          format: int64
+          nullable: true
+        close_note:
+          type: string
+          nullable: true
+      required:
+      - id
+      - cashier_name
+      - closed_by_name
+      - started_at
+      - closed_at
+      - opening_cash
+      - sales_by_method
+      - refund_total
+      - sales
+      - trx_count
+      - expected_cash
+      - cash_expenses
+      - closing_cash_actual
+      - cash_variance
+      - close_note
+    ShiftHour:
+      type: object
+      properties:
+        hour:
+          type: integer
+        omzet:
+          type: integer
+          format: int64
+          nullable: true
+      required:
+      - hour
+      - omzet
+    ShiftTopProduct:
+      type: object
+      properties:
+        product_id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        qty:
+          type: integer
+      required:
+      - product_id
+      - name
+      - qty
+    ShiftTransactionPage:
+      type: object
       properties:
         items:
           type: array
           items:
-            $ref: '#/components/schemas/Promo'
+            $ref: '#/components/schemas/Transaction'
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+          format: int64
+      required:
+      - items
+      - page
+      - limit
+      - total
+    ShiftDetail:
+      type: object
+      properties:
+        shift:
+          $ref: '#/components/schemas/Shift'
+        transactions:
+          $ref: '#/components/schemas/ShiftTransactionPage'
+        hourly:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShiftHour'
+        top_products:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShiftTopProduct'
+      required:
+      - shift
+      - transactions
+      - hourly
+      - top_products
+    CurrentShift:
+      type: object
+      properties:
+        shift:
+          $ref: '#/components/schemas/Shift'
+        hourly:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShiftHour'
+        top_products:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShiftTopProduct'
+      required:
+      - shift
+      - hourly
+      - top_products
+    ShiftStarted:
+      type: object
+      properties:
+        shift:
+          $ref: '#/components/schemas/Shift'
+      required:
+      - shift
+    ShiftClosed:
+      type: object
+      properties:
+        message:
+          type: string
+        summary:
+          $ref: '#/components/schemas/Shift'
+      required:
+      - message
+      - summary
+    Outlet:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+        store_id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        address:
+          type: string
+        is_default:
+          type: boolean
+      required:
+      - id
+      - created_at
+      - updated_at
+      - store_id
+      - name
+      - address
+      - is_default
+    StoreHours:
+      type: object
+      properties:
+        days:
+          type: string
+        open:
+          type: string
+          nullable: true
+        close:
+          type: string
+          nullable: true
+      required:
+      - days
+      - open
+      - close
+    StoreSettings:
+      type: object
+      properties:
+        storeName:
+          type: string
+        address:
+          type: string
+        phone:
+          type: string
+        taxEnabled:
+          type: boolean
+        taxPct:
+          type: number
+        receiptHeader:
+          type: string
+        receiptFooter:
+          type: string
+        paper:
+          type: string
+        timezone:
+          type: string
+        businessType:
+          type: string
+        email:
+          type: string
+        city:
+          type: string
+        province:
+          type: string
+        currency:
+          type: string
+        hours:
+          type: array
+          items:
+            $ref: '#/components/schemas/StoreHours'
+        receiptShowLogo:
+          type: boolean
+        receiptShowCashier:
+          type: boolean
+        receiptShowMethod:
+          type: boolean
+        receiptShowTax:
+          type: boolean
+        receiptShowDiscount:
+          type: boolean
+        receiptShowNote:
+          type: boolean
+        taxName:
+          type: string
+        taxInclusive:
+          type: boolean
+        taxRounding:
+          type: string
+        taxApplyTo:
+          type: string
+        loyalty_enabled:
+          type: boolean
+        loyalty_earn_per:
+          type: integer
+          format: int64
+          nullable: true
+        loyalty_point_value:
+          type: integer
+          format: int64
+          nullable: true
+        creditDueDays:
+          type: integer
+        lowStockDefault:
+          type: integer
+      required:
+      - storeName
+      - address
+      - phone
+      - taxEnabled
+      - taxPct
+      - receiptHeader
+      - receiptFooter
+      - paper
+      - timezone
+      - businessType
+      - email
+      - city
+      - province
+      - currency
+      - hours
+      - receiptShowLogo
+      - receiptShowCashier
+      - receiptShowMethod
+      - receiptShowTax
+      - receiptShowDiscount
+      - receiptShowNote
+      - taxName
+      - taxInclusive
+      - taxRounding
+      - taxApplyTo
+      - loyalty_enabled
+      - loyalty_earn_per
+      - loyalty_point_value
+      - creditDueDays
+      - lowStockDefault
+    OutletSettings:
+      allOf:
+      - $ref: '#/components/schemas/StoreSettings'
+      - type: object
+        properties:
+          overrides:
+            type: object
+            additionalProperties: true
+        required:
+        - overrides
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        email:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+          enum:
+          - admin
+          - cashier
+        active:
+          type: boolean
+        online:
+          type: boolean
+        last_seen_at:
+          type: string
+          format: date-time
+          nullable: true
+        store_id:
+          type: integer
+          format: int64
+        store_name:
+          type: string
+        outlet_id:
+          type: integer
+          format: int64
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+        has_passcode:
+          type: boolean
+      required:
+      - id
+      - email
+      - name
+      - role
+      - active
+      - online
+      - store_id
+      - created_at
+      - has_passcode
+    Notification:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+        store_id:
+          type: integer
+          format: int64
+        title:
+          type: string
+        message:
+          type: string
+        category:
+          type: string
+          enum:
+          - stok
+          - transaksi
+          - sistem
+        type:
+          type: string
+        actor_id:
+          type: string
+        actor_name:
+          type: string
+        reference_type:
+          type: string
+        reference_id:
+          type: string
+        read:
+          type: boolean
+      required:
+      - id
+      - created_at
+      - updated_at
+      - store_id
+      - title
+      - message
+      - category
+      - type
+      - read
+    Activity:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+        store_id:
+          type: integer
+          format: int64
+        actor_id:
+          type: string
+        actor_name:
+          type: string
+        action:
+          type: string
+        detail:
+          type: string
+        reference_type:
+          type: string
+        reference_id:
+          type: string
+      required:
+      - id
+      - created_at
+      - updated_at
+      - store_id
+      - actor_id
+      - actor_name
+      - action
+      - detail
+    StockTransferItem:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+        transfer_id:
+          type: integer
+          format: int64
+        product_id:
+          type: integer
+          format: int64
+        variant_id:
+          type: integer
+          format: int64
+          nullable: true
+        qty:
+          type: integer
+      required:
+      - id
+      - created_at
+      - updated_at
+      - transfer_id
+      - product_id
+      - qty
+    StockTransfer:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+        from_outlet_id:
+          type: integer
+          format: int64
+        to_outlet_id:
+          type: integer
+          format: int64
+        note:
+          type: string
+        created_by:
+          type: integer
+          format: int64
+        created_by_name:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/StockTransferItem'
+      required:
+      - id
+      - created_at
+      - updated_at
+      - from_outlet_id
+      - to_outlet_id
+      - note
+      - created_by
+      - created_by_name
+      - items
+    ApiKey:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        prefix:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_used_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - id
+      - name
+      - prefix
+      - created_at
+      - last_used_at
+    ApiKeyCreated:
+      allOf:
+      - $ref: '#/components/schemas/ApiKey'
+      - type: object
+        properties:
+          apiKey:
+            type: string
+            description: Kunci API lengkap. Hanya ditampilkan satu kali saat pembuatan; simpan di tempat aman.
+        required:
+        - apiKey
+    Webhook:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        url:
+          type: string
+        events:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - id
+      - url
+      - events
+      - created_at
+    WebhookCreated:
+      allOf:
+      - $ref: '#/components/schemas/Webhook'
+      - type: object
+        properties:
+          secret:
+            type: string
+            description: Rahasia penanda tangan webhook. Hanya ditampilkan satu kali saat pembuatan; dipakai memverifikasi header X-NOJPOS-Signature.
+        required:
+        - secret
+    DashboardToday:
+      type: object
+      properties:
+        omzet:
+          type: integer
+          format: int64
+          nullable: true
+        trx_count:
+          type: integer
+          format: int64
+        items_sold:
+          type: integer
+          format: int64
+        refund_total:
+          type: integer
+          format: int64
+          nullable: true
+        low_stock:
+          type: integer
+          format: int64
+    DayPoint:
+      type: object
+      properties:
+        date:
+          type: string
+        omzet:
+          type: integer
+          format: int64
+          nullable: true
+    MethodPoint:
+      type: object
+      properties:
+        method:
+          type: string
+        total:
+          type: integer
+          format: int64
+          nullable: true
+    TopProduct:
+      type: object
+      properties:
+        product_id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        qty:
+          type: integer
+        revenue:
+          type: integer
+          format: int64
+          nullable: true
+    TransactionBrief:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        cashier_name:
+          type: string
+        total:
+          type: integer
+          format: int64
+          nullable: true
+        status:
+          type: string
+        time:
+          type: string
+          format: date-time
+          nullable: true
+    Dashboard:
+      type: object
+      properties:
+        role:
+          type: string
+        today:
+          $ref: '#/components/schemas/DashboardToday'
+        sales7:
+          type: array
+          items:
+            $ref: '#/components/schemas/DayPoint'
+        methods:
+          type: array
+          items:
+            $ref: '#/components/schemas/MethodPoint'
+        top_products:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopProduct'
+        recent:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransactionBrief'
+      additionalProperties: true
+    ReportBundle:
+      type: object
+      properties:
+        period:
+          type: string
+        summary:
+          type: object
+          additionalProperties: true
+        by_method:
+          type: array
+          items:
+            $ref: '#/components/schemas/MethodPoint'
+        by_status:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        products:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        transactions:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        cashiers:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        stock:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        expenses:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+      additionalProperties: true
+    TaxReport:
+      type: object
+      properties:
+        month:
+          type: string
+        omzet_bruto:
+          type: integer
+          format: int64
+          nullable: true
+        refund_total:
+          type: integer
+          format: int64
+          nullable: true
+        omzet_neto:
+          type: integer
+          format: int64
+          nullable: true
+        dpp:
+          type: integer
+          format: int64
+          nullable: true
+        ppn_terkumpul:
+          type: integer
+          format: int64
+          nullable: true
+        trx_count:
+          type: integer
+          format: int64
+        refund_count:
+          type: integer
+          format: int64
+        pph_final_estimate:
+          type: integer
+          format: int64
+          nullable: true
+      required:
+      - month
+      - omzet_bruto
+      - refund_total
+      - omzet_neto
+      - dpp
+      - ppn_terkumpul
+      - trx_count
+      - refund_count
+      - pph_final_estimate
+    StockOpnameItem:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+        session_id:
+          type: integer
+          format: int64
+        product_id:
+          type: integer
+          format: int64
+        variant_id:
+          type: integer
+          format: int64
+          nullable: true
+        system_stock:
+          type: integer
+        counted_stock:
+          type: integer
+          nullable: true
+        difference:
+          type: integer
+          nullable: true
+        product_name:
+          type: string
+        variant_name:
+          type: string
+      required:
+      - id
+      - created_at
+      - updated_at
+      - session_id
+      - product_id
+      - system_stock
+      - counted_stock
+      - difference
+    StockOpname:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+        store_id:
+          type: integer
+          format: int64
+        outlet_id:
+          type: integer
+          format: int64
+          nullable: true
+        status:
+          type: string
+          enum:
+          - counting
+          - posted
+          - cancelled
+        note:
+          type: string
+        created_by:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/StockOpnameItem'
+    Movement:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+        outlet_id:
+          type: integer
+          format: int64
+          nullable: true
+        product_id:
+          type: integer
+          format: int64
+        variant_id:
+          type: integer
+          format: int64
+          nullable: true
+        product_name:
+          type: string
+          nullable: true
+        type:
+          type: string
+          enum:
+          - sale
+          - refund
+          - adjust
+          - initial
+          - purchase
+          - opname
+          - transfer_out
+          - transfer_in
+        qty:
+          type: integer
+        reason:
+          type: string
+        actor:
+          type: string
+      required:
+      - id
+      - created_at
+      - updated_at
+      - product_id
+      - product_name
+      - type
+      - qty
+      - reason
+      - actor
+    ImportRowError:
+      type: object
+      properties:
+        baris:
+          type: integer
+        alasan:
+          type: string
+    ImportResult:
+      type: object
+      properties:
+        total:
+          type: integer
+        berhasil:
+          type: integer
+        gagal:
+          type: integer
+        kesalahan:
+          type: array
+          items:
+            $ref: '#/components/schemas/ImportRowError'
+    CategoryEnvelope:
+      type: object
+      properties:
+        category:
+          $ref: '#/components/schemas/Category'
+    ProductEnvelope:
+      type: object
+      properties:
+        product:
+          $ref: '#/components/schemas/Product'
+    UserEnvelope:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+    MeResponse:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+    AuthResponse:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+    SoftDeleteResult:
+      type: object
+      properties:
+        soft_deleted:
+          type: boolean
+    CategoryPage:
+      allOf:
+      - $ref: '#/components/schemas/Page'
+      - type: object
+        properties:
+          items:
+            type: array
+            items:
+              $ref: '#/components/schemas/Category'
+    ProductPage:
+      allOf:
+      - $ref: '#/components/schemas/Page'
+      - type: object
+        properties:
+          items:
+            type: array
+            items:
+              $ref: '#/components/schemas/Product'
+    CustomerPage:
+      allOf:
+      - $ref: '#/components/schemas/Page'
+      - type: object
+        properties:
+          items:
+            type: array
+            items:
+              $ref: '#/components/schemas/Customer'
+    TransactionPage:
+      allOf:
+      - $ref: '#/components/schemas/Page'
+      - type: object
+        properties:
+          items:
+            type: array
+            items:
+              $ref: '#/components/schemas/Transaction'
+    SupplierPage:
+      allOf:
+      - $ref: '#/components/schemas/Page'
+      - type: object
+        properties:
+          items:
+            type: array
+            items:
+              $ref: '#/components/schemas/Supplier'
+    ExpensePage:
+      allOf:
+      - $ref: '#/components/schemas/Page'
+      - type: object
+        properties:
+          items:
+            type: array
+            items:
+              $ref: '#/components/schemas/Expense'
+    MovementPage:
+      allOf:
+      - $ref: '#/components/schemas/Page'
+      - type: object
+        properties:
+          items:
+            type: array
+            items:
+              $ref: '#/components/schemas/Movement'
+    StockTransferPage:
+      allOf:
+      - $ref: '#/components/schemas/Page'
+      - type: object
+        properties:
+          items:
+            type: array
+            items:
+              $ref: '#/components/schemas/StockTransfer'
+    ShiftPage:
+      allOf:
+      - $ref: '#/components/schemas/Page'
+      - type: object
+        properties:
+          items:
+            type: array
+            items:
+              $ref: '#/components/schemas/Shift'
+    UserPage:
+      allOf:
+      - $ref: '#/components/schemas/Page'
+      - type: object
+        properties:
+          items:
+            type: array
+            items:
+              $ref: '#/components/schemas/User'
+    NotificationPage:
+      allOf:
+      - $ref: '#/components/schemas/Page'
+      - type: object
+        properties:
+          items:
+            type: array
+            items:
+              $ref: '#/components/schemas/Notification'
+    ActivityPage:
+      allOf:
+      - $ref: '#/components/schemas/Page'
+      - type: object
+        properties:
+          items:
+            type: array
+            items:
+              $ref: '#/components/schemas/Activity'
+    ApiKeyPage:
+      allOf:
+      - $ref: '#/components/schemas/Page'
+      - type: object
+        properties:
+          items:
+            type: array
+            items:
+              $ref: '#/components/schemas/ApiKey'
+    WebhookPage:
+      allOf:
+      - $ref: '#/components/schemas/Page'
+      - type: object
+        properties:
+          items:
+            type: array
+            items:
+              $ref: '#/components/schemas/Webhook'
+    ReceivableList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Receivable'
+    PayableList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Payable'
+    PurchaseOrderList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PurchaseOrder'
+    TransactionList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transaction'
+    VariantList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Variant'
+    PriceTierList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PriceTier'
+    StockOpnameList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/StockOpname'
+    OutletList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Outlet'
+    RegisterRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        password:
+          type: string
+        storeName:
+          type: string
+      required:
+      - name
+      - email
+      - password
+      - storeName
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+      required:
+      - email
+      - password
+    GoogleLoginRequest:
+      type: object
+      properties:
+        id_token:
+          type: string
+        storeName:
+          type: string
+      required:
+      - id_token
+    RefreshRequest:
+      type: object
+      properties:
+        refresh_token:
+          type: string
+      required:
+      - refresh_token
+    LogoutRequest:
+      type: object
+      properties:
+        refresh_token:
+          type: string
+    EmailRequest:
+      type: object
+      properties:
+        email:
+          type: string
+      required:
+      - email
+    OtpVerifyRequest:
+      type: object
+      properties:
+        email:
+          type: string
+        code:
+          type: string
+      required:
+      - email
+      - code
+    ResetPasswordRequest:
+      type: object
+      properties:
+        email:
+          type: string
+        code:
+          type: string
+        new_password:
+          type: string
+      required:
+      - email
+      - code
+      - new_password
+    SwitchOutletRequest:
+      type: object
+      properties:
+        outletId:
+          type: integer
+          format: int64
+      required:
+      - outletId
+    ChangePasswordRequest:
+      type: object
+      properties:
+        old_password:
+          type: string
+        new_password:
+          type: string
+      required:
+      - old_password
+      - new_password
+    SwitchUserRequest:
+      type: object
+      properties:
+        target_user_id:
+          type: integer
+          format: int64
+        passcode:
+          type: string
+        role:
+          type: string
+          enum:
+          - admin
+          - cashier
+      required:
+      - target_user_id
+    CategoryInput:
+      type: object
+      properties:
+        name:
+          type: string
+      required:
+      - name
+    ProductInput:
+      type: object
+      properties:
+        name:
+          type: string
+        sku:
+          type: string
+        barcode:
+          type: string
+        categoryId:
+          type: integer
+          format: int64
+          nullable: true
+        buyPrice:
+          type: integer
+          format: int64
+          nullable: true
+        sellPrice:
+          type: integer
+          format: int64
+          nullable: true
+        stock:
+          type: integer
+          nullable: true
+        minStock:
+          type: integer
+          nullable: true
+        unit:
+          type: string
+      required:
+      - name
+      - sku
+    VariantInput:
+      type: object
+      properties:
+        name:
+          type: string
+        sku:
+          type: string
+        buyPrice:
+          type: integer
+          format: int64
+          nullable: true
+        sellPrice:
+          type: integer
+          format: int64
+          nullable: true
+        stock:
+          type: integer
+        minStock:
+          type: integer
+      required:
+      - name
+      - sku
+    PriceTierInput:
+      type: object
+      properties:
+        minQty:
+          type: integer
+        sellPrice:
+          type: integer
+          format: int64
+          nullable: true
+      required:
+      - minQty
+      - sellPrice
+    ProductImportRequest:
+      type: object
+      properties:
+        file:
+          type: string
+          format: binary
+          description: CSV maksimal 5 MiB dan 1.000 baris data.
+      required:
+      - file
+    ActiveRequest:
+      type: object
+      properties:
+        active:
+          type: boolean
+      required:
+      - active
+    StockOpnameCreateRequest:
+      type: object
+      properties:
+        note:
+          type: string
+    StockOpnameCountItem:
+      type: object
+      properties:
+        itemId:
+          type: integer
+          format: int64
+        countedStock:
+          type: integer
+      required:
+      - itemId
+      - countedStock
+    StockOpnameCountRequest:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/StockOpnameCountItem'
+      required:
+      - items
+    StockAdjustmentRequest:
+      type: object
+      properties:
+        productId:
+          type: integer
+          format: int64
+        variantId:
+          type: integer
+          format: int64
+          nullable: true
+        direction:
+          type: string
+          enum:
+          - plus
+          - minus
+          description: Arah penyesuaian stok.
+        qty:
+          type: integer
+          format: int64
+          nullable: true
+        reason:
+          type: string
+      required:
+      - productId
+      - direction
+      - qty
+    StockTransferItemInput:
+      type: object
+      properties:
+        productId:
+          type: integer
+          format: int64
+        variantId:
+          type: integer
+          format: int64
+          nullable: true
+        qty:
+          type: integer
+      required:
+      - productId
+      - qty
+    StockTransferInput:
+      type: object
+      properties:
+        fromOutletId:
+          type: integer
+          format: int64
+        toOutletId:
+          type: integer
+          format: int64
+        note:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/StockTransferItemInput'
+      required:
+      - fromOutletId
+      - toOutletId
+      - items
     PromoInput:
       type: object
-      required:
-        - name
-        - type
-        - value
-        - scope
-        - startsAt
-        - endsAt
       properties:
         name:
           type: string
         type:
           type: string
           enum:
-            - percent
-            - amount
+          - percent
+          - amount
         value:
-          type: number
+          oneOf:
+          - type: number
+          - type: integer
+            format: int64
+            nullable: true
         scope:
           type: string
           enum:
-            - all
-            - category
-            - product
+          - all
+          - category
+          - product
         categoryId:
           type: integer
+          format: int64
           nullable: true
         productId:
           type: integer
+          format: int64
           nullable: true
         voucherCode:
           type: string
@@ -315,15 +6633,44 @@ components:
         minPurchase:
           type: integer
           format: int64
+          nullable: false
         maxDiscount:
           type: integer
           format: int64
+          nullable: false
         combinable:
           type: boolean
+      required:
+      - name
+      - type
+      - value
+      - scope
+      - startsAt
+      - endsAt
+    PromoActiveRequest:
+      type: object
+      properties:
+        active:
+          type: boolean
+      required:
+      - active
+    PreviewItem:
+      type: object
+      properties:
+        productId:
+          type: integer
+          format: int64
+        variantId:
+          type: integer
+          format: int64
+          nullable: true
+        qty:
+          type: integer
+      required:
+      - productId
+      - qty
     PreviewRequest:
       type: object
-      required:
-        - items
       properties:
         items:
           type: array
@@ -331,59 +6678,357 @@ components:
             $ref: '#/components/schemas/PreviewItem'
         voucherCode:
           type: string
-    PreviewItem:
-      type: object
       required:
-        - productId
-        - qty
+      - items
+    CustomerInput:
+      type: object
+      properties:
+        name:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        address:
+          type: string
+      required:
+      - name
+    CheckoutItemInput:
+      type: object
       properties:
         productId:
           type: integer
+          format: int64
         variantId:
           type: integer
+          format: int64
           nullable: true
         qty:
           type: integer
-    PromoPreview:
-      type: object
       required:
-        - promo_id
-        - promo_name
-        - promo_discount
-        - voucher_id
-        - voucher_name
-        - voucher_code
-        - voucher_discount
+      - productId
+      - qty
+    CheckoutRequest:
+      type: object
       properties:
-        promo_id:
-          type: integer
-        promo_name:
-          type: string
-        promo_discount:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CheckoutItemInput'
+        discount:
           type: integer
           format: int64
-        voucher_id:
-          type: integer
-        voucher_name:
+          nullable: true
+        voucherCode:
           type: string
-        voucher_code:
+        method:
           type: string
-        voucher_discount:
+        paid:
           type: integer
           format: int64
-    Message:
-      type: object
+          nullable: true
+        customer:
+          type: string
+        customerId:
+          type: integer
+          format: int64
+          nullable: true
+        pointsRedeem:
+          type: integer
+          format: int64
+          nullable: true
+        clientTxId:
+          type: string
       required:
-        - message
-      properties:
-        message:
-          type: string
-    Error:
+      - items
+      - method
+    RefundRequest:
       type: object
-      required:
-        - error
       properties:
-        error:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CheckoutItemInput'
+        reason:
           type: string
-        code:
+      required:
+      - items
+    StartShiftRequest:
+      type: object
+      properties:
+        opening_cash:
+          type: integer
+          format: int64
+          nullable: true
+    CloseShiftRequest:
+      type: object
+      properties:
+        closingCash:
+          type: integer
+          format: int64
+          nullable: true
+        note:
           type: string
+    SupplierInput:
+      type: object
+      properties:
+        name:
+          type: string
+        contact:
+          type: string
+        address:
+          type: string
+      required:
+      - name
+    PurchaseOrderItemInput:
+      type: object
+      properties:
+        productId:
+          type: integer
+          format: int64
+        variantId:
+          type: integer
+          format: int64
+          nullable: true
+        qty:
+          type: integer
+          nullable: true
+        buyPrice:
+          type: integer
+          format: int64
+          nullable: true
+      required:
+      - productId
+      - qty
+      - buyPrice
+    PurchaseOrderInput:
+      type: object
+      properties:
+        supplierId:
+          type: integer
+          format: int64
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PurchaseOrderItemInput'
+      required:
+      - supplierId
+      - items
+    PurchaseOrderReceiveItem:
+      type: object
+      properties:
+        itemId:
+          type: integer
+          format: int64
+        qty:
+          type: integer
+      required:
+      - itemId
+      - qty
+    PurchaseOrderReceiveRequest:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PurchaseOrderReceiveItem'
+      required:
+      - items
+    ExpenseInput:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        category:
+          type: string
+        note:
+          type: string
+        amount:
+          type: integer
+          format: int64
+          nullable: true
+        method:
+          type: string
+        source:
+          type: string
+          enum:
+          - drawer
+          - outside
+      required:
+      - date
+      - category
+      - amount
+      - method
+    DebtPaymentRequest:
+      type: object
+      properties:
+        amount:
+          type: integer
+          format: int64
+          nullable: true
+        method:
+          type: string
+      required:
+      - amount
+      - method
+    OutletInput:
+      type: object
+      properties:
+        name:
+          type: string
+        address:
+          type: string
+        isDefault:
+          type: boolean
+          nullable: true
+      required:
+      - name
+    StoreSettingsInput:
+      type: object
+      properties:
+        storeName:
+          type: string
+        address:
+          type: string
+        phone:
+          type: string
+        taxEnabled:
+          type: boolean
+        taxPct:
+          type: number
+        receiptHeader:
+          type: string
+        receiptFooter:
+          type: string
+        paper:
+          type: string
+        timezone:
+          type: string
+        businessType:
+          type: string
+        email:
+          type: string
+        city:
+          type: string
+        province:
+          type: string
+        currency:
+          type: string
+        hours:
+          type: array
+          items:
+            $ref: '#/components/schemas/StoreHours'
+          nullable: true
+        receiptShowLogo:
+          type: boolean
+        receiptShowCashier:
+          type: boolean
+        receiptShowMethod:
+          type: boolean
+        receiptShowTax:
+          type: boolean
+        receiptShowDiscount:
+          type: boolean
+        receiptShowNote:
+          type: boolean
+        taxName:
+          type: string
+        taxInclusive:
+          type: boolean
+        taxRounding:
+          type: string
+        taxApplyTo:
+          type: string
+        loyaltyEnabled:
+          type: boolean
+        loyaltyEarnPer:
+          type: integer
+          format: int64
+          nullable: true
+        loyaltyPointValue:
+          type: integer
+          format: int64
+          nullable: true
+        creditDueDays:
+          type: integer
+        lowStockDefault:
+          type: integer
+    OutletSettingsInput:
+      type: object
+      properties:
+        taxPct:
+          type: number
+          nullable: true
+        receiptFooter:
+          type: string
+          nullable: true
+        hours:
+          type: array
+          items:
+            $ref: '#/components/schemas/StoreHours'
+          nullable: true
+    UserCreateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        outletId:
+          type: integer
+          format: int64
+          nullable: true
+      required:
+      - name
+    UserUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        outletId:
+          type: integer
+          format: int64
+          nullable: true
+    PasscodeRequest:
+      type: object
+      properties:
+        passcode:
+          type: string
+        role:
+          type: string
+          enum:
+          - admin
+          - cashier
+      required:
+      - passcode
+    ApiKeyCreateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+      required:
+      - name
+    WebhookCreateRequest:
+      type: object
+      properties:
+        url:
+          type: string
+        events:
+          type: array
+          items:
+            type: string
+            enum:
+            - transaction.created
+            - transaction.refunded
+            - stock.updated
+      required:
+      - url
+      - events
+    PromoList:
+      allOf:
+      - $ref: '#/components/schemas/Page'
+      - type: object
+        properties:
+          items:
+            type: array
+            items:
+              $ref: '#/components/schemas/Promo'

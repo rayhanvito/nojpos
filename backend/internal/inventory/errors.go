@@ -20,6 +20,12 @@ var (
 	// (BE-F3-2): pesan mengikuti render handler stok.
 	ErrBadDirection = apierr.New(http.StatusBadRequest, "BAD_DIRECTION", "arah penyesuaian harus 'plus' atau 'minus'")
 
+	// Sentinel transfer stok antar outlet (Unit D).
+	ErrTransferSameOutlet  = apierr.New(http.StatusBadRequest, "TRANSFER_SAME_OUTLET", "outlet asal dan tujuan tidak boleh sama")
+	ErrTransferItemsEmpty  = apierr.New(http.StatusBadRequest, "TRANSFER_ITEMS_EMPTY", "item transfer tidak boleh kosong")
+	ErrTransferInvalidQty  = apierr.New(http.StatusBadRequest, "TRANSFER_INVALID_QTY", "qty setiap item harus lebih dari 0")
+	ErrTransferInvalidItem = apierr.New(http.StatusBadRequest, "TRANSFER_INVALID_ITEM", "produk item transfer tidak valid")
+
 	// Sentinel stock opname. Tingkat repo (repo/stock_opname.go lama)
 	// dan tingkat service (service/stock_opname.go lama) dulu memiliki
 	// instans terpisah untuk Active dan State dengan pesan yang

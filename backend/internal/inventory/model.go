@@ -11,12 +11,14 @@ import (
 type MovementType string
 
 const (
-	MovementSale     MovementType = "sale"
-	MovementRefund   MovementType = "refund"
-	MovementAdjust   MovementType = "adjust"
-	MovementInitial  MovementType = "initial"
-	MovementPurchase MovementType = "purchase"
-	MovementOpname   MovementType = "opname"
+	MovementSale        MovementType = "sale"
+	MovementRefund      MovementType = "refund"
+	MovementAdjust      MovementType = "adjust"
+	MovementInitial     MovementType = "initial"
+	MovementPurchase    MovementType = "purchase"
+	MovementOpname      MovementType = "opname"
+	MovementTransferOut MovementType = "transfer_out"
+	MovementTransferIn  MovementType = "transfer_in"
 )
 
 type Movement struct {

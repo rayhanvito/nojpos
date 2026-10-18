@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/rayhanvito/nojpos/backend/internal/auth"
+	"github.com/rayhanvito/nojpos/backend/internal/platform/httpx"
 	"github.com/rayhanvito/nojpos/backend/internal/platform/middleware"
 )
 
@@ -85,7 +86,7 @@ func (h *Handler) List(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memuat daftar akun."})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"users": users})
+	c.JSON(http.StatusOK, httpx.PaginateList(c, users))
 }
 
 func (h *Handler) Create(c *gin.Context) {

@@ -10,6 +10,7 @@ type Claims struct {
 	Email             string
 	ActingAsCashierID *uint
 	Role              Role
+	APIKey            bool
 }
 
 func (c *Claims) ActiveRole() Role {

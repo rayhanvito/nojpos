@@ -12,10 +12,11 @@ type fakeRepo struct {
 	createErr   error
 	createCalls int
 	created     *Promo
+	items       []*Promo
 }
 
 func (f *fakeRepo) List(ctx context.Context, storeID uint) ([]*Promo, error) {
-	return nil, nil
+	return f.items, nil
 }
 
 func (f *fakeRepo) GetByID(ctx context.Context, storeID, id uint) (*Promo, error) {

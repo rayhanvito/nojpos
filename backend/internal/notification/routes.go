@@ -2,13 +2,11 @@ package notification
 
 import "github.com/gin-gonic/gin"
 
-// RegisterRoutes mendaftarkan rute notifikasi (path & method sama
-// seperti router lama): semua di grup auth, handler-nya sendiri
-// membatasi ke admin.
-func RegisterRoutes(auth *gin.RouterGroup, h *Handler) {
-	auth.GET("/notifications", h.List)
-	auth.GET("/notifications/unread-count", h.UnreadCount)
-	auth.PATCH("/notifications/read-all", h.MarkAllAsRead)
-	auth.PATCH("/notifications/:id/read", h.MarkAsRead)
-	auth.DELETE("/notifications/:id", h.Delete)
+// RegisterRoutes mendaftarkan rute notifikasi di grup admin.
+func RegisterRoutes(admin *gin.RouterGroup, h *Handler) {
+	admin.GET("/notifications", h.List)
+	admin.GET("/notifications/unread-count", h.UnreadCount)
+	admin.PATCH("/notifications/read-all", h.MarkAllAsRead)
+	admin.PATCH("/notifications/:id/read", h.MarkAsRead)
+	admin.DELETE("/notifications/:id", h.Delete)
 }

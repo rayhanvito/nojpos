@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/rayhanvito/nojpos/backend/internal/activity"
+	"github.com/rayhanvito/nojpos/backend/internal/apikey"
 	"github.com/rayhanvito/nojpos/backend/internal/auth"
 	"github.com/rayhanvito/nojpos/backend/internal/catalog"
 	"github.com/rayhanvito/nojpos/backend/internal/customer"
@@ -27,6 +28,7 @@ import (
 	"github.com/rayhanvito/nojpos/backend/internal/shift"
 	"github.com/rayhanvito/nojpos/backend/internal/staff"
 	"github.com/rayhanvito/nojpos/backend/internal/user"
+	"github.com/rayhanvito/nojpos/backend/internal/webhook"
 )
 
 type App struct {
@@ -36,6 +38,12 @@ type App struct {
 }
 
 func New(ctx context.Context) (*App, error) {
+	// Penghitung rate-limit bersifat global per proses. Server produksi
+	// hanya dibangun sekali sehingga reset ini tidak berpengaruh di sana;
+	// pada tes integrasi setiap boot App mulai dengan penghitung bersih
+	// agar limiter antar-tes tidak saling mencemari (satu IP httptest).
+	middleware.ResetRateLimiters()
+
 	cfg, err := config.Load()
 	if err != nil {
 		return nil, err
@@ -65,6 +73,7 @@ func New(ctx context.Context) (*App, error) {
 	userRepo := auth.NewUserRepo(gormDB)
 	cashierRepo := staff.NewRepo(gormDB)
 	outletRepo := outlet.NewOutletRepo(gormDB)
+	apiKeyRepo := apikey.NewRepo(gormDB)
 	refreshRepo := auth.NewRefreshRepo(gormDB)
 	otpRepo := auth.NewOtpRepo(gormDB)
 	categoryRepo := catalog.NewCategoryRepo(gormDB)
@@ -76,6 +85,7 @@ func New(ctx context.Context) (*App, error) {
 	debtRepo := finance.NewDebtRepo(gormDB)
 	productRepo := catalog.NewProductRepo(gormDB)
 	movementRepo := inventory.NewMovementRepo(gormDB)
+	transferRepo := inventory.NewTransferRepo(gormDB)
 	trxRepo := sales.NewRepo(gormDB, database.NewTransactor(gormDB))
 	storeRepo := outlet.NewStoreRepo(gormDB)
 	reportRepo := report.NewRepo(gormDB)
@@ -83,9 +93,11 @@ func New(ctx context.Context) (*App, error) {
 	notificationRepo := notification.NewRepo(gormDB)
 	activityRepo := activity.NewRepo(gormDB)
 	promoRepo := promo.NewRepo(gormDB)
+	webhookRepo := webhook.NewRepo(gormDB)
 
 	authSvc := auth.NewService(userRepo, cashierRepo, refreshRepo, otpRepo, cfg.JWTSecret, cfg.AccessTTL, time.Duration(cfg.RefreshTTLDays)*24*time.Hour, cfg.GoogleClientID)
 	authSvc.SetOutlets(outletRepo)
+	apiKeySvc := apikey.NewService(apiKeyRepo, outletRepo)
 	userSvc := user.NewService(userRepo, cashierRepo, outletRepo)
 	userSvc.SetShiftRepository(shiftRepo)
 	outletSvc := outlet.NewService(outletRepo)
@@ -96,6 +108,7 @@ func New(ctx context.Context) (*App, error) {
 	stockEngine := inventory.NewEngine(gormDB)
 	inventorySvc := inventory.NewService(productRepo, movementRepo, notificationSvc)
 	inventorySvc.SetStockEngine(stockEngine, database.NewTransactor(gormDB))
+	inventorySvc.SetTransferRepo(transferRepo)
 	catalogSvc := catalog.NewService(categoryRepo, productRepo, notificationSvc)
 	catalogSvc.SetStockEngine(stockEngine, database.NewTransactor(gormDB))
 	catalogSvc.SetInventory(inventorySvc)
@@ -107,6 +120,17 @@ func New(ctx context.Context) (*App, error) {
 	debtSvc := finance.NewService(debtRepo, storeRepo)
 	trxSvc := sales.NewService(trxRepo, cashierRepo, productRepo, shiftRepo, notificationSvc, database.NewTransactor(gormDB))
 	settingsSvc := outlet.NewSettingsService(storeRepo)
+	// Unit C: checkout memakai tarif pajak efektif outlet transaksi
+	// (override per outlet menimpa tarif toko bila ditetapkan).
+	trxSvc.SetSettingsResolver(settingsSvc)
+	// Unit F: webhook adalah sink seperti notifikasi — dispatcher-nya
+	// dipasang ke domain pemancar event lewat setter; pengiriman asinkron
+	// dan tidak pernah menggagalkan operasi bisnis.
+	webhookSvc := webhook.NewService(webhookRepo)
+	webhookDispatcher := webhook.NewDispatcher(webhookRepo)
+	trxSvc.SetWebhookEmitter(webhookDispatcher)
+	inventorySvc.SetWebhookEmitter(webhookDispatcher)
+	stockOpnameSvc.SetWebhookEmitter(webhookDispatcher)
 	reportSvc := report.NewService(storeRepo, reportRepo)
 	exportSvc := report.NewExportService(storeRepo, trxRepo, productRepo)
 	taxReportSvc := report.NewTaxService(storeRepo, reportRepo)
@@ -131,6 +155,8 @@ func New(ctx context.Context) (*App, error) {
 	shiftH := shift.NewHandler(shiftSvc)
 	notificationH := notification.NewHandler(notificationSvc)
 	activityH := activity.NewHandler(activitySvc)
+	apiKeyH := apikey.NewHandler(apiKeySvc)
+	webhookH := webhook.NewHandler(webhookSvc)
 	promoH := promo.NewHandler(promoSvc)
 	healthH := NewHealthHandler(gormDB)
 
@@ -156,7 +182,7 @@ func New(ctx context.Context) (*App, error) {
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     cfg.CORSOrigins,
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Accept", "Authorization", "Content-Type"},
+		AllowHeaders:     []string{"Accept", "Authorization", "Content-Type", "X-Api-Key"},
 		AllowCredentials: false,
 		// Fixed: was 300 (300ns) — cors.Config expects time.Duration.
 		MaxAge: 300 * time.Second,
@@ -171,16 +197,17 @@ func New(ctx context.Context) (*App, error) {
 
 		// Authenticated
 		authGroup := v1.Group("")
-		authGroup.Use(middleware.Auth(authSvc), middleware.ActiveCheck(authSvc))
+		authGroup.Use(middleware.Auth(authSvc, apiKeySvc), middleware.ActiveCheck(authSvc), middleware.RestrictAPIKeyRoutes())
 		{
 			auth.RegisterAuthRoutes(authGroup, authH)
-
-			notification.RegisterRoutes(authGroup, notificationH)
 
 			// Admin only
 			adminGroup := authGroup.Group("")
 			adminGroup.Use(middleware.RequireRole(string(middleware.RoleAdmin)))
 			{
+				apikey.RegisterRoutes(adminGroup, apiKeyH)
+				webhook.RegisterRoutes(adminGroup, webhookH)
+				notification.RegisterRoutes(adminGroup, notificationH)
 				user.RegisterRoutes(adminGroup, userH)
 				outlet.RegisterRoutes(authGroup, adminGroup, outletH, settingsH)
 				catalog.RegisterRoutes(authGroup, adminGroup, catalogH)

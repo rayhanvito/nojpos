@@ -109,7 +109,7 @@ func TestAPIIntegrationFlow(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("List users failed: code=%d, body=%s", w.Code, w.Body.String())
 	}
-	usersList := resp["users"].([]any)
+	usersList := resp["items"].([]any)
 	if len(usersList) < 2 {
 		t.Fatalf("Expected at least 2 users (admin + cashier), got %d", len(usersList))
 	}

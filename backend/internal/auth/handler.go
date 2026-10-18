@@ -29,8 +29,7 @@ type registerReq struct {
 }
 
 type otpSendReq struct {
-	Email   string `json:"email"`
-	Purpose string `json:"purpose,omitempty"`
+	Email string `json:"email"`
 }
 
 type otpVerifyReq struct {
@@ -51,8 +50,6 @@ type forgotPasswordResetReq struct {
 type loginReq struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
-	Passcode string `json:"passcode,omitempty"`
-	Otp      string `json:"otp,omitempty"`
 }
 
 type refreshReq struct {
@@ -72,7 +69,6 @@ type switchReq struct {
 type googleReq struct {
 	IDToken   string `json:"id_token"`
 	StoreName string `json:"storeName"`
-	Passcode  string `json:"passcode,omitempty"`
 }
 
 type changePasswordReq struct {
@@ -91,12 +87,10 @@ func (h *Handler) SendOTP(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "body JSON tidak valid"})
 		return
 	}
-	var err error
-	if req.Purpose == "login" {
-		err = h.auth.SendLoginOTP(c.Request.Context(), req.Email)
-	} else {
-		err = h.auth.SendOTP(c.Request.Context(), req.Email)
-	}
+	// OTP hanya untuk pendaftaran (dan, lewat endpoint terpisah, lupa kata
+	// sandi). Cabang purpose "login" sudah dihapus: login tidak pernah
+	// ditantang OTP (kebijakan produk 2026-10-15).
+	err := h.auth.SendOTP(c.Request.Context(), req.Email)
 	if err != nil {
 		if errors.Is(err, ErrEmailTaken) {
 			c.JSON(http.StatusOK, gin.H{"message": "Jika email belum terdaftar, kode OTP telah dikirim."})
@@ -185,7 +179,7 @@ func (h *Handler) Login(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "body JSON tidak valid"})
 		return
 	}
-	user, pair, err := h.auth.Login(c.Request.Context(), req.Email, req.Password, req.Passcode, req.Otp)
+	user, pair, err := h.auth.Login(c.Request.Context(), req.Email, req.Password)
 	if err != nil {
 		respondAuthErr(c, err)
 		return
@@ -199,7 +193,7 @@ func (h *Handler) Google(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "id_token wajib diisi"})
 		return
 	}
-	user, pair, err := h.auth.GoogleLogin(c.Request.Context(), req.IDToken, req.StoreName, req.Passcode)
+	user, pair, err := h.auth.GoogleLogin(c.Request.Context(), req.IDToken, req.StoreName)
 	if err != nil {
 		respondGoogleErr(c, err)
 		return
@@ -325,10 +319,6 @@ func respondOTPErr(c *gin.Context, err error) {
 
 func respondGoogleErr(c *gin.Context, err error) {
 	switch {
-	case errors.Is(err, ErrPasscodeRequired):
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "passcode_required", "code": "PASSCODE_REQUIRED"})
-	case errors.Is(err, ErrPasscodeWrong):
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Passcode salah. Coba lagi.", "code": "PASSCODE_WRONG"})
 	case errors.Is(err, ErrGoogleInvalid):
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "login Google tidak valid"})
 	case errors.Is(err, ErrGoogleNotConfigured):

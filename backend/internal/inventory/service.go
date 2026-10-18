@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/rayhanvito/nojpos/backend/internal/catalog"
+	"github.com/rayhanvito/nojpos/backend/internal/webhook"
 )
 
 // ProductRepository adalah kontrak baca produk yang dipakai Service —
@@ -39,19 +40,35 @@ type Transactor interface {
 	WithinTx(ctx context.Context, fn func(ctx context.Context) error) error
 }
 
+// WebhookEmitter adalah potongan webhook.Dispatcher yang dipakai
+// paket ini (Unit F): event stock.updated untuk sistem luar, dipakai
+// Service (penyesuaian + transfer) dan OpnameService (posting opname).
+// Pengiriman asinkron di sisi dispatcher.
+type WebhookEmitter interface {
+	EmitStockUpdated(ctx context.Context, storeID uint, data webhook.StockData)
+}
+
 // Service memegang penyesuaian stok dan riwayat pergerakan stok.
 // Terpisah dari CatalogService sejak BE-B3; metode-metodenya dipindah persis
 // dari CatalogService tanpa mengubah perilaku.
 type Service struct {
-	prods ProductRepository
-	movs  MovementRepository
-	notif Notifier
-	stock *Engine
-	tx    Transactor
+	prods     ProductRepository
+	movs      MovementRepository
+	notif     Notifier
+	stock     *Engine
+	tx        Transactor
+	transfers *TransferRepo
+	webhooks  WebhookEmitter
 }
 
 func NewService(prods ProductRepository, movs MovementRepository, notif Notifier) *Service {
 	return &Service{prods: prods, movs: movs, notif: notif}
+}
+
+// SetTransferRepo memasang repo transfer stok antar outlet (Unit D),
+// pola setter yang sama dengan SetStockEngine.
+func (s *Service) SetTransferRepo(r *TransferRepo) {
+	s.transfers = r
 }
 
 // SetStockEngine memasang Engine (mesin stok paket ini) + Transactor
@@ -60,6 +77,12 @@ func NewService(prods ProductRepository, movs MovementRepository, notif Notifier
 func (s *Service) SetStockEngine(stock *Engine, tx Transactor) {
 	s.stock = stock
 	s.tx = tx
+}
+
+// SetWebhookEmitter memasang dispatcher webhook (Unit F). Tanpa
+// emitter, penyesuaian stok dan transfer tidak memancarkan event.
+func (s *Service) SetWebhookEmitter(e WebhookEmitter) {
+	s.webhooks = e
 }
 
 func (s *Service) AdjustStock(ctx context.Context, storeID, outletID, productID uint, variantID *uint, actor, direction string, qty int64, reason string) (*catalog.Product, error) {
@@ -87,6 +110,7 @@ func (s *Service) AdjustStock(ctx context.Context, storeID, outletID, productID 
 		}
 		outletID = def
 	}
+	appliedDelta := delta
 	if variantID != nil {
 		err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
 			if _, err := s.prods.GetVariantAtOutlet(ctx, storeID, outletID, productID, *variantID); err != nil {
@@ -96,6 +120,7 @@ func (s *Service) AdjustStock(ctx context.Context, storeID, outletID, productID 
 			if err != nil {
 				return err
 			}
+			appliedDelta = actualDelta
 			return s.stock.InsertMovement(ctx, &Movement{
 				StoreID: storeID, OutletID: &outletID, ProductID: productID, VariantID: variantID,
 				Type: MovementAdjust, Qty: actualDelta, Reason: reason, Actor: actor,
@@ -121,6 +146,12 @@ func (s *Service) AdjustStock(ctx context.Context, storeID, outletID, productID 
 		if s.notif != nil {
 			_ = s.notif.CheckAndNotifyLowStock(ctx, storeID, variant.ID, product.Name, variant.Name, variant.Stock, variant.MinStock, product.Unit, "variant")
 		}
+		if s.webhooks != nil {
+			s.webhooks.EmitStockUpdated(ctx, storeID, webhook.StockData{
+				Source: "adjustment", ProductID: productID, VariantID: variantID,
+				QtyDelta: appliedDelta, OutletID: outletID, Reason: reason,
+			})
+		}
 		return product, nil
 	}
 
@@ -132,9 +163,11 @@ func (s *Service) AdjustStock(ctx context.Context, storeID, outletID, productID 
 		if len(p.Variants) > 0 {
 			return catalog.ErrVariantRequired
 		}
-		if _, _, _, err := s.stock.ChangeStock(ctx, storeID, outletID, productID, nil, delta, false); err != nil {
+		_, _, actualDelta, err := s.stock.ChangeStock(ctx, storeID, outletID, productID, nil, delta, false)
+		if err != nil {
 			return err
 		}
+		appliedDelta = actualDelta
 		return s.stock.InsertMovement(ctx, &Movement{
 			StoreID: storeID, OutletID: &outletID, ProductID: productID,
 			Type: MovementAdjust, Qty: delta, Reason: reason, Actor: actor,
@@ -155,6 +188,12 @@ func (s *Service) AdjustStock(ctx context.Context, storeID, outletID, productID 
 	}
 	if p != nil && s.notif != nil {
 		_ = s.notif.CheckAndNotifyLowStock(ctx, storeID, p.ID, p.Name, "", p.Stock, p.MinStock, p.Unit, "product")
+	}
+	if s.webhooks != nil {
+		s.webhooks.EmitStockUpdated(ctx, storeID, webhook.StockData{
+			Source: "adjustment", ProductID: productID,
+			QtyDelta: appliedDelta, OutletID: outletID, Reason: reason,
+		})
 	}
 	return p, nil
 }

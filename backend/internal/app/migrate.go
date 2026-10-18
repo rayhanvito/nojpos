@@ -2,6 +2,7 @@ package app
 
 import (
 	"github.com/rayhanvito/nojpos/backend/internal/activity"
+	"github.com/rayhanvito/nojpos/backend/internal/apikey"
 	"github.com/rayhanvito/nojpos/backend/internal/auth"
 	"github.com/rayhanvito/nojpos/backend/internal/catalog"
 	"github.com/rayhanvito/nojpos/backend/internal/customer"
@@ -14,6 +15,7 @@ import (
 	"github.com/rayhanvito/nojpos/backend/internal/sales"
 	"github.com/rayhanvito/nojpos/backend/internal/shift"
 	"github.com/rayhanvito/nojpos/backend/internal/staff"
+	"github.com/rayhanvito/nojpos/backend/internal/webhook"
 )
 
 // autoMigrateModels adalah registri model untuk AutoMigrate jalur SQLite.
@@ -23,6 +25,7 @@ import (
 var autoMigrateModels = []any{
 	&outlet.Outlet{},
 	&outlet.Store{},
+	&outlet.OutletSettings{},
 	&auth.User{},
 	&staff.Cashier{},
 	&auth.RefreshToken{},
@@ -51,6 +54,9 @@ var autoMigrateModels = []any{
 	&shift.CashierShift{},
 	&notification.Notification{},
 	&activity.ActivityLog{},
+	&apikey.APIKey{},
+	&webhook.Webhook{},
+	&webhook.Delivery{},
 }
 
 // AutoMigrateModels adalah alias ekspor dari autoMigrateModels untuk suite

@@ -2,6 +2,7 @@ package outlet
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -60,6 +61,130 @@ func (h *SettingsHandler) Get(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, s)
+}
+
+// outletSettingsResponse adalah bentuk respons GET/PUT
+// /outlets/:id/settings (Unit C): seluruh field pengaturan EFEKTIF
+// outlet — bentuk yang sama dengan respons GET /settings — ditambah
+// objek "overrides" berisi hanya field yang ditetapkan outlet itu
+// sendiri (kunci JSON yang sama; kosong {} bila belum ada override).
+type outletSettingsResponse struct {
+	*StoreSettings
+	Overrides map[string]any `json:"overrides"`
+}
+
+func outletSettingsOverridesJSON(ov *OutletSettings) map[string]any {
+	out := map[string]any{}
+	if ov == nil {
+		return out
+	}
+	if ov.TaxPct != nil {
+		out["taxPct"] = *ov.TaxPct
+	}
+	if ov.ReceiptFooter != nil {
+		out["receiptFooter"] = *ov.ReceiptFooter
+	}
+	if ov.Hours != nil {
+		out["hours"] = decodeStoreHours(*ov.Hours)
+	}
+	return out
+}
+
+func respondOutletSettingsErr(c *gin.Context, err error) {
+	switch {
+	case errors.Is(err, ErrNotFound):
+		c.JSON(http.StatusNotFound, gin.H{"error": "Outlet tidak ditemukan di toko Anda."})
+	case errors.Is(err, ErrBadTaxPct), errors.Is(err, ErrBadReceiptFooter), errors.Is(err, ErrBadHours):
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	default:
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memproses pengaturan outlet."})
+	}
+}
+
+// GetOutletSettings melayani GET /outlets/:id/settings (grup login):
+// pengaturan efektif outlet — nilai toko yang ditimpa override outlet.
+func (h *SettingsHandler) GetOutletSettings(c *gin.Context) {
+	claims := middleware.ClaimsFrom(c)
+	outletID, ok := pathUint(c, "id")
+	if !ok {
+		return
+	}
+	eff, ov, err := h.svc.EffectiveSettings(c.Request.Context(), claims.StoreID, outletID)
+	if err != nil {
+		respondOutletSettingsErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, outletSettingsResponse{StoreSettings: eff, Overrides: outletSettingsOverridesJSON(ov)})
+}
+
+// parseOutletSettingsPatch memilah body PUT /outlets/:id/settings per
+// kunci: kunci absen = tidak berubah; kunci null = hapus override;
+// kunci bernilai = tetapkan override. Field tak dikenal diabaikan —
+// idiom yang sama dengan PUT /settings.
+func parseOutletSettingsPatch(c *gin.Context) (OutletSettingsPatch, bool) {
+	var raw map[string]json.RawMessage
+	if err := c.ShouldBindJSON(&raw); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "body JSON tidak valid"})
+		return OutletSettingsPatch{}, false
+	}
+	bad := func() (OutletSettingsPatch, bool) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "body JSON tidak valid"})
+		return OutletSettingsPatch{}, false
+	}
+	var patch OutletSettingsPatch
+	if v, present := raw["taxPct"]; present {
+		patch.TaxPctSet = true
+		if string(v) != "null" {
+			var f float64
+			if err := json.Unmarshal(v, &f); err != nil {
+				return bad()
+			}
+			patch.TaxPct = &f
+		}
+	}
+	if v, present := raw["receiptFooter"]; present {
+		patch.ReceiptFooterSet = true
+		if string(v) != "null" {
+			var s string
+			if err := json.Unmarshal(v, &s); err != nil {
+				return bad()
+			}
+			patch.ReceiptFooter = &s
+		}
+	}
+	if v, present := raw["hours"]; present {
+		patch.HoursSet = true
+		if string(v) != "null" {
+			var hours []StoreHours
+			if err := json.Unmarshal(v, &hours); err != nil {
+				return bad()
+			}
+			patch.Hours = &hours
+		}
+	}
+	return patch, true
+}
+
+// UpdateOutletSettings melayani PUT /outlets/:id/settings (grup
+// admin): menerapkan subset override outlet dan mengembalikan
+// pengaturan efektif terbaru dalam bentuk yang sama dengan GET.
+func (h *SettingsHandler) UpdateOutletSettings(c *gin.Context) {
+	claims := middleware.ClaimsFrom(c)
+	outletID, ok := pathUint(c, "id")
+	if !ok {
+		return
+	}
+	patch, ok := parseOutletSettingsPatch(c)
+	if !ok {
+		return
+	}
+	eff, ov, err := h.svc.UpdateOutletSettings(c.Request.Context(), claims.StoreID, outletID, patch)
+	if err != nil {
+		respondOutletSettingsErr(c, err)
+		return
+	}
+	h.logActivity(c.Request.Context(), claims.StoreID, formatID(claims.UserID), claims.Name, activityProfileUpdated, fmt.Sprintf("%s memperbarui pengaturan outlet %d", claims.Name, outletID), "outlet", formatID(outletID))
+	c.JSON(http.StatusOK, outletSettingsResponse{StoreSettings: eff, Overrides: outletSettingsOverridesJSON(ov)})
 }
 
 type settingsReq struct {

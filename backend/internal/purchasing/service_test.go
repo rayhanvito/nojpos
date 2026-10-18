@@ -16,10 +16,14 @@ import (
 // dikonfigurasi tes; sisanya nilai nol.
 type fakeSuppliers struct {
 	getErr error
+	items  []*Supplier
 }
 
 func (f *fakeSuppliers) List(ctx context.Context, storeID uint) ([]*Supplier, error) {
-	return []*Supplier{}, nil
+	if f.items == nil {
+		return []*Supplier{}, nil
+	}
+	return f.items, nil
 }
 
 func (f *fakeSuppliers) GetByID(ctx context.Context, storeID, id uint) (*Supplier, error) {

@@ -19,6 +19,7 @@ type fakeShifts struct {
 	startErr  error
 	closeErr  error
 	forceErr  error
+	listed    []*CashierShift
 
 	gotCashierID   uint
 	gotCashierName string
@@ -55,7 +56,10 @@ func (f *fakeShifts) ForceCloseShift(ctx context.Context, storeID, shiftID uint,
 }
 
 func (f *fakeShifts) ListStoreShifts(ctx context.Context, storeID uint, outletID *uint, from string, to string) ([]*CashierShift, error) {
-	return []*CashierShift{}, nil
+	if f.listed == nil {
+		return []*CashierShift{}, nil
+	}
+	return f.listed, nil
 }
 
 func (f *fakeShifts) GetShiftByID(ctx context.Context, storeID, shiftID uint, outletID *uint) (*CashierShift, error) {

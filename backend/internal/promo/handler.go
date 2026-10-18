@@ -46,7 +46,7 @@ func (h *Handler) List(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memuat promo."})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"items": items})
+	c.JSON(http.StatusOK, httpx.PaginateList(c, items))
 }
 
 func (h *Handler) Get(c *gin.Context) {
