@@ -9,7 +9,7 @@ import { clearCache } from '../../shared/cache'
 import { useDB } from '../../shared/session/store'
 import {
   apiCreateCategory, apiCreateProduct, apiCreateProductPriceTier, apiCreateVariant, apiCreateVariantPriceTier,
-  apiDeleteCategory, apiDeleteProduct, apiDeleteProductPriceTier, apiDeleteVariant, apiDeleteVariantPriceTier,
+  apiDeleteCategory, apiDeleteProduct, apiDeleteProductPriceTier, apiDeleteVariant, apiDeleteVariantPriceTier, apiRenameCategory,
   apiGetSettings, apiImportProducts, apiListCategories, apiListProducts, apiSetProductActive,
   apiUpdateProduct, apiUpdateProductPriceTier, apiUpdateVariant, apiUpdateVariantPriceTier, fetchAll,
   type Category, type Product, type StoreSettings,
@@ -144,6 +144,14 @@ export function useDeleteCategory() {
   const invalidate = useInvalidateCatalog()
   return useMutation({
     mutationFn: (id: string) => apiDeleteCategory(id),
+    onSuccess: invalidate,
+  })
+}
+
+export function useRenameCategory() {
+  const invalidate = useInvalidateCatalog()
+  return useMutation({
+    mutationFn: ({ id, name }: { id: string; name: string }) => apiRenameCategory(id, name),
     onSuccess: invalidate,
   })
 }

@@ -1,7 +1,7 @@
 // Endpoint autentikasi, akun, pengguna, dan outlet.
 
 import { BASE, REFRESH_KEY, ACCOUNTS_KEY, getToken, clearTokens, saveTokens, request } from './core.ts'
-import type { Role, User, Outlet, AuthResp, UserResponse, OutletResponseItem } from './types.ts'
+import type { Role, User, Outlet, AuthResp, UserResponse, OutletResponseItem, Page } from './types.ts'
 import { normalizeUser, normalizeAuthResponse, normalizeOutlet, outletIdForWire } from './types.ts'
 
 export function apiLogin(email: string, password: string) {
@@ -65,7 +65,7 @@ export function apiSwitchAccount(targetUserId: string, passcode?: string, role?:
 }
 
 export function apiListOutlets(): Promise<Outlet[]> {
-  return request<{ items: OutletResponseItem[] | null }>('GET', '/outlets').then((d) => (d.items ?? []).map(normalizeOutlet))
+  return request<Page<OutletResponseItem>>('GET', '/outlets').then((d) => (d.items ?? []).map(normalizeOutlet))
 }
 
 type OutletResponse = { outlet: OutletResponseItem } | OutletResponseItem
@@ -149,7 +149,7 @@ export function apiGoogleLogin(idToken: string, storeName?: string) {
 // ── users ────────────────────────────────────────────────────────────
 
 export function apiListUsers() {
-  return request<{ users: UserResponse[] | null }>('GET', '/users').then((d) => (d.users ?? []).map(normalizeUser))
+  return request<Page<UserResponse>>('GET', '/users').then((d) => (d.items ?? []).map(normalizeUser))
 }
 
 export function apiCreateUser(body: { name: string; outletId?: string }) {

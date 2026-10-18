@@ -8,7 +8,7 @@ const {
 
 test('canonical tab lists are English slugs', () => {
   assert.deepEqual(REPORT_TABS, ['sales', 'products', 'profit', 'stock', 'shift', 'cashier', 'tax'])
-  assert.deepEqual(STOCK_TABS, ['stock', 'stocktake', 'movement'])
+  assert.deepEqual(STOCK_TABS, ['stock', 'stocktake', 'movement', 'transfers'])
   assert.deepEqual(PURCHASE_TABS, ['purchases', 'expenses'])
 })
 
@@ -24,6 +24,10 @@ test('stock aliases: riwayat -> movement, opname -> stocktake', () => {
   assert.deepEqual(normalizeStockTab('riwayat'), { tab: 'movement', aliased: true })
   assert.deepEqual(normalizeStockTab('opname'), { tab: 'stocktake', aliased: true })
   assert.deepEqual(normalizeStockTab('stok'), { tab: 'stock', aliased: true })
+})
+
+test('transfers is a canonical stock tab value', () => {
+  assert.deepEqual(normalizeStockTab('transfers'), { tab: 'transfers', aliased: false })
 })
 
 test('purchase aliases: po/pembelian -> purchases, pengeluaran -> expenses', () => {

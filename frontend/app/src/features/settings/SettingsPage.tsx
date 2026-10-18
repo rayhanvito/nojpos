@@ -2,11 +2,12 @@ import { useEffect, useRef, useState } from 'react'
 import type { StoreSettings } from './api'
 import { useSettings, useUpdateSettings } from './hooks'
 import { PageHeader } from '../../shared/PageHeader'
-import { getSession, setSession } from '../../shared/session/store'
+import { getSession, setSession, useDB } from '../../shared/session/store'
 import { AlertStrip, Button } from '../../shared/ui'
 import { Tabs, TabsList, TabsTrigger } from '@/shared/ui/primitives/tabs'
 import { Skeleton } from '@/shared/ui/primitives/skeleton'
 import OutletSettingsPage from './OutletSettingsPage'
+import IntegrationsSettings from './IntegrationsSettings'
 import { AkunTab } from './components/AkunTab'
 import { PajakTab } from './components/PajakTab'
 import { StrukTab } from './components/StrukTab'
@@ -18,11 +19,13 @@ const TABS = [
   { id: 'struk', label: 'Struk' },
   { id: 'pajak', label: 'Pajak' },
   { id: 'outlet', label: 'Outlet' },
+  { id: 'integrations', label: 'Integrasi' },
 ] as const
 
 type TabId = (typeof TABS)[number]['id']
 
 export default function SettingsPage() {
+  const { session } = useDB()
   const settings = useSettings()
   const updateSettings = useUpdateSettings()
   const [tab, setTab] = useState<TabId>('akun')
@@ -31,6 +34,11 @@ export default function SettingsPage() {
   const [msg, setMsg] = useState('')
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
+  const visibleTabs = TABS.filter((item) => item.id !== 'integrations' || session?.role === 'admin')
+
+  useEffect(() => {
+    if (tab === 'integrations' && session?.role !== 'admin') setTab('akun')
+  }, [tab, session?.role])
 
   // Form lokal diisi sekali dari hasil query pengaturan (setara fetch
   // lama saat mount); sesudah itu form milik halaman sampai disimpan,
@@ -160,7 +168,7 @@ export default function SettingsPage() {
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as TabId)} className="mb-5">
         <TabsList variant="line" aria-label="Subhalaman pengaturan">
-          {TABS.map((t) => (
+          {visibleTabs.map((t) => (
             <TabsTrigger key={t.id} value={t.id}>{t.label}</TabsTrigger>
           ))}
         </TabsList>
@@ -169,6 +177,7 @@ export default function SettingsPage() {
       {tab === 'akun' && <AkunTab busy={busy} setBusy={setBusy} setMsg={setMsg} setErr={setErr} />}
 
       {tab === 'outlet' && <OutletSettingsPage />}
+      {session?.role === 'admin' && tab === 'integrations' && <IntegrationsSettings />}
 
       {tab === 'toko' && <TokoTab form={form} set={set} setV={setV} hasExt={hasExt} hasLowStockDefault={hasLowStockDefault} dirty={dirty} busy={busy} storeComplete={storeComplete} onSave={save} onReset={resetForm} />}
       {tab === 'struk' && <StrukTab form={form} set={set} setV={setV} hasExt={hasExt} dirty={dirty} busy={busy} onSave={save} onReset={resetForm} />}

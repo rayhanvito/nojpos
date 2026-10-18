@@ -307,6 +307,68 @@ export interface Movement {
   created_at: string
 }
 
+export interface StockTransferItemResponse {
+  product_id: string | number
+  variant_id?: number | null
+  qty: number
+}
+
+export interface StockTransferResponse {
+  id: string | number
+  from_outlet_id: string | number
+  from_outlet_name?: string | null
+  to_outlet_id: string | number
+  to_outlet_name?: string | null
+  items?: StockTransferItemResponse[] | null
+  note?: string | null
+  created_by?: string | number | null
+  created_by_name?: string | null
+  created_at: string
+}
+
+export interface StockTransferItem {
+  productId: string
+  variantId: number | null
+  qty: number
+}
+
+export interface StockTransfer {
+  id: string
+  fromOutletId: string
+  fromOutletName?: string
+  toOutletId: string
+  toOutletName?: string
+  items: StockTransferItem[]
+  note: string
+  createdBy: string
+  createdAt: string
+}
+
+export type StockTransferInput = {
+  fromOutletId: string | number
+  toOutletId: string | number
+  items: { productId: string | number; variantId: number | null; qty: number }[]
+  note: string
+}
+
+export function normalizeStockTransfer(transfer: StockTransferResponse): StockTransfer {
+  return {
+    id: String(transfer.id),
+    fromOutletId: String(transfer.from_outlet_id),
+    fromOutletName: transfer.from_outlet_name ?? undefined,
+    toOutletId: String(transfer.to_outlet_id),
+    toOutletName: transfer.to_outlet_name ?? undefined,
+    items: (transfer.items ?? []).map((item) => ({
+      productId: String(item.product_id),
+      variantId: item.variant_id ?? null,
+      qty: item.qty,
+    })),
+    note: transfer.note ?? '',
+    createdBy: transfer.created_by_name ?? (transfer.created_by == null ? '' : String(transfer.created_by)),
+    createdAt: transfer.created_at,
+  }
+}
+
 export interface StoreHours {
   days: string
   open: string | null
@@ -359,6 +421,15 @@ export type StoreSettingsResponse = StoreSettings & {
   credit_due_days?: number
 }
 
+export type OutletSettingsOverrides = Partial<Pick<StoreSettings, 'taxPct' | 'receiptFooter' | 'hours'>>
+export type OutletSettings = StoreSettings & { overrides: OutletSettingsOverrides }
+export type OutletSettingsResponse = StoreSettingsResponse & { overrides?: OutletSettingsOverrides | null }
+export type OutletSettingsPatch = {
+  taxPct?: number | null
+  receiptFooter?: string | null
+  hours?: StoreHours[] | null
+}
+
 export function normalizeStoreSettings(settings: StoreSettingsResponse): StoreSettings {
   const { loyalty_enabled, loyalty_earn_per, loyalty_point_value, low_stock_default, credit_due_days, ...rest } = settings
   return {
@@ -369,6 +440,11 @@ export function normalizeStoreSettings(settings: StoreSettingsResponse): StoreSe
     lowStockDefault: low_stock_default ?? settings.lowStockDefault,
     creditDueDays: credit_due_days ?? settings.creditDueDays ?? 14,
   }
+}
+
+export function normalizeOutletSettings(settings: OutletSettingsResponse): OutletSettings {
+  const { overrides, ...effective } = settings
+  return { ...normalizeStoreSettings(effective), overrides: overrides ?? {} }
 }
 
 export interface Page<T> {

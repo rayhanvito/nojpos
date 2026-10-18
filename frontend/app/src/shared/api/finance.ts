@@ -26,11 +26,11 @@ export function apiDeleteCustomer(id: number) {
 }
 
 export function apiCustomerTransactions(id: number) {
-  return request<{ items: CustomerTransaction[] | null }>('GET', `/customers/${id}/transactions`).then((d) => d.items ?? [])
+  return request<Page<CustomerTransaction>>('GET', `/customers/${id}/transactions`).then((d) => d.items ?? [])
 }
 
 export function apiListReceivables() {
-  return request<{ items: Receivable[] | null }>('GET', '/receivables').then((d) => d.items ?? [])
+  return request<Page<Receivable>>('GET', '/receivables').then((d) => d.items ?? [])
 }
 
 export function apiGetReceivable(id: number) {
@@ -45,7 +45,7 @@ export function apiAddReceivablePayment(id: number, body: DebtPaymentInput): Pro
 }
 
 export function apiListPayables() {
-  return request<{ items: Payable[] | null }>('GET', '/payables').then((d) => d.items ?? [])
+  return request<Page<Payable>>('GET', '/payables').then((d) => d.items ?? [])
 }
 
 export function apiGetPayable(id: number) {
@@ -60,7 +60,7 @@ export function apiAddPayablePayment(id: number, body: DebtPaymentInput): Promis
 }
 
 export function apiListSuppliers() {
-  return request<{ items: Supplier[] | null }>('GET', '/suppliers').then((d) => d.items ?? [])
+  return request<Page<Supplier>>('GET', '/suppliers').then((d) => d.items ?? [])
 }
 
 export function apiCreateSupplier(body: SupplierInput) {
@@ -76,7 +76,7 @@ export function apiDeleteSupplier(id: number) {
 }
 
 export function apiListPurchaseOrders() {
-  return request<{ items: PurchaseOrder[] | null }>('GET', '/purchase-orders').then((d) => d.items ?? [])
+  return request<Page<PurchaseOrder>>('GET', '/purchase-orders').then((d) => d.items ?? [])
 }
 
 export function apiGetPurchaseOrder(id: number) {

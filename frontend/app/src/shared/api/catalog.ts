@@ -32,11 +32,15 @@ export function apiImportProducts(file: File) {
 }
 
 export function apiListCategories() {
-  return request<{ categories: Category[] | null }>('GET', '/categories').then((d) => d.categories ?? [])
+  return request<Page<Category>>('GET', '/categories').then((d) => d.items ?? [])
 }
 
 export function apiCreateCategory(name: string) {
   return request<{ category: Category }>('POST', '/categories', { name })
+}
+
+export function apiRenameCategory(id: string, name: string) {
+  return request<{ message: string }>('PATCH', `/categories/${id}`, { name })
 }
 
 export function apiDeleteCategory(id: string) {

@@ -38,7 +38,7 @@ export const normalizeReportTab = (raw: string | null | undefined): TabNormaliza
 
 // --- Stok (/app/stock) ---
 // 'stocktake' adalah slug Inggris untuk Opname; 'movement' untuk Riwayat.
-export const STOCK_TABS = ['stock', 'stocktake', 'movement'] as const
+export const STOCK_TABS = ['stock', 'stocktake', 'movement', 'transfers'] as const
 export type StockTab = (typeof STOCK_TABS)[number]
 export const STOCK_TAB_ALIASES: Readonly<Record<string, StockTab>> = {
   riwayat: 'movement',

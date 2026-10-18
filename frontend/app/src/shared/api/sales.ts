@@ -4,7 +4,7 @@ import { request, requestFile, qs } from './core.ts'
 import type { Promo, PromoPreview, CheckoutItem, Trx, Page, PromoInput, CheckoutBody } from './types.ts'
 
 export function apiListPromos() {
-  return request<{ items: Promo[] | null }>('GET', '/promos').then((d) => d.items ?? [])
+  return request<Page<Promo>>('GET', '/promos').then((d) => d.items ?? [])
 }
 
 export function apiCreatePromo(body: PromoInput) {

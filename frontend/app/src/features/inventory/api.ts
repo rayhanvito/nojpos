@@ -5,9 +5,10 @@
 // yang dipakai fitur inventory, mengikuti pola fitur pos (satu pintu
 // masuk API per fitur).
 export {
-  apiAdjustStock, apiCancelStockOpname, apiCreateStockOpname, apiGetStockOpname, apiListCategories, apiListMovements,
+  apiAdjustStock, apiCancelStockOpname, apiCreateStockOpname, apiCreateTransfer, apiGetStockOpname, apiListCategories, apiListMovements, apiListTransfers,
   apiListProducts, apiListStockOpnames, apiPostStockOpname, apiUpdateStockOpnameItems, fetchAll,
 } from '../../shared/api'
 export type {
   Category, Movement, Page, Product, StockOpnameCountsInput, StockOpnameDetail, StockOpnameItem, StockOpnameSession, StockOpnameStatus,
+  StockTransfer, StockTransferInput, StockTransferItem,
 } from '../../shared/api'

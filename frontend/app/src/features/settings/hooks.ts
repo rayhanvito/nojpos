@@ -10,8 +10,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { clearCache } from '../../shared/cache'
 import { useDB } from '../../shared/session/store'
 import {
-  apiCreateOutlet, apiGetSettings, apiListTransactions, apiListUsers, apiSetPasscode, apiUpdateOutlet, apiUpdateSettings,
-  type Outlet, type Page, type StoreSettings, type Trx, type User,
+  apiCreateOutlet, apiGetOutletSettings, apiGetSettings, apiListTransactions, apiListUsers, apiSetPasscode, apiUpdateOutlet, apiUpdateOutletSettings, apiUpdateSettings,
+  apiCreateApiKey, apiDeleteApiKey, apiListApiKeys, apiCreateWebhook, apiDeleteWebhook, apiListWebhooks,
+  type Outlet, type OutletSettings, type OutletSettingsPatch, type Page, type StoreSettings, type Trx, type User,
+  type ApiKey, type Webhook, type WebhookInput,
 } from './api'
 
 export const settingsKeys = {
@@ -19,6 +21,9 @@ export const settingsKeys = {
   main: (who: string) => ['settings', 'main', who] as const,
   users: (who: string) => ['settings', 'users', who] as const,
   transactions: (who: string, today: string) => ['settings', 'transactions', who, today] as const,
+  outlet: (who: string, outletId: string) => ['settings', 'outlet', who, outletId] as const,
+  apiKeys: (who: string) => ['settings', 'integrations', 'api-keys', who] as const,
+  webhooks: (who: string) => ['settings', 'integrations', 'webhooks', who] as const,
 }
 
 function useInvalidateSettings() {
@@ -103,6 +108,92 @@ export function useUpdateSettings() {
   return useMutation({
     mutationFn: (body: StoreSettings) => apiUpdateSettings(body),
     onSuccess: invalidate,
+  })
+}
+
+export function useOutletSettings(outletId: string): {
+  data: OutletSettings | null
+  err: string
+  loading: boolean
+  reload: () => Promise<OutletSettings | null>
+} {
+  const { session } = useDB()
+  const query = useQuery({
+    queryKey: settingsKeys.outlet(`${session?.id}`, outletId),
+    queryFn: () => apiGetOutletSettings(outletId),
+    enabled: !!outletId,
+  })
+  return {
+    data: query.data ?? null,
+    err: query.error ? errText(query.error, 'Gagal memuat pengaturan outlet.') : '',
+    loading: query.isLoading,
+    reload: async () => (await query.refetch()).data ?? null,
+  }
+}
+
+export function useUpdateOutletSettings() {
+  const invalidate = useInvalidateSettings()
+  return useMutation({
+    mutationFn: ({ outletId, patch }: { outletId: string; patch: OutletSettingsPatch }) => apiUpdateOutletSettings(outletId, patch),
+    onSuccess: invalidate,
+  })
+}
+
+export function useIntegrationApiKeys(): { data: Page<ApiKey> | null; err: string; loading: boolean; reload: () => void } {
+  const { session } = useDB()
+  const query = useQuery({ queryKey: settingsKeys.apiKeys(`${session?.id}`), queryFn: apiListApiKeys })
+  return {
+    data: query.data ?? null,
+    err: query.error ? errText(query.error, 'Gagal memuat API Keys.') : '',
+    loading: query.isLoading,
+    reload: () => { void query.refetch() },
+  }
+}
+
+export function useIntegrationWebhooks(): { data: Page<Webhook> | null; err: string; loading: boolean; reload: () => void } {
+  const { session } = useDB()
+  const query = useQuery({ queryKey: settingsKeys.webhooks(`${session?.id}`), queryFn: apiListWebhooks })
+  return {
+    data: query.data ?? null,
+    err: query.error ? errText(query.error, 'Gagal memuat webhook.') : '',
+    loading: query.isLoading,
+    reload: () => { void query.refetch() },
+  }
+}
+
+export function useCreateApiKey() {
+  const queryClient = useQueryClient()
+  const { session } = useDB()
+  return useMutation({
+    mutationFn: (name: string) => apiCreateApiKey(name),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: settingsKeys.apiKeys(`${session?.id}`) }) },
+  })
+}
+
+export function useDeleteApiKey() {
+  const queryClient = useQueryClient()
+  const { session } = useDB()
+  return useMutation({
+    mutationFn: (id: string | number) => apiDeleteApiKey(id),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: settingsKeys.apiKeys(`${session?.id}`) }) },
+  })
+}
+
+export function useCreateWebhook() {
+  const queryClient = useQueryClient()
+  const { session } = useDB()
+  return useMutation({
+    mutationFn: (body: WebhookInput) => apiCreateWebhook(body),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: settingsKeys.webhooks(`${session?.id}`) }) },
+  })
+}
+
+export function useDeleteWebhook() {
+  const queryClient = useQueryClient()
+  const { session } = useDB()
+  return useMutation({
+    mutationFn: (id: string | number) => apiDeleteWebhook(id),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: settingsKeys.webhooks(`${session?.id}`) }) },
   })
 }
 

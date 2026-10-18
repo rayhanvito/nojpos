@@ -4,6 +4,7 @@ import { useCreateOutlet, useUpdateOutlet } from './hooks'
 import { useOutlets } from '../../hooks/use-outlets'
 import { outletPayload } from '../../shared/outlet'
 import { ModalActions, AlertStrip, Button, Input, Modal, Pill } from '../../shared/ui'
+import OutletOverridesSection from './OutletOverridesSection'
 
 export default function OutletSettingsPage() {
   const createOutlet = useCreateOutlet()
@@ -51,6 +52,7 @@ export default function OutletSettingsPage() {
   }
 
   return (
+    <>
     <section className="rounded-2xl bg-cream p-4 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -104,5 +106,7 @@ export default function OutletSettingsPage() {
         </form>
       </Modal>
     </section>
+    <OutletOverridesSection outlets={outlets} outletsLoading={loading} outletsError={loadError} />
+    </>
   )
 }

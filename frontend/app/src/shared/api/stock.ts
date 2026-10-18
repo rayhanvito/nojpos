@@ -1,10 +1,11 @@
 // Endpoint stok: opname, pergerakan, penyesuaian.
 
 import { request, qs } from './core.ts'
-import type { StockOpnameSession, StockOpnameItem, StockOpnameDetail, StockOpnameCountsInput, Product, Movement, Page } from './types.ts'
+import type { StockOpnameSession, StockOpnameItem, StockOpnameDetail, StockOpnameCountsInput, Product, Movement, Page, StockTransfer, StockTransferInput, StockTransferResponse } from './types.ts'
+import { normalizeStockTransfer } from './types.ts'
 
 export function apiListStockOpnames() {
-  return request<{ items: StockOpnameSession[] | null }>('GET', '/stock-opnames').then((d) => d.items ?? [])
+  return request<Page<StockOpnameSession>>('GET', '/stock-opnames').then((d) => d.items ?? [])
 }
 
 export function apiCreateStockOpname(note?: string) {
@@ -33,6 +34,17 @@ export function apiListMovements(f: { type?: string; productId?: string; q?: str
 
 export function apiAdjustStock(productId: string, direction: 'plus' | 'minus', qty: number, reason: string) {
   return request<{ product: Product }>('POST', '/stock/adjustments', { productId, direction, qty, reason })
+}
+
+export function apiListTransfers(f: { fromOutletId?: string; toOutletId?: string; from?: string; to?: string; page?: number; limit?: number } = {}) {
+  return request<Page<StockTransferResponse>>('GET', '/stock/transfers' + qs(f)).then((page) => ({
+    ...page,
+    items: (page.items ?? []).map(normalizeStockTransfer),
+  }))
+}
+
+export function apiCreateTransfer(body: StockTransferInput): Promise<StockTransfer> {
+  return request<StockTransferResponse>('POST', '/stock/transfers', body).then(normalizeStockTransfer)
 }
 
 // ── notifikasi (admin-only) ────────────────────────────────────────────

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { FolderPlus, Pencil, Plus, Power, Trash2 } from 'lucide-react'
 import { apiExportProducts, apiGetProduct, apiListProducts, fetchAll, type Category, type PriceTier, type Product, type ProductImportResult, type Variant } from './api'
-import { useCatalogSettings, useCategories, useCreateCategory, useCreateProduct, useCreateProductPriceTier, useCreateVariant, useCreateVariantPriceTier, useDeleteCategory, useDeleteProduct, useDeleteProductPriceTier, useDeleteVariant, useDeleteVariantPriceTier, useImportProducts, useProducts, useSetProductActive, useUpdateProduct, useUpdateProductPriceTier, useUpdateVariant, useUpdateVariantPriceTier } from './hooks'
+import { useCatalogSettings, useCategories, useCreateCategory, useCreateProduct, useCreateProductPriceTier, useCreateVariant, useCreateVariantPriceTier, useDeleteCategory, useDeleteProduct, useDeleteProductPriceTier, useDeleteVariant, useDeleteVariantPriceTier, useImportProducts, useProducts, useRenameCategory, useSetProductActive, useUpdateProduct, useUpdateProductPriceTier, useUpdateVariant, useUpdateVariantPriceTier } from './hooks'
 import { selectCsvExportHandler } from '../../shared/export-role'
 import { PageHeader } from '../../shared/PageHeader'
 import { downloadBlob, exportCSV, exportExcel, fmtRp, parseImportFile, useDB } from '../../shared/session/store'
@@ -43,6 +43,7 @@ export default function Products() {
   const setProductActive = useSetProductActive()
   const createCategory = useCreateCategory()
   const deleteCategory = useDeleteCategory()
+  const renameCategory = useRenameCategory()
   const importProducts = useImportProducts()
   const createVariant = useCreateVariant()
   const updateVariant = useUpdateVariant()
@@ -348,6 +349,15 @@ export default function Products() {
     }
   }
 
+  async function renameCat(category: Category, name: string) {
+    setCatBusy(true)
+    try {
+      await renameCategory.mutateAsync({ id: category.id, name })
+    } finally {
+      setCatBusy(false)
+    }
+  }
+
   async function removeCategory(c: Category) {
     if (catBusy) return
     const n = counts.m.get(c.id) ?? 0
@@ -636,7 +646,7 @@ export default function Products() {
         </div>
       </div>
 
-      <KategoriModal open={catOpen} onClose={() => setCatOpen(false)} catName={catName} onCatName={setCatName} busy={catBusy} onAdd={addCat} cats={activeCats} counts={counts.m} onRemove={removeCategory} />
+      <KategoriModal open={catOpen} onClose={() => setCatOpen(false)} catName={catName} onCatName={setCatName} busy={catBusy} onAdd={addCat} cats={activeCats} counts={counts.m} onRename={renameCat} onRemove={removeCategory} />
 
       <Modal open={!!editing} title={editing?.id ? 'Ubah Produk' : 'Tambah Produk'} onClose={() => { if (!saveBusy) setEditing(null) }} wide>
         {editing && (

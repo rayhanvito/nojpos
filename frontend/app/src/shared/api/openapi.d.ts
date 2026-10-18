@@ -4,14 +4,14 @@
  */
 
 export interface paths {
-    "/promos": {
+    "/health": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Daftar promo toko */
+        /** Periksa status layanan dan koneksi basis data. */
         get: {
             parameters: {
                 query?: never;
@@ -21,7 +21,2019 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description Daftar promo */
+                /** @description Periksa status layanan dan koneksi basis data. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Health"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Daftarkan pemilik dan toko baru. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RegisterRequest"];
+                };
+            };
+            responses: {
+                /** @description Daftarkan pemilik dan toko baru. */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AuthResponse"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                409: components["responses"]["Conflict"];
+                410: components["responses"]["Gone"];
+                429: components["responses"]["TooManyRequests"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Masuk dengan email dan kata sandi. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["LoginRequest"];
+                };
+            };
+            responses: {
+                /** @description Masuk dengan email dan kata sandi. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AuthResponse"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                429: components["responses"]["TooManyRequests"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/google": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Masuk atau daftar menggunakan token Google. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["GoogleLoginRequest"];
+                };
+            };
+            responses: {
+                /** @description Masuk atau daftar menggunakan token Google. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AuthResponse"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                409: components["responses"]["Conflict"];
+                429: components["responses"]["TooManyRequests"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Perbarui token menggunakan refresh token. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RefreshRequest"];
+                };
+            };
+            responses: {
+                /** @description Perbarui token menggunakan refresh token. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AuthResponse"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cabut refresh token dan akhiri sesi. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["LogoutRequest"];
+                };
+            };
+            responses: {
+                /** @description Cabut refresh token dan akhiri sesi. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Message"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/otp/send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Kirim kode OTP untuk verifikasi email. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["EmailRequest"];
+                };
+            };
+            responses: {
+                /** @description Kirim kode OTP untuk verifikasi email. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Message"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                429: components["responses"]["TooManyRequests"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/otp/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Verifikasi kode OTP untuk email. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["OtpVerifyRequest"];
+                };
+            };
+            responses: {
+                /** @description Verifikasi kode OTP untuk email. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Verified"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                410: components["responses"]["Gone"];
+                429: components["responses"]["TooManyRequests"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/forgot-password/send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Kirim kode OTP untuk pemulihan kata sandi. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["EmailRequest"];
+                };
+            };
+            responses: {
+                /** @description Kirim kode OTP untuk pemulihan kata sandi. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Message"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                429: components["responses"]["TooManyRequests"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/forgot-password/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Atur kata sandi baru dengan kode OTP. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ResetPasswordRequest"];
+                };
+            };
+            responses: {
+                /** @description Atur kata sandi baru dengan kode OTP. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Message"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                404: components["responses"]["NotFound"];
+                410: components["responses"]["Gone"];
+                429: components["responses"]["TooManyRequests"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/presence/heartbeat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Catat kehadiran pengguna yang sedang aktif.
+         * @description Wajib memakai Bearer JWT; autentikasi X-Api-Key ditolak.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Catat kehadiran pengguna yang sedang aktif. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Status"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ambil profil pengguna dari sesi aktif.
+         * @description Wajib memakai Bearer JWT; autentikasi X-Api-Key ditolak.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Ambil profil pengguna dari sesi aktif. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MeResponse"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/outlets/switch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pindahkan sesi ke outlet lain.
+         * @description Wajib memakai Bearer JWT; autentikasi X-Api-Key ditolak.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SwitchOutletRequest"];
+                };
+            };
+            responses: {
+                /** @description Pindahkan sesi ke outlet lain. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AuthResponse"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Ubah kata sandi akun pemilik.
+         * @description Wajib memakai Bearer JWT; autentikasi X-Api-Key ditolak.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ChangePasswordRequest"];
+                };
+            };
+            responses: {
+                /** @description Ubah kata sandi akun pemilik. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Message"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/switch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Beralih ke akun kasir menggunakan passcode.
+         * @description Wajib memakai Bearer JWT; autentikasi X-Api-Key ditolak. Bila akun tujuan memasang passcode, server membalas 401 dengan code PASSCODE_REQUIRED atau PASSCODE_WRONG.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SwitchUserRequest"];
+                };
+            };
+            responses: {
+                /** @description Beralih ke akun kasir menggunakan passcode. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AuthResponse"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                429: components["responses"]["TooManyRequests"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Daftar kategori produk. */
+        get: {
+            parameters: {
+                query?: {
+                    page?: number;
+                    limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Daftar kategori produk. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CategoryPage"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        put?: never;
+        /**
+         * Buat kategori produk.
+         * @description Khusus admin.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CategoryInput"];
+                };
+            };
+            responses: {
+                /** @description Buat kategori produk. */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CategoryEnvelope"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                409: components["responses"]["Conflict"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Daftar produk dengan filter dan paginasi. */
+        get: {
+            parameters: {
+                query?: {
+                    q?: string;
+                    categoryId?: number;
+                    page?: number;
+                    limit?: number;
+                    active?: boolean;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Daftar produk dengan filter dan paginasi. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductPage"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        put?: never;
+        /**
+         * Buat produk.
+         * @description Khusus admin.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ProductInput"];
+                };
+            };
+            responses: {
+                /** @description Buat produk. */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Product"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ambil detail produk. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Ambil detail produk. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Product"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        /**
+         * Ubah data produk.
+         * @description Khusus admin.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ProductInput"];
+                };
+            };
+            responses: {
+                /** @description Ubah data produk. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Product"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        post?: never;
+        /**
+         * Hapus produk.
+         * @description Khusus admin.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Hapus produk. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Message"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/{id}/variants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Daftar varian produk. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Daftar varian produk. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["VariantList"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        put?: never;
+        /**
+         * Buat varian produk.
+         * @description Khusus admin.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["VariantInput"];
+                };
+            };
+            responses: {
+                /** @description Buat varian produk. */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Variant"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/{id}/price-tiers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Daftar harga bertingkat produk. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Daftar harga bertingkat produk. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PriceTierList"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        put?: never;
+        /**
+         * Tambahkan harga bertingkat produk.
+         * @description Khusus admin.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PriceTierInput"];
+                };
+            };
+            responses: {
+                /** @description Tambahkan harga bertingkat produk. */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PriceTier"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/{id}/variants/{variantId}/price-tiers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Daftar harga bertingkat varian. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                    variantId: components["parameters"]["VariantId"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Daftar harga bertingkat varian. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PriceTierList"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        put?: never;
+        /**
+         * Tambahkan harga bertingkat varian.
+         * @description Khusus admin.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                    variantId: components["parameters"]["VariantId"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PriceTierInput"];
+                };
+            };
+            responses: {
+                /** @description Tambahkan harga bertingkat varian. */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PriceTier"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/categories/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Hapus atau nonaktifkan kategori.
+         * @description Khusus admin.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Hapus atau nonaktifkan kategori. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SoftDeleteResult"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        options?: never;
+        head?: never;
+        /**
+         * Ubah nama kategori.
+         * @description Khusus admin.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CategoryInput"];
+                };
+            };
+            responses: {
+                /** @description Ubah nama kategori. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CategoryEnvelope"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        trace?: never;
+    };
+    "/products/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Impor produk dari berkas CSV.
+         * @description Khusus admin.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "multipart/form-data": components["schemas"]["ProductImportRequest"];
+                };
+            };
+            responses: {
+                /** @description Impor produk dari berkas CSV. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ImportResult"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/{id}/active": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Aktifkan atau nonaktifkan produk.
+         * @description Khusus admin.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ActiveRequest"];
+                };
+            };
+            responses: {
+                /** @description Aktifkan atau nonaktifkan produk. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Message"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        trace?: never;
+    };
+    "/products/{id}/variants/{variantId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Ubah varian produk.
+         * @description Khusus admin.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                    variantId: components["parameters"]["VariantId"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["VariantInput"];
+                };
+            };
+            responses: {
+                /** @description Ubah varian produk. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Variant"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        post?: never;
+        /**
+         * Hapus varian produk.
+         * @description Khusus admin.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                    variantId: components["parameters"]["VariantId"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Hapus varian produk. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Message"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/{id}/price-tiers/{tierId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Ubah harga bertingkat produk.
+         * @description Khusus admin.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                    tierId: components["parameters"]["TierId"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PriceTierInput"];
+                };
+            };
+            responses: {
+                /** @description Ubah harga bertingkat produk. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PriceTier"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        post?: never;
+        /**
+         * Hapus harga bertingkat produk.
+         * @description Khusus admin.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                    tierId: components["parameters"]["TierId"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Hapus harga bertingkat produk. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Message"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/{id}/variants/{variantId}/price-tiers/{tierId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Ubah harga bertingkat varian.
+         * @description Khusus admin.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                    variantId: components["parameters"]["VariantId"];
+                    tierId: components["parameters"]["TierId"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PriceTierInput"];
+                };
+            };
+            responses: {
+                /** @description Ubah harga bertingkat varian. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PriceTier"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        post?: never;
+        /**
+         * Hapus harga bertingkat varian.
+         * @description Khusus admin.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                    variantId: components["parameters"]["VariantId"];
+                    tierId: components["parameters"]["TierId"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Hapus harga bertingkat varian. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Message"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/stock-opnames": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Daftar sesi stock opname. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Daftar sesi stock opname. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StockOpnameList"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        put?: never;
+        /** Buat sesi stock opname. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["StockOpnameCreateRequest"];
+                };
+            };
+            responses: {
+                /** @description Buat sesi stock opname. */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StockOpname"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                409: components["responses"]["Conflict"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/stock-opnames/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ambil detail sesi stock opname. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Ambil detail sesi stock opname. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StockOpname"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/stock-opnames/{id}/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Simpan hitungan item stock opname. */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["StockOpnameCountRequest"];
+                };
+            };
+            responses: {
+                /** @description Simpan hitungan item stock opname. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StockOpname"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/stock-opnames/{id}/post": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Posting hasil stock opname ke stok. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Posting hasil stock opname ke stok. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StockOpname"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/stock-opnames/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Batalkan sesi stock opname. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Batalkan sesi stock opname. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StockOpname"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/movements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Daftar riwayat pergerakan stok.
+         * @description Khusus admin.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    type?: string;
+                    productId?: number;
+                    q?: string;
+                    page?: number;
+                    limit?: number;
+                    /** @description Filter berdasarkan outlet. */
+                    outletId?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Daftar riwayat pergerakan stok. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MovementPage"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/stock/adjustments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sesuaikan jumlah stok produk.
+         * @description Khusus admin.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["StockAdjustmentRequest"];
+                };
+            };
+            responses: {
+                /** @description Sesuaikan jumlah stok produk. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductEnvelope"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/stock/transfers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Daftar transfer stok antar outlet.
+         * @description Khusus admin.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    fromOutletId?: number;
+                    toOutletId?: number;
+                    from?: string;
+                    to?: string;
+                    page?: number;
+                    limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Daftar transfer stok antar outlet. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StockTransferPage"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        put?: never;
+        /**
+         * Pindahkan stok antar outlet.
+         * @description Khusus admin. Kode error khusus: TRANSFER_SAME_OUTLET, TRANSFER_ITEMS_EMPTY, TRANSFER_INVALID_QTY, TRANSFER_INVALID_ITEM.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["StockTransferInput"];
+                };
+            };
+            responses: {
+                /** @description Pindahkan stok antar outlet. */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StockTransfer"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/promos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Daftar promo toko.
+         * @description Khusus admin.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    page?: number;
+                    limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Daftar promo toko. */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -30,10 +2042,16 @@ export interface paths {
                         "application/json": components["schemas"]["PromoList"];
                     };
                 };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                500: components["responses"]["InternalError"];
             };
         };
         put?: never;
-        /** Buat promo baru */
+        /**
+         * Buat promo baru.
+         * @description Khusus admin.
+         */
         post: {
             parameters: {
                 query?: never;
@@ -47,7 +2065,7 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description Promo terbuat */
+                /** @description Buat promo baru. */
                 201: {
                     headers: {
                         [name: string]: unknown;
@@ -56,15 +2074,11 @@ export interface paths {
                         "application/json": components["schemas"]["Promo"];
                     };
                 };
-                /** @description Masukan promo tidak valid */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                409: components["responses"]["Conflict"];
+                500: components["responses"]["InternalError"];
             };
         };
         delete?: never;
@@ -82,19 +2096,22 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** Ambil satu promo */
+        /**
+         * Ambil satu promo.
+         * @description Khusus admin.
+         */
         get: {
             parameters: {
                 query?: never;
                 header?: never;
                 path: {
-                    id: components["parameters"]["PromoId"];
+                    id: components["parameters"]["Id"];
                 };
                 cookie?: never;
             };
             requestBody?: never;
             responses: {
-                /** @description Promo ditemukan */
+                /** @description Ambil satu promo. */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -103,24 +2120,23 @@ export interface paths {
                         "application/json": components["schemas"]["Promo"];
                     };
                 };
-                /** @description Promo tidak ditemukan */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
             };
         };
-        /** Ubah promo */
+        /**
+         * Ubah promo.
+         * @description Khusus admin.
+         */
         put: {
             parameters: {
                 query?: never;
                 header?: never;
                 path: {
-                    id: components["parameters"]["PromoId"];
+                    id: components["parameters"]["Id"];
                 };
                 cookie?: never;
             };
@@ -130,7 +2146,7 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description Promo terubah */
+                /** @description Ubah promo. */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -139,40 +2155,31 @@ export interface paths {
                         "application/json": components["schemas"]["Promo"];
                     };
                 };
-                /** @description Masukan promo tidak valid */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Promo tidak ditemukan */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+                500: components["responses"]["InternalError"];
             };
         };
         post?: never;
-        /** Hapus promo */
+        /**
+         * Hapus promo.
+         * @description Khusus admin.
+         */
         delete: {
             parameters: {
                 query?: never;
                 header?: never;
                 path: {
-                    id: components["parameters"]["PromoId"];
+                    id: components["parameters"]["Id"];
                 };
                 cookie?: never;
             };
             requestBody?: never;
             responses: {
-                /** @description Promo terhapus */
+                /** @description Hapus promo. */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -181,15 +2188,11 @@ export interface paths {
                         "application/json": components["schemas"]["Message"];
                     };
                 };
-                /** @description Promo tidak ditemukan */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
             };
         };
         options?: never;
@@ -212,25 +2215,26 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Aktif/nonaktifkan promo */
+        /**
+         * Aktifkan atau nonaktifkan promo.
+         * @description Khusus admin.
+         */
         patch: {
             parameters: {
                 query?: never;
                 header?: never;
                 path: {
-                    id: components["parameters"]["PromoId"];
+                    id: components["parameters"]["Id"];
                 };
                 cookie?: never;
             };
             requestBody: {
                 content: {
-                    "application/json": {
-                        active: boolean;
-                    };
+                    "application/json": components["schemas"]["PromoActiveRequest"];
                 };
             };
             responses: {
-                /** @description Status promo diperbarui */
+                /** @description Aktifkan atau nonaktifkan promo. */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -239,24 +2243,11 @@ export interface paths {
                         "application/json": components["schemas"]["Message"];
                     };
                 };
-                /** @description Status aktif wajib diisi */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Promo tidak ditemukan */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
             };
         };
         trace?: never;
@@ -270,7 +2261,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Pratinjau diskon promo untuk keranjang */
+        /** Pratinjau diskon promo untuk keranjang. */
         post: {
             parameters: {
                 query?: never;
@@ -284,7 +2275,7 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description Hasil pratinjau promo */
+                /** @description Pratinjau diskon promo untuk keranjang. */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -293,27 +2284,3023 @@ export interface paths {
                         "application/json": components["schemas"]["PromoPreview"];
                     };
                 };
-                /** @description Pratinjau tidak valid (mis. voucher tidak berlaku) */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Produk tidak ditemukan */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
             };
         };
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/customers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Daftar pelanggan dengan pencarian dan paginasi. */
+        get: {
+            parameters: {
+                query?: {
+                    q?: string;
+                    page?: number;
+                    limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Daftar pelanggan dengan pencarian dan paginasi. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CustomerPage"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        put?: never;
+        /** Tambahkan pelanggan. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CustomerInput"];
+                };
+            };
+            responses: {
+                /** @description Tambahkan pelanggan. */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Customer"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                409: components["responses"]["Conflict"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/customers/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ambil detail pelanggan. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Ambil detail pelanggan. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Customer"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        /**
+         * Ubah data pelanggan.
+         * @description Khusus admin.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CustomerInput"];
+                };
+            };
+            responses: {
+                /** @description Ubah data pelanggan. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Customer"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        post?: never;
+        /**
+         * Hapus pelanggan.
+         * @description Khusus admin.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Hapus pelanggan. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Message"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/customers/{id}/transactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Daftar transaksi milik pelanggan. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Daftar transaksi milik pelanggan. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TransactionList"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/transactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Daftar transaksi dengan filter dan paginasi. */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Filter outlet admin; kasir dibatasi ke outlet pada token. */
+                    outletId?: number;
+                    q?: string;
+                    method?: string;
+                    date?: string;
+                    from?: string;
+                    to?: string;
+                    status?: string;
+                    cashierId?: number;
+                    page?: number;
+                    limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Daftar transaksi dengan filter dan paginasi. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TransactionPage"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        put?: never;
+        /**
+         * Selesaikan checkout transaksi.
+         * @description Wajib ada shift aktif untuk kasir pada outlet transaksi; tanpa shift aktif server membalas 409 dengan code SHIFT_REQUIRED (termasuk sinkronisasi checkout offline).
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CheckoutRequest"];
+                };
+            };
+            responses: {
+                /** @description Transaksi idempoten yang telah dibuat. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Transaction"];
+                    };
+                };
+                /** @description Selesaikan checkout transaksi. */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Transaction"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/transactions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ambil detail transaksi dan riwayat refund. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Ambil detail transaksi dan riwayat refund. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TransactionDetail"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/transactions/{id}/refund": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refund sebagian atau seluruh item transaksi.
+         * @description Khusus admin.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RefundRequest"];
+                };
+            };
+            responses: {
+                /** @description Refund sebagian atau seluruh item transaksi. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Transaction"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cashier/shift": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ambil shift kasir yang sedang berjalan. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Ambil shift kasir yang sedang berjalan. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CurrentShift"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cashier/shift/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Buka shift kasir. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["StartShiftRequest"];
+                };
+            };
+            responses: {
+                /** @description Buka shift kasir. */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ShiftStarted"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                409: components["responses"]["Conflict"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cashier/shift/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Tutup shift kasir. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CloseShiftRequest"];
+                };
+            };
+            responses: {
+                /** @description Tutup shift kasir. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ShiftClosed"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/shifts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Daftar shift dengan filter outlet dan tanggal.
+         * @description Khusus admin.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    outletId?: number;
+                    from?: string;
+                    to?: string;
+                    page?: number;
+                    limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Daftar shift dengan filter outlet dan tanggal. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ShiftPage"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/shifts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ambil ringkasan dan transaksi dalam satu shift.
+         * @description Khusus admin.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    outletId?: number;
+                    page?: number;
+                    limit?: number;
+                };
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Ambil ringkasan dan transaksi dalam satu shift. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ShiftDetail"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/shifts/{id}/force-close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Tutup paksa shift oleh admin.
+         * @description Khusus admin.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["CloseShiftRequest"];
+                };
+            };
+            responses: {
+                /** @description Tutup paksa shift oleh admin. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ShiftClosed"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/shifts/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ekspor laporan shift dalam format CSV.
+         * @description Khusus admin.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    outletId?: number;
+                    from?: string;
+                    to?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Ekspor laporan shift dalam format CSV. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/csv": string;
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/suppliers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Daftar supplier dengan paginasi. */
+        get: {
+            parameters: {
+                query?: {
+                    page?: number;
+                    limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Daftar supplier dengan paginasi. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SupplierPage"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        put?: never;
+        /**
+         * Buat supplier.
+         * @description Khusus admin.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SupplierInput"];
+                };
+            };
+            responses: {
+                /** @description Buat supplier. */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Supplier"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/suppliers/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ambil detail supplier. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Ambil detail supplier. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Supplier"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        /**
+         * Ubah supplier.
+         * @description Khusus admin.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SupplierInput"];
+                };
+            };
+            responses: {
+                /** @description Ubah supplier. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Supplier"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        post?: never;
+        /**
+         * Hapus supplier.
+         * @description Khusus admin.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Hapus supplier. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Message"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/purchase-orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Daftar purchase order. */
+        get: {
+            parameters: {
+                query?: {
+                    status?: string;
+                    supplierId?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Daftar purchase order. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PurchaseOrderList"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        put?: never;
+        /**
+         * Buat draft purchase order.
+         * @description Khusus admin.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PurchaseOrderInput"];
+                };
+            };
+            responses: {
+                /** @description Buat draft purchase order. */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PurchaseOrder"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/purchase-orders/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ambil detail purchase order. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Ambil detail purchase order. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PurchaseOrder"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        /**
+         * Ubah draft purchase order.
+         * @description Khusus admin.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PurchaseOrderInput"];
+                };
+            };
+            responses: {
+                /** @description Ubah draft purchase order. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PurchaseOrder"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        post?: never;
+        /**
+         * Hapus draft purchase order.
+         * @description Khusus admin.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Hapus draft purchase order. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Message"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/purchase-orders/{id}/order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Tandai purchase order sebagai dipesan.
+         * @description Khusus admin.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Tandai purchase order sebagai dipesan. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PurchaseOrder"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/purchase-orders/{id}/receive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Catat penerimaan barang purchase order.
+         * @description Khusus admin.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PurchaseOrderReceiveRequest"];
+                };
+            };
+            responses: {
+                /** @description Catat penerimaan barang purchase order. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PurchaseOrder"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/purchase-orders/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Batalkan purchase order.
+         * @description Khusus admin.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Batalkan purchase order. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PurchaseOrder"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/expenses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Daftar pengeluaran dengan filter dan paginasi. */
+        get: {
+            parameters: {
+                query?: {
+                    page?: number;
+                    limit?: number;
+                    from?: string;
+                    to?: string;
+                    category?: string;
+                    q?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Daftar pengeluaran dengan filter dan paginasi. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ExpensePage"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        put?: never;
+        /** Catat pengeluaran. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ExpenseInput"];
+                };
+            };
+            responses: {
+                /** @description Catat pengeluaran. */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Expense"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/expenses/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Ubah pengeluaran.
+         * @description Khusus admin.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ExpenseInput"];
+                };
+            };
+            responses: {
+                /** @description Ubah pengeluaran. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Expense"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        post?: never;
+        /**
+         * Hapus pengeluaran.
+         * @description Khusus admin.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Hapus pengeluaran. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OkResult"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/receivables": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Daftar piutang.
+         * @description Khusus admin.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    status?: string;
+                    overdue?: boolean;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Daftar piutang. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ReceivableList"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/receivables/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ambil detail piutang.
+         * @description Khusus admin.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Ambil detail piutang. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Receivable"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/receivables/{id}/payments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Catat pembayaran piutang.
+         * @description Khusus admin.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["DebtPaymentRequest"];
+                };
+            };
+            responses: {
+                /** @description Catat pembayaran piutang. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Receivable"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/payables": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Daftar utang.
+         * @description Khusus admin.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    status?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Daftar utang. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PayableList"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/payables/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ambil detail utang.
+         * @description Khusus admin.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Ambil detail utang. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Payable"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/payables/{id}/payments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Catat pembayaran utang.
+         * @description Khusus admin.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["DebtPaymentRequest"];
+                };
+            };
+            responses: {
+                /** @description Catat pembayaran utang. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Payable"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ambil ringkasan dashboard toko. */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Filter outlet admin; kasir dibatasi ke outlet pada token. */
+                    outletId?: number;
+                    date?: string;
+                    from?: string;
+                    to?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Ambil ringkasan dashboard toko. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Dashboard"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ambil laporan penjualan, produk, kasir, stok, dan pengeluaran.
+         * @description Khusus admin.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    outletId?: number;
+                    period?: "" | "today" | "yesterday" | "week" | "month" | "all";
+                    date?: string;
+                    from?: string;
+                    to?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Ambil laporan penjualan, produk, kasir, stok, dan pengeluaran. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ReportBundle"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reports/tax": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ambil laporan pajak bulanan.
+         * @description Khusus admin.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    outletId?: number;
+                    /** @description Bulan laporan dalam format YYYY-MM. */
+                    month?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Ambil laporan pajak bulanan. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TaxReport"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reports/tax/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ekspor laporan pajak bulanan dalam format CSV.
+         * @description Khusus admin.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    outletId?: number;
+                    /** @description Bulan laporan dalam format YYYY-MM. */
+                    month?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Ekspor laporan pajak bulanan dalam format CSV. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/csv": string;
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/transactions/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ekspor transaksi dalam format CSV.
+         * @description Khusus admin.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    period?: "" | "today" | "yesterday" | "week" | "month" | "all";
+                    date?: string;
+                    from?: string;
+                    to?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Ekspor transaksi dalam format CSV. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/csv": string;
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ekspor produk dalam format CSV.
+         * @description Khusus admin.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Ekspor produk dalam format CSV. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/csv": string;
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/outlets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Daftar outlet toko. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Daftar outlet toko. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OutletList"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        put?: never;
+        /**
+         * Buat outlet toko.
+         * @description Khusus admin. Wajib memakai Bearer JWT; autentikasi X-Api-Key ditolak.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["OutletInput"];
+                };
+            };
+            responses: {
+                /** @description Buat outlet toko. */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Outlet"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/outlets/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Ubah outlet toko.
+         * @description Khusus admin. Wajib memakai Bearer JWT; autentikasi X-Api-Key ditolak.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["OutletInput"];
+                };
+            };
+            responses: {
+                /** @description Ubah outlet toko. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Outlet"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ambil pengaturan toko. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Ambil pengaturan toko. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StoreSettings"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        /**
+         * Perbarui pengaturan toko secara parsial.
+         * @description Khusus admin. Wajib memakai Bearer JWT; autentikasi X-Api-Key ditolak.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["StoreSettingsInput"];
+                };
+            };
+            responses: {
+                /** @description Perbarui pengaturan toko secara parsial. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StoreSettings"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/outlets/{id}/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ambil pengaturan efektif outlet dan nilai override. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Ambil pengaturan efektif outlet dan nilai override. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OutletSettings"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        /**
+         * Perbarui override pengaturan outlet.
+         * @description Khusus admin. Wajib memakai Bearer JWT; autentikasi X-Api-Key ditolak.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["OutletSettingsInput"];
+                };
+            };
+            responses: {
+                /** @description Perbarui override pengaturan outlet. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OutletSettings"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Daftar akun kasir.
+         * @description Khusus admin. Wajib memakai Bearer JWT; autentikasi X-Api-Key ditolak.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    page?: number;
+                    limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Daftar akun kasir. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["UserPage"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        put?: never;
+        /**
+         * Buat akun kasir.
+         * @description Khusus admin. Wajib memakai Bearer JWT; autentikasi X-Api-Key ditolak.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UserCreateRequest"];
+                };
+            };
+            responses: {
+                /** @description Buat akun kasir. */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["UserEnvelope"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Hapus akun kasir.
+         * @description Khusus admin. Wajib memakai Bearer JWT; autentikasi X-Api-Key ditolak.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Hapus akun kasir. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Message"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        options?: never;
+        head?: never;
+        /**
+         * Ubah nama atau outlet akun kasir.
+         * @description Khusus admin. Wajib memakai Bearer JWT; autentikasi X-Api-Key ditolak.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UserUpdateRequest"];
+                };
+            };
+            responses: {
+                /** @description Ubah nama atau outlet akun kasir. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Message"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        trace?: never;
+    };
+    "/users/{id}/active": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Aktifkan atau nonaktifkan akun kasir.
+         * @description Khusus admin. Wajib memakai Bearer JWT; autentikasi X-Api-Key ditolak.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ActiveRequest"];
+                };
+            };
+            responses: {
+                /** @description Aktifkan atau nonaktifkan akun kasir. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Message"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        trace?: never;
+    };
+    "/users/{id}/passcode": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Atur atau hapus passcode akun.
+         * @description Khusus admin. Wajib memakai Bearer JWT; autentikasi X-Api-Key ditolak.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PasscodeRequest"];
+                };
+            };
+            responses: {
+                /** @description Atur atau hapus passcode akun. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Message"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Daftar notifikasi dengan filter dan paginasi.
+         * @description Khusus admin.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    category?: string;
+                    status?: string;
+                    unread?: boolean;
+                    page?: number;
+                    limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Daftar notifikasi dengan filter dan paginasi. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["NotificationPage"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notifications/unread-count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Hitung notifikasi yang belum dibaca.
+         * @description Khusus admin.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Hitung notifikasi yang belum dibaca. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Total"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notifications/read-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Tandai semua notifikasi sebagai sudah dibaca.
+         * @description Khusus admin.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Tandai semua notifikasi sebagai sudah dibaca. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Status"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        trace?: never;
+    };
+    "/notifications/{id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Tandai satu notifikasi sebagai sudah dibaca.
+         * @description Khusus admin.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Tandai satu notifikasi sebagai sudah dibaca. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Status"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        trace?: never;
+    };
+    "/notifications/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Hapus notifikasi.
+         * @description Khusus admin.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Hapus notifikasi. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Status"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Daftar aktivitas toko dengan filter dan paginasi.
+         * @description Khusus admin.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    page?: number;
+                    limit?: number;
+                    actor?: string;
+                    action?: string;
+                    date?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Daftar aktivitas toko dengan filter dan paginasi. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ActivityPage"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api-keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Daftar kunci API toko.
+         * @description Khusus admin. Wajib memakai Bearer JWT; autentikasi X-Api-Key ditolak.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    page?: number;
+                    limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Daftar kunci API toko. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiKeyPage"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        put?: never;
+        /**
+         * Buat kunci API.
+         * @description Khusus admin. Wajib memakai Bearer JWT; autentikasi X-Api-Key ditolak.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ApiKeyCreateRequest"];
+                };
+            };
+            responses: {
+                /** @description Buat kunci API. */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiKeyCreated"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api-keys/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Cabut kunci API.
+         * @description Khusus admin. Wajib memakai Bearer JWT; autentikasi X-Api-Key ditolak.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Cabut kunci API. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Message"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/webhooks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Daftar langganan webhook.
+         * @description Khusus admin. Wajib memakai Bearer JWT; autentikasi X-Api-Key ditolak.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    page?: number;
+                    limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Daftar langganan webhook. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WebhookPage"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        put?: never;
+        /**
+         * Daftarkan webhook.
+         * @description Khusus admin. Wajib memakai Bearer JWT; autentikasi X-Api-Key ditolak.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["WebhookCreateRequest"];
+                };
+            };
+            responses: {
+                /** @description Daftarkan webhook. */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WebhookCreated"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/webhooks/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Hapus langganan webhook.
+         * @description Khusus admin. Wajib memakai Bearer JWT; autentikasi X-Api-Key ditolak.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Hapus langganan webhook. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Message"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
+            };
+        };
         options?: never;
         head?: never;
         patch?: never;
@@ -323,6 +5310,214 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        Error: {
+            /** @description Pesan kesalahan yang dapat dibaca manusia. */
+            error: string;
+            /** @description Kode mesin bila dikirim handler, misalnya SHIFT_REQUIRED, PASSCODE_REQUIRED, PASSCODE_WRONG, OTP_REQUIRED, OTP_WRONG, OTP_EXPIRED, OTP_MAX_ATTEMPTS, PROMO_INVALID, PROMO_CODE_TAKEN, BAD_DIRECTION, TRANSFER_SAME_OUTLET, TRANSFER_ITEMS_EMPTY, TRANSFER_INVALID_QTY, TRANSFER_INVALID_ITEM, API_KEY_NAME_REQUIRED, NOT_FOUND, WEBHOOK_NOT_FOUND, WEBHOOK_URL_INVALID, WEBHOOK_URL_PRIVATE, WEBHOOK_EVENTS_INVALID, atau INTERNAL. */
+            code?: string;
+        };
+        Page: {
+            items: {
+                [key: string]: unknown;
+            }[];
+            total: number;
+            page: number;
+            limit: number;
+        };
+        Message: {
+            message: string;
+        };
+        Status: {
+            status: string;
+        };
+        Total: {
+            /** Format: int64 */
+            total: number;
+        };
+        OkResult: {
+            ok: boolean;
+        };
+        Verified: {
+            verified: boolean;
+            message: string;
+        };
+        Health: {
+            /** @enum {string} */
+            status: "ok" | "degraded";
+            /** @enum {string} */
+            database: "up" | "down";
+            service: string;
+        };
+        Category: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            created_at: string | null;
+            /** Format: date-time */
+            updated_at: string | null;
+            /** Format: int64 */
+            store_id: number;
+            name: string;
+            active: boolean;
+        };
+        PriceTier: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            created_at: string | null;
+            /** Format: date-time */
+            updated_at: string | null;
+            /** Format: int64 */
+            product_id: number;
+            /** Format: int64 */
+            variant_id?: number | null;
+            min_qty: number;
+            /** Format: int64 */
+            sell_price: number | null;
+        };
+        Variant: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            created_at: string | null;
+            /** Format: date-time */
+            updated_at: string | null;
+            /** Format: int64 */
+            outlet_id?: number | null;
+            /** Format: int64 */
+            product_id: number;
+            name: string;
+            sku: string;
+            /** Format: int64 */
+            buy_price: number | null;
+            /** Format: int64 */
+            sell_price: number | null;
+            stock: number;
+            min_stock: number;
+            price_tiers: components["schemas"]["PriceTier"][] | null;
+        };
+        Product: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            created_at: string | null;
+            /** Format: date-time */
+            updated_at: string | null;
+            /** Format: int64 */
+            outlet_id?: number | null;
+            /** Format: int64 */
+            category_id: number | null;
+            category_name: string | null;
+            name: string;
+            sku: string;
+            barcode: string;
+            /** Format: int64 */
+            buy_price: number | null;
+            /** Format: int64 */
+            sell_price: number | null;
+            stock: number;
+            min_stock: number;
+            unit: string;
+            active: boolean;
+            variants: components["schemas"]["Variant"][] | null;
+            price_tiers: components["schemas"]["PriceTier"][] | null;
+        };
+        Customer: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            created_at: string | null;
+            /** Format: date-time */
+            updated_at: string | null;
+            /** Format: int64 */
+            store_id: number;
+            name: string;
+            phone: string;
+            email: string;
+            address: string;
+            /** Format: int64 */
+            points: number | null;
+        };
+        TransactionItem: {
+            /** Format: int64 */
+            product_id: number;
+            /** Format: int64 */
+            variant_id?: number | null;
+            variant_name?: string;
+            name: string;
+            /** Format: int64 */
+            buy_price: number | null;
+            /** Format: int64 */
+            price: number | null;
+            qty: number;
+        };
+        FinalStock: {
+            /** Format: int64 */
+            product_id: number;
+            /** Format: int64 */
+            variant_id: number | null;
+            stock: number;
+        };
+        RefundDetail: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            created_at: string | null;
+            items: components["schemas"]["TransactionItem"][];
+            reason: string;
+            actor: string;
+        };
+        Transaction: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            created_at: string | null;
+            /** Format: date-time */
+            updated_at: string | null;
+            /** Format: int64 */
+            outlet_id?: number | null;
+            client_tx_id?: string;
+            cashier_name: string;
+            items: components["schemas"]["TransactionItem"][];
+            /** Format: int64 */
+            subtotal: number | null;
+            /** Format: int64 */
+            discount: number | null;
+            /** Format: int64 */
+            promo_id?: number | null;
+            promo_name?: string;
+            /** Format: int64 */
+            promo_discount: number | null;
+            /** Format: int64 */
+            voucher_id?: number | null;
+            voucher_code?: string;
+            /** Format: int64 */
+            voucher_discount: number | null;
+            /** Format: int64 */
+            tax: number | null;
+            /** Format: int64 */
+            total: number | null;
+            method: string;
+            /** Format: int64 */
+            paid: number | null;
+            /** Format: int64 */
+            change: number | null;
+            /** @enum {string} */
+            status: "pending" | "completed" | "completed_offline_shortage" | "cancelled" | "refunded";
+            customer: string;
+            /** Format: int64 */
+            customer_id: number | null;
+            /** Format: int64 */
+            points_earned: number | null;
+            /** Format: int64 */
+            points_redeemed: number | null;
+            /** Format: int64 */
+            points_discount: number | null;
+            final_stocks?: components["schemas"]["FinalStock"][];
+        };
+        TransactionDetail: components["schemas"]["Transaction"] & {
+            refunds?: components["schemas"]["RefundDetail"][];
+        };
         Promo: {
             /** Format: int64 */
             id: number;
@@ -330,6 +5525,7 @@ export interface components {
             created_at: string;
             /** Format: date-time */
             updated_at: string;
+            /** Format: int64 */
             store_id: number;
             name: string;
             /** @enum {string} */
@@ -337,7 +5533,9 @@ export interface components {
             value: number;
             /** @enum {string} */
             scope: "all" | "category" | "product";
+            /** Format: int64 */
             category_id?: number | null;
+            /** Format: int64 */
             product_id?: number | null;
             voucher_code: string | null;
             /** Format: date-time */
@@ -353,17 +5551,789 @@ export interface components {
             combinable: boolean;
             active: boolean;
         };
-        PromoList: {
-            items: components["schemas"]["Promo"][];
+        PromoPreview: {
+            /** Format: int64 */
+            promo_id: number;
+            promo_name: string;
+            /** Format: int64 */
+            promo_discount: number | null;
+            /** Format: int64 */
+            voucher_id: number;
+            voucher_name: string;
+            voucher_code: string;
+            /** Format: int64 */
+            voucher_discount: number | null;
+        };
+        Supplier: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            created_at: string | null;
+            /** Format: date-time */
+            updated_at: string | null;
+            /** Format: int64 */
+            store_id: number;
+            name: string;
+            contact: string;
+            address: string;
+        };
+        PurchaseOrderItem: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            purchase_order_id: number;
+            /** Format: int64 */
+            product_id: number;
+            /** Format: int64 */
+            variant_id?: number | null;
+            qty_ordered: number;
+            qty_received: number;
+            /** Format: int64 */
+            buy_price: number | null;
+        };
+        PurchaseOrder: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            created_at: string | null;
+            /** Format: date-time */
+            updated_at: string | null;
+            /** Format: int64 */
+            store_id: number;
+            /** Format: int64 */
+            outlet_id?: number | null;
+            /** Format: int64 */
+            supplier_id: number;
+            number: string;
+            /** @enum {string} */
+            status: "draft" | "ordered" | "partially_received" | "fully_received" | "cancelled";
+            supplier?: components["schemas"]["Supplier"];
+            items?: components["schemas"]["PurchaseOrderItem"][];
+        };
+        Expense: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            created_at: string | null;
+            /** Format: date-time */
+            updated_at: string | null;
+            /** Format: int64 */
+            store_id: number;
+            /** Format: int64 */
+            outlet_id: number | null;
+            /** Format: date-time */
+            date: string;
+            category: string;
+            note: string;
+            /** Format: int64 */
+            amount: number | null;
+            method: string;
+            /** @enum {string} */
+            source: "drawer" | "outside";
+            /** Format: int64 */
+            shift_id: number | null;
+            /** Format: int64 */
+            created_by_id: number;
+            created_by_name: string;
+        };
+        ReceivablePayment: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            created_at: string | null;
+            /** Format: date-time */
+            updated_at: string | null;
+            /** Format: int64 */
+            receivable_id: number;
+            /** Format: int64 */
+            amount: number | null;
+            method: string;
+            created_by: string;
+        };
+        PayablePayment: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            created_at: string | null;
+            /** Format: date-time */
+            updated_at: string | null;
+            /** Format: int64 */
+            payable_id: number;
+            /** Format: int64 */
+            amount: number | null;
+            method: string;
+            created_by: string;
+        };
+        Receivable: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            created_at: string | null;
+            /** Format: date-time */
+            updated_at: string | null;
+            /** Format: int64 */
+            customer_id: number;
+            /** Format: int64 */
+            transaction_id: number;
+            /** Format: int64 */
+            amount: number | null;
+            /** Format: date-time */
+            due_date: string | null;
+            /** @enum {string} */
+            status: "unpaid" | "partially_paid" | "paid";
+            /** Format: int64 */
+            remaining: number | null;
+            customer_name: string;
+            invoice_number: string;
+            payments?: components["schemas"]["ReceivablePayment"][];
+        };
+        Payable: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            created_at: string | null;
+            /** Format: date-time */
+            updated_at: string | null;
+            /** Format: int64 */
+            supplier_id: number;
+            /** Format: int64 */
+            purchase_order_id: number;
+            /** Format: int64 */
+            amount: number | null;
+            /** @enum {string} */
+            status: "unpaid" | "partially_paid" | "paid";
+            /** Format: int64 */
+            remaining: number | null;
+            supplier_name: string;
+            purchase_order_number: string;
+            payments?: components["schemas"]["PayablePayment"][];
+        };
+        Shift: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            outlet_id?: number | null;
+            cashier_name: string;
+            closed_by_name: string | null;
+            /** Format: date-time */
+            started_at: string | null;
+            /** Format: date-time */
+            closed_at: string | null;
+            /** Format: int64 */
+            opening_cash: number | null;
+            sales_by_method: {
+                [key: string]: number | null;
+            };
+            /** Format: int64 */
+            refund_total: number | null;
+            /** Format: int64 */
+            sales: number | null;
+            /** Format: int64 */
+            trx_count: number;
+            /** Format: int64 */
+            expected_cash: number | null;
+            /** Format: int64 */
+            cash_expenses: number | null;
+            /** Format: int64 */
+            closing_cash_actual: number | null;
+            /** Format: int64 */
+            cash_variance: number | null;
+            close_note: string | null;
+        };
+        ShiftHour: {
+            hour: number;
+            /** Format: int64 */
+            omzet: number | null;
+        };
+        ShiftTopProduct: {
+            /** Format: int64 */
+            product_id: number;
+            name: string;
+            qty: number;
+        };
+        ShiftTransactionPage: {
+            items: components["schemas"]["Transaction"][];
+            page: number;
+            limit: number;
+            /** Format: int64 */
+            total: number;
+        };
+        ShiftDetail: {
+            shift: components["schemas"]["Shift"];
+            transactions: components["schemas"]["ShiftTransactionPage"];
+            hourly: components["schemas"]["ShiftHour"][];
+            top_products: components["schemas"]["ShiftTopProduct"][];
+        };
+        CurrentShift: {
+            shift: components["schemas"]["Shift"];
+            hourly: components["schemas"]["ShiftHour"][];
+            top_products: components["schemas"]["ShiftTopProduct"][];
+        };
+        ShiftStarted: {
+            shift: components["schemas"]["Shift"];
+        };
+        ShiftClosed: {
+            message: string;
+            summary: components["schemas"]["Shift"];
+        };
+        Outlet: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            created_at: string | null;
+            /** Format: date-time */
+            updated_at: string | null;
+            /** Format: int64 */
+            store_id: number;
+            name: string;
+            address: string;
+            is_default: boolean;
+        };
+        StoreHours: {
+            days: string;
+            open: string | null;
+            close: string | null;
+        };
+        StoreSettings: {
+            storeName: string;
+            address: string;
+            phone: string;
+            taxEnabled: boolean;
+            taxPct: number;
+            receiptHeader: string;
+            receiptFooter: string;
+            paper: string;
+            timezone: string;
+            businessType: string;
+            email: string;
+            city: string;
+            province: string;
+            currency: string;
+            hours: components["schemas"]["StoreHours"][];
+            receiptShowLogo: boolean;
+            receiptShowCashier: boolean;
+            receiptShowMethod: boolean;
+            receiptShowTax: boolean;
+            receiptShowDiscount: boolean;
+            receiptShowNote: boolean;
+            taxName: string;
+            taxInclusive: boolean;
+            taxRounding: string;
+            taxApplyTo: string;
+            loyalty_enabled: boolean;
+            /** Format: int64 */
+            loyalty_earn_per: number | null;
+            /** Format: int64 */
+            loyalty_point_value: number | null;
+            creditDueDays: number;
+            lowStockDefault: number;
+        };
+        OutletSettings: components["schemas"]["StoreSettings"] & {
+            overrides: {
+                [key: string]: unknown;
+            };
+        };
+        User: {
+            /** Format: int64 */
+            id: number;
+            email: string;
+            name: string;
+            /** @enum {string} */
+            role: "admin" | "cashier";
+            active: boolean;
+            online: boolean;
+            /** Format: date-time */
+            last_seen_at?: string | null;
+            /** Format: int64 */
+            store_id: number;
+            store_name?: string;
+            /** Format: int64 */
+            outlet_id?: number | null;
+            /** Format: date-time */
+            created_at: string | null;
+            has_passcode: boolean;
+        };
+        Notification: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            created_at: string | null;
+            /** Format: date-time */
+            updated_at: string | null;
+            /** Format: int64 */
+            store_id: number;
+            title: string;
+            message: string;
+            /** @enum {string} */
+            category: "stok" | "transaksi" | "sistem";
+            type: string;
+            actor_id?: string;
+            actor_name?: string;
+            reference_type?: string;
+            reference_id?: string;
+            read: boolean;
+        };
+        Activity: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            created_at: string | null;
+            /** Format: date-time */
+            updated_at: string | null;
+            /** Format: int64 */
+            store_id: number;
+            actor_id: string;
+            actor_name: string;
+            action: string;
+            detail: string;
+            reference_type?: string;
+            reference_id?: string;
+        };
+        StockTransferItem: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            created_at: string | null;
+            /** Format: date-time */
+            updated_at: string | null;
+            /** Format: int64 */
+            transfer_id: number;
+            /** Format: int64 */
+            product_id: number;
+            /** Format: int64 */
+            variant_id?: number | null;
+            qty: number;
+        };
+        StockTransfer: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            created_at: string | null;
+            /** Format: date-time */
+            updated_at: string | null;
+            /** Format: int64 */
+            from_outlet_id: number;
+            /** Format: int64 */
+            to_outlet_id: number;
+            note: string;
+            /** Format: int64 */
+            created_by: number;
+            created_by_name: string;
+            items: components["schemas"]["StockTransferItem"][];
+        };
+        ApiKey: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+            prefix: string;
+            /** Format: date-time */
+            created_at: string | null;
+            /** Format: date-time */
+            last_used_at: string | null;
+        };
+        ApiKeyCreated: components["schemas"]["ApiKey"] & {
+            /** @description Kunci API lengkap. Hanya ditampilkan satu kali saat pembuatan; simpan di tempat aman. */
+            apiKey: string;
+        };
+        Webhook: {
+            /** Format: int64 */
+            id: number;
+            url: string;
+            events: string[];
+            /** Format: date-time */
+            created_at: string | null;
+        };
+        WebhookCreated: components["schemas"]["Webhook"] & {
+            /** @description Rahasia penanda tangan webhook. Hanya ditampilkan satu kali saat pembuatan; dipakai memverifikasi header X-NOJPOS-Signature. */
+            secret: string;
+        };
+        DashboardToday: {
+            /** Format: int64 */
+            omzet?: number | null;
+            /** Format: int64 */
+            trx_count?: number;
+            /** Format: int64 */
+            items_sold?: number;
+            /** Format: int64 */
+            refund_total?: number | null;
+            /** Format: int64 */
+            low_stock?: number;
+        };
+        DayPoint: {
+            date?: string;
+            /** Format: int64 */
+            omzet?: number | null;
+        };
+        MethodPoint: {
+            method?: string;
+            /** Format: int64 */
+            total?: number | null;
+        };
+        TopProduct: {
+            /** Format: int64 */
+            product_id?: number;
+            name?: string;
+            qty?: number;
+            /** Format: int64 */
+            revenue?: number | null;
+        };
+        TransactionBrief: {
+            /** Format: int64 */
+            id?: number;
+            cashier_name?: string;
+            /** Format: int64 */
+            total?: number | null;
+            status?: string;
+            /** Format: date-time */
+            time?: string | null;
+        };
+        Dashboard: {
+            role?: string;
+            today?: components["schemas"]["DashboardToday"];
+            sales7?: components["schemas"]["DayPoint"][];
+            methods?: components["schemas"]["MethodPoint"][];
+            top_products?: components["schemas"]["TopProduct"][];
+            recent?: components["schemas"]["TransactionBrief"][];
+        } & {
+            [key: string]: unknown;
+        };
+        ReportBundle: {
+            period?: string;
+            summary?: {
+                [key: string]: unknown;
+            };
+            by_method?: components["schemas"]["MethodPoint"][];
+            by_status?: {
+                [key: string]: unknown;
+            }[];
+            products?: {
+                [key: string]: unknown;
+            }[];
+            transactions?: {
+                [key: string]: unknown;
+            }[];
+            cashiers?: {
+                [key: string]: unknown;
+            }[];
+            stock?: {
+                [key: string]: unknown;
+            }[];
+            expenses?: {
+                [key: string]: unknown;
+            }[];
+        } & {
+            [key: string]: unknown;
+        };
+        TaxReport: {
+            month: string;
+            /** Format: int64 */
+            omzet_bruto: number | null;
+            /** Format: int64 */
+            refund_total: number | null;
+            /** Format: int64 */
+            omzet_neto: number | null;
+            /** Format: int64 */
+            dpp: number | null;
+            /** Format: int64 */
+            ppn_terkumpul: number | null;
+            /** Format: int64 */
+            trx_count: number;
+            /** Format: int64 */
+            refund_count: number;
+            /** Format: int64 */
+            pph_final_estimate: number | null;
+        };
+        StockOpnameItem: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            created_at: string | null;
+            /** Format: date-time */
+            updated_at: string | null;
+            /** Format: int64 */
+            session_id: number;
+            /** Format: int64 */
+            product_id: number;
+            /** Format: int64 */
+            variant_id?: number | null;
+            system_stock: number;
+            counted_stock: number | null;
+            difference: number | null;
+            product_name?: string;
+            variant_name?: string;
+        };
+        StockOpname: {
+            /** Format: int64 */
+            id?: number;
+            /** Format: date-time */
+            created_at?: string | null;
+            /** Format: date-time */
+            updated_at?: string | null;
+            /** Format: int64 */
+            store_id?: number;
+            /** Format: int64 */
+            outlet_id?: number | null;
+            /** @enum {string} */
+            status?: "counting" | "posted" | "cancelled";
+            note?: string;
+            created_by?: string;
+            items?: components["schemas"]["StockOpnameItem"][];
+        };
+        Movement: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            created_at: string | null;
+            /** Format: date-time */
+            updated_at: string | null;
+            /** Format: int64 */
+            outlet_id?: number | null;
+            /** Format: int64 */
+            product_id: number;
+            /** Format: int64 */
+            variant_id?: number | null;
+            product_name: string | null;
+            /** @enum {string} */
+            type: "sale" | "refund" | "adjust" | "initial" | "purchase" | "opname" | "transfer_out" | "transfer_in";
+            qty: number;
+            reason: string;
+            actor: string;
+        };
+        ImportRowError: {
+            baris?: number;
+            alasan?: string;
+        };
+        ImportResult: {
+            total?: number;
+            berhasil?: number;
+            gagal?: number;
+            kesalahan?: components["schemas"]["ImportRowError"][];
+        };
+        CategoryEnvelope: {
+            category?: components["schemas"]["Category"];
+        };
+        ProductEnvelope: {
+            product?: components["schemas"]["Product"];
+        };
+        UserEnvelope: {
+            user?: components["schemas"]["User"];
+        };
+        MeResponse: {
+            user?: components["schemas"]["User"];
+        };
+        AuthResponse: {
+            user?: components["schemas"]["User"];
+            access_token?: string;
+            refresh_token?: string;
+        };
+        SoftDeleteResult: {
+            soft_deleted?: boolean;
+        };
+        CategoryPage: components["schemas"]["Page"] & {
+            items?: components["schemas"]["Category"][];
+        };
+        ProductPage: components["schemas"]["Page"] & {
+            items?: components["schemas"]["Product"][];
+        };
+        CustomerPage: components["schemas"]["Page"] & {
+            items?: components["schemas"]["Customer"][];
+        };
+        TransactionPage: components["schemas"]["Page"] & {
+            items?: components["schemas"]["Transaction"][];
+        };
+        SupplierPage: components["schemas"]["Page"] & {
+            items?: components["schemas"]["Supplier"][];
+        };
+        ExpensePage: components["schemas"]["Page"] & {
+            items?: components["schemas"]["Expense"][];
+        };
+        MovementPage: components["schemas"]["Page"] & {
+            items?: components["schemas"]["Movement"][];
+        };
+        StockTransferPage: components["schemas"]["Page"] & {
+            items?: components["schemas"]["StockTransfer"][];
+        };
+        ShiftPage: components["schemas"]["Page"] & {
+            items?: components["schemas"]["Shift"][];
+        };
+        UserPage: components["schemas"]["Page"] & {
+            items?: components["schemas"]["User"][];
+        };
+        NotificationPage: components["schemas"]["Page"] & {
+            items?: components["schemas"]["Notification"][];
+        };
+        ActivityPage: components["schemas"]["Page"] & {
+            items?: components["schemas"]["Activity"][];
+        };
+        ApiKeyPage: components["schemas"]["Page"] & {
+            items?: components["schemas"]["ApiKey"][];
+        };
+        WebhookPage: components["schemas"]["Page"] & {
+            items?: components["schemas"]["Webhook"][];
+        };
+        ReceivableList: {
+            items?: components["schemas"]["Receivable"][];
+        };
+        PayableList: {
+            items?: components["schemas"]["Payable"][];
+        };
+        PurchaseOrderList: {
+            items?: components["schemas"]["PurchaseOrder"][];
+        };
+        TransactionList: {
+            items?: components["schemas"]["Transaction"][];
+        };
+        VariantList: {
+            items?: components["schemas"]["Variant"][];
+        };
+        PriceTierList: {
+            items?: components["schemas"]["PriceTier"][];
+        };
+        StockOpnameList: {
+            items?: components["schemas"]["StockOpname"][];
+        };
+        OutletList: {
+            items?: components["schemas"]["Outlet"][];
+        };
+        RegisterRequest: {
+            name: string;
+            email: string;
+            password: string;
+            storeName: string;
+        };
+        LoginRequest: {
+            email: string;
+            password: string;
+        };
+        GoogleLoginRequest: {
+            id_token: string;
+            storeName?: string;
+        };
+        RefreshRequest: {
+            refresh_token: string;
+        };
+        LogoutRequest: {
+            refresh_token?: string;
+        };
+        EmailRequest: {
+            email: string;
+        };
+        OtpVerifyRequest: {
+            email: string;
+            code: string;
+        };
+        ResetPasswordRequest: {
+            email: string;
+            code: string;
+            new_password: string;
+        };
+        SwitchOutletRequest: {
+            /** Format: int64 */
+            outletId: number;
+        };
+        ChangePasswordRequest: {
+            old_password: string;
+            new_password: string;
+        };
+        SwitchUserRequest: {
+            /** Format: int64 */
+            target_user_id: number;
+            passcode?: string;
+            /** @enum {string} */
+            role?: "admin" | "cashier";
+        };
+        CategoryInput: {
+            name: string;
+        };
+        ProductInput: {
+            name: string;
+            sku: string;
+            barcode?: string;
+            /** Format: int64 */
+            categoryId?: number | null;
+            /** Format: int64 */
+            buyPrice?: number | null;
+            /** Format: int64 */
+            sellPrice?: number | null;
+            stock?: number | null;
+            minStock?: number | null;
+            unit?: string;
+        };
+        VariantInput: {
+            name: string;
+            sku: string;
+            /** Format: int64 */
+            buyPrice?: number | null;
+            /** Format: int64 */
+            sellPrice?: number | null;
+            stock?: number;
+            minStock?: number;
+        };
+        PriceTierInput: {
+            minQty: number;
+            /** Format: int64 */
+            sellPrice: number | null;
+        };
+        ProductImportRequest: {
+            /**
+             * Format: binary
+             * @description CSV maksimal 5 MiB dan 1.000 baris data.
+             */
+            file: string;
+        };
+        ActiveRequest: {
+            active: boolean;
+        };
+        StockOpnameCreateRequest: {
+            note?: string;
+        };
+        StockOpnameCountItem: {
+            /** Format: int64 */
+            itemId: number;
+            countedStock: number;
+        };
+        StockOpnameCountRequest: {
+            items: components["schemas"]["StockOpnameCountItem"][];
+        };
+        StockAdjustmentRequest: {
+            /** Format: int64 */
+            productId: number;
+            /** Format: int64 */
+            variantId?: number | null;
+            /**
+             * @description Arah penyesuaian stok.
+             * @enum {string}
+             */
+            direction: "plus" | "minus";
+            /** Format: int64 */
+            qty: number | null;
+            reason?: string;
+        };
+        StockTransferItemInput: {
+            /** Format: int64 */
+            productId: number;
+            /** Format: int64 */
+            variantId?: number | null;
+            qty: number;
+        };
+        StockTransferInput: {
+            /** Format: int64 */
+            fromOutletId: number;
+            /** Format: int64 */
+            toOutletId: number;
+            note?: string;
+            items: components["schemas"]["StockTransferItemInput"][];
         };
         PromoInput: {
             name: string;
             /** @enum {string} */
             type: "percent" | "amount";
-            value: number;
+            value: number | (number | null);
             /** @enum {string} */
             scope: "all" | "category" | "product";
+            /** Format: int64 */
             categoryId?: number | null;
+            /** Format: int64 */
             productId?: number | null;
             voucherCode?: string | null;
             /** Format: date-time */
@@ -378,36 +6348,252 @@ export interface components {
             maxDiscount?: number;
             combinable?: boolean;
         };
+        PromoActiveRequest: {
+            active: boolean;
+        };
+        PreviewItem: {
+            /** Format: int64 */
+            productId: number;
+            /** Format: int64 */
+            variantId?: number | null;
+            qty: number;
+        };
         PreviewRequest: {
             items: components["schemas"]["PreviewItem"][];
             voucherCode?: string;
         };
-        PreviewItem: {
+        CustomerInput: {
+            name: string;
+            phone?: string;
+            email?: string;
+            address?: string;
+        };
+        CheckoutItemInput: {
+            /** Format: int64 */
             productId: number;
+            /** Format: int64 */
             variantId?: number | null;
             qty: number;
         };
-        PromoPreview: {
-            promo_id: number;
-            promo_name: string;
+        CheckoutRequest: {
+            items: components["schemas"]["CheckoutItemInput"][];
             /** Format: int64 */
-            promo_discount: number;
-            voucher_id: number;
-            voucher_name: string;
-            voucher_code: string;
+            discount?: number | null;
+            voucherCode?: string;
+            method: string;
             /** Format: int64 */
-            voucher_discount: number;
+            paid?: number | null;
+            customer?: string;
+            /** Format: int64 */
+            customerId?: number | null;
+            /** Format: int64 */
+            pointsRedeem?: number | null;
+            clientTxId?: string;
         };
-        Message: {
-            message: string;
+        RefundRequest: {
+            items: components["schemas"]["CheckoutItemInput"][];
+            reason?: string;
         };
-        Error: {
-            error: string;
-            code?: string;
+        StartShiftRequest: {
+            /** Format: int64 */
+            opening_cash?: number | null;
+        };
+        CloseShiftRequest: {
+            /** Format: int64 */
+            closingCash?: number | null;
+            note?: string;
+        };
+        SupplierInput: {
+            name: string;
+            contact?: string;
+            address?: string;
+        };
+        PurchaseOrderItemInput: {
+            /** Format: int64 */
+            productId: number;
+            /** Format: int64 */
+            variantId?: number | null;
+            qty: number | null;
+            /** Format: int64 */
+            buyPrice: number | null;
+        };
+        PurchaseOrderInput: {
+            /** Format: int64 */
+            supplierId: number;
+            items: components["schemas"]["PurchaseOrderItemInput"][];
+        };
+        PurchaseOrderReceiveItem: {
+            /** Format: int64 */
+            itemId: number;
+            qty: number;
+        };
+        PurchaseOrderReceiveRequest: {
+            items: components["schemas"]["PurchaseOrderReceiveItem"][];
+        };
+        ExpenseInput: {
+            /** Format: date */
+            date: string;
+            category: string;
+            note?: string;
+            /** Format: int64 */
+            amount: number | null;
+            method: string;
+            /** @enum {string} */
+            source?: "drawer" | "outside";
+        };
+        DebtPaymentRequest: {
+            /** Format: int64 */
+            amount: number | null;
+            method: string;
+        };
+        OutletInput: {
+            name: string;
+            address?: string;
+            isDefault?: boolean | null;
+        };
+        StoreSettingsInput: {
+            storeName?: string;
+            address?: string;
+            phone?: string;
+            taxEnabled?: boolean;
+            taxPct?: number;
+            receiptHeader?: string;
+            receiptFooter?: string;
+            paper?: string;
+            timezone?: string;
+            businessType?: string;
+            email?: string;
+            city?: string;
+            province?: string;
+            currency?: string;
+            hours?: components["schemas"]["StoreHours"][] | null;
+            receiptShowLogo?: boolean;
+            receiptShowCashier?: boolean;
+            receiptShowMethod?: boolean;
+            receiptShowTax?: boolean;
+            receiptShowDiscount?: boolean;
+            receiptShowNote?: boolean;
+            taxName?: string;
+            taxInclusive?: boolean;
+            taxRounding?: string;
+            taxApplyTo?: string;
+            loyaltyEnabled?: boolean;
+            /** Format: int64 */
+            loyaltyEarnPer?: number | null;
+            /** Format: int64 */
+            loyaltyPointValue?: number | null;
+            creditDueDays?: number;
+            lowStockDefault?: number;
+        };
+        OutletSettingsInput: {
+            taxPct?: number | null;
+            receiptFooter?: string | null;
+            hours?: components["schemas"]["StoreHours"][] | null;
+        };
+        UserCreateRequest: {
+            name: string;
+            /** Format: int64 */
+            outletId?: number | null;
+        };
+        UserUpdateRequest: {
+            name?: string;
+            /** Format: int64 */
+            outletId?: number | null;
+        };
+        PasscodeRequest: {
+            passcode: string;
+            /** @enum {string} */
+            role?: "admin" | "cashier";
+        };
+        ApiKeyCreateRequest: {
+            name: string;
+        };
+        WebhookCreateRequest: {
+            url: string;
+            events: ("transaction.created" | "transaction.refunded" | "stock.updated")[];
+        };
+        PromoList: components["schemas"]["Page"] & {
+            items?: components["schemas"]["Promo"][];
         };
     };
-    responses: never;
+    responses: {
+        /** @description Permintaan tidak valid. */
+        BadRequest: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description Autentikasi gagal atau sesi tidak valid. */
+        Unauthorized: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description Akses ditolak untuk peran atau jenis autentikasi ini. */
+        Forbidden: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description Data tidak ditemukan. */
+        NotFound: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description Permintaan bertentangan dengan status data saat ini. */
+        Conflict: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description Kode OTP telah kedaluwarsa. */
+        Gone: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description Batas permintaan tercapai. */
+        TooManyRequests: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description Terjadi kesalahan pada server. */
+        InternalError: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+    };
     parameters: {
+        Id: number;
+        VariantId: number;
+        TierId: number;
         PromoId: number;
     };
     requestBodies: never;

@@ -90,7 +90,7 @@ test('outlet and cashier APIs use contracted paths and camelCase bodies', async 
         : url.endsWith('/outlets') || url.endsWith('/outlets/12')
           ? { outlet: wireOutlet }
           : url.endsWith('/users') && init.method === 'GET'
-            ? { users: [{ id: 'cashier-1', outlet_id: 12 }] }
+            ? { items: [{ id: 'cashier-1', outlet_id: 12 }], total: 1, page: 1, limit: 50 }
             : url.endsWith('/users')
             ? { user: { id: 'cashier-1', outlet_id: 12 } }
             : { message: 'OK' }

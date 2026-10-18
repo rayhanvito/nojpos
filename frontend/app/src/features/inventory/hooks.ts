@@ -8,9 +8,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { clearCache } from '../../shared/cache'
 import { useDB } from '../../shared/session/store'
 import {
-  apiAdjustStock, apiCancelStockOpname, apiCreateStockOpname, apiListCategories, apiListMovements,
+  apiAdjustStock, apiCancelStockOpname, apiCreateStockOpname, apiCreateTransfer, apiListCategories, apiListMovements, apiListTransfers,
   apiListProducts, apiListStockOpnames, apiPostStockOpname, apiUpdateStockOpnameItems, fetchAll,
-  type Category, type Movement, type Page, type Product, type StockOpnameCountsInput, type StockOpnameSession,
+  type Category, type Movement, type Page, type Product, type StockOpnameCountsInput, type StockOpnameSession, type StockTransfer, type StockTransferInput,
 } from './api'
 
 export const inventoryKeys = {
@@ -20,6 +20,7 @@ export const inventoryKeys = {
     ['inventory', 'movements', who, page, pageSize, type, q] as const,
   categories: (who: string) => ['inventory', 'categories', who] as const,
   opnames: (who: string) => ['inventory', 'opnames', who] as const,
+  transfers: (who: string, page: number, pageSize: number) => ['inventory', 'transfers', who, page, pageSize] as const,
 }
 
 function useInvalidateInventory() {
@@ -116,6 +117,26 @@ export function useStockOpnames(): {
   }
 }
 
+export function useTransfers(page: number, pageSize: number): {
+  data: Page<StockTransfer> | null
+  err: string
+  loading: boolean
+  reload: () => void
+} {
+  const { session } = useDB()
+  const who = `${session?.id}:${session?.role}`
+  const query = useQuery({
+    queryKey: inventoryKeys.transfers(who, page, pageSize),
+    queryFn: () => apiListTransfers({ page: page + 1, limit: pageSize }),
+  })
+  return {
+    data: query.data ?? null,
+    err: query.error ? errText(query.error, 'Gagal memuat transfer stok.') : '',
+    loading: query.isLoading,
+    reload: () => { void query.refetch() },
+  }
+}
+
 export function useAdjustStock() {
   const invalidate = useInvalidateInventory()
   return useMutation({
@@ -153,6 +174,14 @@ export function useCancelStockOpname() {
   const invalidate = useInvalidateInventory()
   return useMutation({
     mutationFn: (id: number) => apiCancelStockOpname(id),
+    onSuccess: invalidate,
+  })
+}
+
+export function useCreateTransfer() {
+  const invalidate = useInvalidateInventory()
+  return useMutation({
+    mutationFn: (body: StockTransferInput) => apiCreateTransfer(body),
     onSuccess: invalidate,
   })
 }

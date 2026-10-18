@@ -5,7 +5,7 @@
 // mengekspor ulang yang dipakai fitur catalog, mengikuti pola fitur pos
 // (satu pintu masuk API per fitur).
 export {
-  apiCreateCategory, apiCreateProduct, apiCreateProductPriceTier, apiCreateVariant, apiCreateVariantPriceTier,
+  apiCreateCategory, apiRenameCategory, apiCreateProduct, apiCreateProductPriceTier, apiCreateVariant, apiCreateVariantPriceTier,
   apiDeleteCategory, apiDeleteProduct, apiDeleteProductPriceTier, apiDeleteVariant, apiDeleteVariantPriceTier,
   apiExportProducts, apiGetProduct, apiGetSettings, apiImportProducts, apiListCategories, apiListProducts,
   apiSetProductActive, apiUpdateProduct, apiUpdateProductPriceTier, apiUpdateVariant, apiUpdateVariantPriceTier,

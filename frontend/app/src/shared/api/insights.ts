@@ -1,8 +1,8 @@
 // Endpoint wawasan: notifikasi, aktivitas, shift, pengaturan, laporan.
 
 import { request, requestFile, qs } from './core.ts'
-import type { StoreSettings, StoreSettingsResponse, Page, CashierShift, Shift, ShiftDetail, ShiftCloseResponse, DashboardAdmin, DashboardCashier, ReportBundle, TaxReport, ActivityItem, NotifCategory, Notification } from './types.ts'
-import { normalizeStoreSettings } from './types.ts'
+import type { StoreSettings, StoreSettingsResponse, OutletSettings, OutletSettingsResponse, OutletSettingsPatch, Page, CashierShift, Shift, ShiftDetail, ShiftCloseResponse, DashboardAdmin, DashboardCashier, ReportBundle, TaxReport, ActivityItem, NotifCategory, Notification } from './types.ts'
+import { normalizeStoreSettings, normalizeOutletSettings } from './types.ts'
 
 export function apiListNotifications(f: {
   unread?: boolean
@@ -70,7 +70,7 @@ export function apiCloseCashierShift(body: { closingCash: number; note?: string 
 }
 
 export function apiListShifts(f: { outletId?: string; from?: string; to?: string } = {}) {
-  return request<{ items: Shift[] }>('GET', '/shifts' + qs(f)).then((data) => data.items ?? [])
+  return request<Page<Shift>>('GET', '/shifts' + qs(f)).then((data) => data.items ?? [])
 }
 
 export function apiGetShift(id: number, f: { page?: number; limit?: number } = {}) {
@@ -93,6 +93,14 @@ export function apiGetSettings() {
 
 export function apiUpdateSettings(s: StoreSettings) {
   return request<StoreSettingsResponse>('PUT', '/settings', s).then(normalizeStoreSettings)
+}
+
+export function apiGetOutletSettings(outletId: string): Promise<OutletSettings> {
+  return request<OutletSettingsResponse>('GET', `/outlets/${outletId}/settings`).then(normalizeOutletSettings)
+}
+
+export function apiUpdateOutletSettings(outletId: string, patch: OutletSettingsPatch): Promise<unknown> {
+  return request<unknown>('PUT', `/outlets/${outletId}/settings`, patch)
 }
 
 // Ganti kata sandi via OTP email (kontrak README backend §forgot-password).

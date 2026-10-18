@@ -12,6 +12,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/shared/ui/primitives/tabs'
 import { STOCK_TABS, STOCK_TAB_ALIASES, type StockTab } from '../../shared/tab-params'
 import { useTabParam } from '../../shared/use-tab-param'
 import StockOpname from './StockOpnamePage'
+import TransferTab from './TransferTab'
 import { Card, CardContent } from '@/shared/ui/primitives/card'
 import { Skeleton } from '@/shared/ui/primitives/skeleton'
 
@@ -159,6 +160,7 @@ export default function Stock() {
             { id: 'stock', label: 'Stok Saat Ini' },
             { id: 'stocktake', label: 'Opname' },
             { id: 'movement', label: 'Riwayat Pergerakan' },
+            { id: 'transfers', label: 'Transfer' },
           ] as const).map((t) => (
             <TabsTrigger key={t.id} value={t.id}>{t.label}</TabsTrigger>
           ))}
@@ -338,6 +340,8 @@ export default function Stock() {
 
           <Pager page={movPage} total={movPages} onChange={setMpage} totalItems={movTotal} pageSize={movPageSize} onPageSizeChange={(n) => { setMovPageSize(n); setMpage(0) }} />
         </div>
+      ) : tab === 'transfers' ? (
+        <TransferTab />
       ) : null}
 
       <Modal open={!!adjustFor} title={`Penyesuaian stok · ${adjustFor?.name ?? ''}`} onClose={() => setAdjustFor(null)}>

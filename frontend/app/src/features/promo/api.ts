@@ -14,9 +14,9 @@
 //   - Body preview: PreviewItem spec memakai productId integer sedangkan
 //     katalog FE memakai id string -> memakai CheckoutItem lokal lama;
 //     respons preview tetap tipe spec PromoPreview.
-import { request } from '../../shared/api/core'
+import { request } from '../../shared/api/core.ts'
 import type { components } from '../../shared/api/openapi'
-import type { CheckoutItem } from '../../shared/api/types'
+import type { CheckoutItem, Page } from '../../shared/api/types'
 
 type PromoSchema = components['schemas']['Promo']
 type PromoInputSchema = components['schemas']['PromoInput']
@@ -45,7 +45,7 @@ function normalizePromo(promo: PromoSchema): Promo {
 }
 
 export function apiListPromos() {
-  return request<{ items: PromoSchema[] | null }>('GET', '/promos').then((d) => (d.items ?? []).map(normalizePromo))
+  return request<Page<PromoSchema>>('GET', '/promos').then((d) => (d.items ?? []).map(normalizePromo))
 }
 
 export function apiGetPromo(id: PromoId) {
