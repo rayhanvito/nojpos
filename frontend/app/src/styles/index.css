@@ -719,7 +719,7 @@ p, h1, h2, h3, h4, li, span, a, td, th { overflow-wrap: break-word; }
   box-shadow: 0 0 0 2px rgba(25, 136, 234, 0.14);
 }
 
-/* ══ shell klasik: brand strip + sidebar 240px + topbar biru 54px ( §5/§10/§11) ══ */
+/* ══ shell klasik: brand strip + sidebar 256px + topbar biru 54px ( §5/§10/§11) ══ */
 .opc-shell { display: flex; flex-direction: column; min-height: 100dvh; }
 /* Toprow + sidebar fixed permanen: satu kesatuan statis, tak ikut scroll.
    --opc-topbar-h = 54px + inset status bar. Di web/Electron inset-nya 0 jadi
@@ -729,9 +729,9 @@ p, h1, h2, h3, h4, li, span, a, td, th { overflow-wrap: break-word; }
 :root { --opc-topbar-h: calc(54px + env(safe-area-inset-top, 0px)); }
 .opc-toprow { display: flex; align-items: stretch; height: var(--opc-topbar-h); flex-shrink: 0; position: fixed; top: 0; left: 0; right: 0; z-index: 40; }
 .opc-brand {
-  width: 240px; flex-shrink: 0; box-sizing: border-box;
+  width: 256px; flex-shrink: 0; box-sizing: border-box;
   display: flex; align-items: center; gap: 10px;
-  padding: env(safe-area-inset-top, 0px) 16px 0;
+  padding: env(safe-area-inset-top, 0px) 16px 0 24px;
   background: #1b2733; color: #fff;
 }
 .opc-brand img { height: 26px; width: auto; }
@@ -769,7 +769,7 @@ p, h1, h2, h3, h4, li, span, a, td, th { overflow-wrap: break-word; }
 
 .opc-body { display: flex; flex: 1; min-height: 0; padding-top: var(--opc-topbar-h); }
 .opc-sidebar {
-  width: 240px; flex-shrink: 0;
+  width: 256px; flex-shrink: 0;
   background: #1f2d3a; color: #d9e2ea;
   display: flex; flex-direction: column;
   position: fixed; top: var(--opc-topbar-h); bottom: 0; left: 0; z-index: 30;
@@ -888,7 +888,7 @@ p, h1, h2, h3, h4, li, span, a, td, th { overflow-wrap: break-word; }
 .opc-acc-btn.primary:hover:not(:disabled) { filter: brightness(0.94); }
 .opc-acc-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-.opc-main { flex: 1; min-width: 0; margin-left: 240px; padding: 20px; transition: margin-left 180ms ease; }
+.opc-main { flex: 1; min-width: 0; margin-left: 256px; padding: 20px; transition: margin-left 180ms ease; }
 .opc-crumb { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted-foreground); }
 .opc-crumb-right { display: flex; justify-content: flex-start; margin-bottom: 6px; }
 /* Header halaman: breadcrumb di atas judul (kiri), aksi sejajar judul di kanan. */
@@ -1012,7 +1012,7 @@ p, h1, h2, h3, h4, li, span, a, td, th { overflow-wrap: break-word; }
 @media (min-width: 768px) {
   .opc-shell.nav-collapsed .opc-sidebar { width: 64px; }
   .opc-shell.nav-collapsed .opc-main { margin-left: 64px; }
-  .opc-shell.nav-collapsed .opc-brand { width: auto; }
+  .opc-shell.nav-collapsed .opc-brand { width: 64px; justify-content: center; padding-left: 0; padding-right: 0; }
   .opc-shell.nav-collapsed .opc-brand span { display: none; }
   .opc-shell.nav-collapsed .opc-nav { padding: 12px 8px 16px; }
   .opc-shell.nav-collapsed .opc-nav > div + div { border-top: 1px solid rgba(255, 255, 255, 0.08); margin-top: 8px; padding-top: 8px; }
