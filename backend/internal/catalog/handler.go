@@ -532,3 +532,62 @@ func (h *Handler) ImportProducts(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, result)
 }
+
+func (h *Handler) ImportCategories(c *gin.Context) {
+	claims := middleware.ClaimsFrom(c)
+	fileHeader, err := c.FormFile("file")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "File CSV wajib diunggah pada field 'file'."})
+		return
+	}
+	if fileHeader.Size > 5<<20 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Ukuran file melebihi 5 MB."})
+		return
+	}
+	f, err := fileHeader.Open()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "File tidak dapat dibaca."})
+		return
+	}
+	defer f.Close()
+	reader := csv.NewReader(f)
+	reader.FieldsPerRecord = -1
+	reader.TrimLeadingSpace = true
+	records, err := reader.ReadAll()
+	if err != nil && err != io.EOF {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Format CSV tidak valid: " + err.Error()})
+		return
+	}
+	if len(records) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "File CSV kosong."})
+		return
+	}
+	header := records[0]
+	if len(header) > 0 {
+		header[0] = strings.TrimPrefix(header[0], "\ufeff")
+	}
+	if !sameHeader(header, []string{"name"}) && !sameHeader(header, []string{"nama"}) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Header CSV harus satu kolom: nama (atau name)."})
+		return
+	}
+	rows := records[1:]
+	nonBlank := 0
+	for _, rec := range rows {
+		for _, cell := range rec {
+			if strings.TrimSpace(cell) != "" {
+				nonBlank++
+				break
+			}
+		}
+	}
+	if nonBlank > MaxImportRows {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Maksimal 1.000 baris data per file."})
+		return
+	}
+	result, err := h.svc.ImportCategories(c.Request.Context(), claims.StoreID, rows)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengimpor kategori."})
+		return
+	}
+	c.JSON(http.StatusOK, result)
+}

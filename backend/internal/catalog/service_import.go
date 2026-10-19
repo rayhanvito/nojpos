@@ -3,6 +3,7 @@ package catalog
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 )
@@ -172,6 +173,60 @@ func (s *Service) ImportProducts(ctx context.Context, storeID, outletID uint, ac
 			}
 		}
 		result.Berhasil++
+	}
+	return result, nil
+}
+
+// ImportCategories creates category names from validated CSV data rows.
+// Failure line numbers follow the file, where the header is line 1.
+func (s *Service) ImportCategories(ctx context.Context, storeID uint, records [][]string) (*ImportResult, error) {
+	categories, err := s.cats.ListByStore(ctx, storeID)
+	if err != nil {
+		return nil, err
+	}
+	existing := make(map[string]bool, len(categories))
+	for _, category := range categories {
+		existing[strings.ToLower(strings.TrimSpace(category.Name))] = true
+	}
+
+	result := &ImportResult{Kesalahan: []ImportRowFailure{}}
+	seen := make(map[string]bool)
+	for i, rec := range records {
+		baris := i + 2
+		blank := true
+		for _, cell := range rec {
+			if strings.TrimSpace(cell) != "" {
+				blank = false
+				break
+			}
+		}
+		if blank {
+			continue
+		}
+		result.Total++
+		fail := func(alasan string) {
+			result.Gagal++
+			result.Kesalahan = append(result.Kesalahan, ImportRowFailure{Baris: baris, Alasan: alasan})
+		}
+		name := ""
+		if len(rec) > 0 {
+			name = strings.TrimSpace(rec[0])
+		}
+		if name == "" {
+			fail("Nama kategori wajib diisi.")
+			continue
+		}
+		normalized := strings.ToLower(strings.TrimSpace(name))
+		if existing[normalized] || seen[normalized] {
+			fail(fmt.Sprintf("Kategori %q sudah ada.", name))
+			continue
+		}
+		if _, err := s.cats.Create(ctx, storeID, name); err != nil {
+			fail(err.Error())
+			continue
+		}
+		result.Berhasil++
+		seen[normalized] = true
 	}
 	return result, nil
 }

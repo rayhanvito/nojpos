@@ -464,6 +464,36 @@ paths:
           $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalError'
+  /categories/import:
+    post:
+      summary: Impor kategori dari berkas CSV.
+      tags:
+      - Catalog
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Khusus admin.
+      responses:
+        '200':
+          description: Impor kategori dari berkas CSV.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CategoryImportRequest'
   /products:
     get:
       summary: Daftar produk dengan filter dan paginasi.
@@ -6488,6 +6518,15 @@ components:
       - minQty
       - sellPrice
     ProductImportRequest:
+      type: object
+      properties:
+        file:
+          type: string
+          format: binary
+          description: CSV maksimal 5 MiB dan 1.000 baris data.
+      required:
+      - file
+    CategoryImportRequest:
       type: object
       properties:
         file:
