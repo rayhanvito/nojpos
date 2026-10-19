@@ -241,7 +241,7 @@ export default function AppShell() {
       <div className="opc-body">
         <aside className="opc-sidebar" aria-label="Navigasi utama">
           {(showOutletSwitcher || showCashierOutletLabel) && (
-            <div className="opc-outletbox border-b border-white/10 py-3">
+            <div className="opc-outletbox border-b border-white/10">
               {showOutletSwitcher ? (
                 <button
                   type="button"
