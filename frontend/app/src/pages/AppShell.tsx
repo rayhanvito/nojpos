@@ -241,21 +241,21 @@ export default function AppShell() {
       <div className="opc-body">
         <aside className="opc-sidebar" aria-label="Navigasi utama">
           {(showOutletSwitcher || showCashierOutletLabel) && (
-            <div className="opc-outletbox border-b border-white/10 px-3 py-3">
+            <div className="opc-outletbox border-b border-white/10 py-3">
               {showOutletSwitcher ? (
                 <button
                   type="button"
                   onClick={openOutletPicker}
                   aria-label={`Pindah outlet. Outlet aktif: ${activeOutletName || 'tidak diketahui'}`}
                   title="Pindah outlet aktif"
-                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[13px] font-medium text-white transition hover:bg-white/10"
+                  className="flex w-full items-center gap-2 px-6 py-2 text-left text-[13px] font-medium text-white transition hover:bg-white/5"
                 >
                   <Store className="size-4 shrink-0" aria-hidden="true" />
                   <span className="min-w-0 flex-1 truncate">Outlet: {activeOutletName || 'Pilih'}</span>
                   <ChevronDown className="size-4 shrink-0 opacity-70" aria-hidden="true" />
                 </button>
               ) : (
-                <p className="flex items-center gap-2 px-3 py-2 text-[13px] font-medium text-white/80" aria-label={`Outlet terikat: ${activeOutletName || 'tidak diketahui'}`}>
+                <p className="flex items-center gap-2 px-6 py-2 text-[13px] font-medium text-white/80" aria-label={`Outlet terikat: ${activeOutletName || 'tidak diketahui'}`}>
                   <Store className="size-4 shrink-0" aria-hidden="true" />
                   <span className="min-w-0 flex-1 truncate">Outlet: {activeOutletName || '—'}</span>
                 </p>

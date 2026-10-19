@@ -1034,8 +1034,8 @@ p, h1, h2, h3, h4, li, span, a, td, th { overflow-wrap: break-word; }
   .opc-shell.nav-collapsed .opc-link.active { box-shadow: inset 4px 0 0 var(--t-jet); }
   .opc-shell.nav-collapsed .opc-link span { display: none; }
   .opc-shell.nav-collapsed .opc-group-label { display: none; }
-  .opc-shell.nav-collapsed .opc-outletbox { padding-left: 8px; padding-right: 8px; }
-  .opc-shell.nav-collapsed .opc-outletbox button, .opc-shell.nav-collapsed .opc-outletbox p { justify-content: center; padding-left: 0; padding-right: 0; }
+  .opc-shell.nav-collapsed .opc-outletbox { padding-left: 0; padding-right: 0; }
+  .opc-shell.nav-collapsed .opc-outletbox button, .opc-shell.nav-collapsed .opc-outletbox p { justify-content: center; padding-left: 0; padding-right: 0; border-radius: 0; }
   .opc-shell.nav-collapsed .opc-outletbox span { display: none; }
   .opc-shell.nav-collapsed .opc-outletbox button svg:last-of-type { display: none; }
 }
