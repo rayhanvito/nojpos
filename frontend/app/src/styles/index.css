@@ -355,6 +355,16 @@ p, h1, h2, h3, h4, li, span, a, td, th { overflow-wrap: break-word; }
 *::-webkit-scrollbar { width: 10px; height: 10px; }
 *::-webkit-scrollbar-thumb { background: var(--t-dove); border-radius: 9999px; border: 2px solid var(--t-bg); }
 *::-webkit-scrollbar-track { background: transparent; }
+/* Scrollbar nav sidebar (Opsi B): aturan global di atas berwarna tema
+   terang sehingga terlihat pucat melayang di sidebar gelap; khusus
+   .opc-nav dibuat 6px, putih transparan di atas jalur transparan. */
+.opc-nav { scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.2) transparent; }
+.opc-nav::-webkit-scrollbar { width: 6px; height: 6px; }
+.opc-nav::-webkit-scrollbar-track { background: transparent; }
+.opc-nav::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border: none; border-radius: 9999px; }
+.opc-sidebar:hover .opc-nav { scrollbar-color: rgba(255, 255, 255, 0.45) transparent; }
+.opc-sidebar:hover .opc-nav::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.45); }
+.opc-nav::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.6); }
 
 .section { padding-block: clamp(56px, 8vw, 96px); }
 
