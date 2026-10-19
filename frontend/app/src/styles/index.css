@@ -1029,7 +1029,7 @@ p, h1, h2, h3, h4, li, span, a, td, th { overflow-wrap: break-word; }
   .opc-shell.nav-collapsed .opc-brand { width: 64px; justify-content: center; padding-left: 0; padding-right: 0; }
   .opc-shell.nav-collapsed .opc-brand span { display: none; }
   .opc-shell.nav-collapsed .opc-nav { padding: 12px 8px 16px; }
-  .opc-shell.nav-collapsed .opc-nav > div + div { border-top: 1px solid rgba(255, 255, 255, 0.08); margin-top: 8px; padding-top: 8px; }
+  .opc-shell.nav-collapsed .opc-nav > div + div { margin-top: 8px; padding-top: 8px; }
   .opc-shell.nav-collapsed .opc-link { justify-content: center; padding: 0; margin-left: -8px; margin-right: -8px; }
   .opc-shell.nav-collapsed .opc-link.active { box-shadow: inset 4px 0 0 var(--t-jet); }
   .opc-shell.nav-collapsed .opc-link span { display: none; }
