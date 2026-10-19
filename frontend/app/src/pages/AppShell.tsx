@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate, Outlet, useLocation, useNavigate } from 'react-router'
 import {
-  LayoutDashboard, Store, Package, Boxes, ReceiptText, BarChart3, Users, Settings, TicketPercent, UserRound, Truck, ClipboardList, CreditCard,
+  House, Store, Package, Boxes, ReceiptText, BarChart3, Users, Settings, TicketPercent, UserRound, Truck, ShoppingCart, Wallet, ScanBarcode,
   LogOut, Check, PanelLeftClose, PanelLeftOpen, ChevronDown,
 } from 'lucide-react'
 import { ApiError, apiCheckout, apiHeartbeat, apiListUsers, apiLogout, apiMe, apiSwitchAccount, apiSwitchOutlet, getCachedAccounts, hasToken, setCachedAccounts, type User } from '../shared/api'
@@ -23,18 +23,18 @@ import {
 } from '../shared/offline-queue'
 
 const MENU: { label: string; to: string; icon: React.ComponentType<{ className?: string }>; adminOnly?: boolean }[] = [
-  { label: 'Beranda', to: '/app', icon: LayoutDashboard },
-  { label: 'Kasir', to: '/app/pos', icon: Store },
+  { label: 'Beranda', to: '/app', icon: House },
+  { label: 'Kasir', to: '/app/pos', icon: ScanBarcode },
   { label: 'Produk & Kategori', to: '/app/products', icon: Package, adminOnly: true },
   { label: 'Promo & Voucher', to: '/app/promo', icon: TicketPercent, adminOnly: true },
   { label: 'Stok', to: '/app/stock', icon: Boxes, adminOnly: true },
   { label: 'Transaksi', to: '/app/transactions', icon: ReceiptText },
-  { label: 'Pelanggan', to: '/app/customers', icon: UserRound },
+  { label: 'Pelanggan', to: '/app/customers', icon: Users },
   { label: 'Supplier', to: '/app/supplier', icon: Truck, adminOnly: true },
-  { label: 'Pembelian', to: '/app/purchases', icon: ClipboardList, adminOnly: true },
-  { label: 'Hutang Piutang', to: '/app/debts', icon: CreditCard, adminOnly: true },
+  { label: 'Pembelian', to: '/app/purchases', icon: ShoppingCart, adminOnly: true },
+  { label: 'Hutang Piutang', to: '/app/debts', icon: Wallet, adminOnly: true },
   { label: 'Laporan', to: '/app/reports', icon: BarChart3, adminOnly: true },
-  { label: 'Pengguna', to: '/app/users', icon: Users, adminOnly: true },
+  { label: 'Pengguna', to: '/app/users', icon: UserRound, adminOnly: true },
   { label: 'Pengaturan', to: '/app/settings', icon: Settings, adminOnly: true },
 ]
 
