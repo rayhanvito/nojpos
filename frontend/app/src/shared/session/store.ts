@@ -51,7 +51,7 @@ export function getSession(): Session | null {
 
 export type ThemePref = 'light' | 'dark'
 
-export function applyTheme(pref: ThemePref) {
+function applyTheme(pref: ThemePref) {
   document.documentElement.classList.toggle('dark', pref === 'dark')
   localStorage.setItem('op_theme', pref)
 }
@@ -116,9 +116,9 @@ export function exportCSV(filename: string, rows: string[][]) {
   void downloadBlob(filename, new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }))
 }
 
-export type ExcelAlign = 'left' | 'center' | 'right'
+type ExcelAlign = 'left' | 'center' | 'right'
 
-export interface ExcelColumn {
+interface ExcelColumn {
   header: string
   width?: number
   align?: ExcelAlign

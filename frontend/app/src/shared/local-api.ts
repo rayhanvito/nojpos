@@ -2,7 +2,7 @@
 // shared/api.ts) sehingga halaman webapp bisa dipakai 1:1 tanpa backend.
 import {
   addTransaction, adjustStock, deleteCategory as dbDeleteCategory, deleteProduct as dbDeleteProduct,
-  exportDB, hasAccount, isSkuTaken, refundTransaction, saveCategory, saveProduct, saveSettings,
+  isSkuTaken, refundTransaction, saveCategory, saveProduct, saveSettings,
   setProductActive as dbSetActive, getLocalDB,
 } from './localdb'
 import type {
@@ -369,8 +369,4 @@ export function fetchAll<T>(pageFn: (page: number) => Promise<Page<T>>): Promise
 
 export const METHODS: PayMethod[] = ['Cash', 'Bank Transfer', 'QRIS']
 
-export function useLocalHasAccount(): boolean {
-  return hasAccount()
-}
 
-export { exportDB as localExportDB }

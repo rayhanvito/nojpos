@@ -1,7 +1,7 @@
 import type { Product } from '../../../shared/api'
 
-export const stockTotalOf = (p: Product) => p.variants?.length ? p.variants.reduce((sum, v) => sum + v.stock, 0) : p.stock
-export const isLowOf = (p: Product) => p.variants?.length
+const stockTotalOf = (p: Product) => p.variants?.length ? p.variants.reduce((sum, v) => sum + v.stock, 0) : p.stock
+const isLowOf = (p: Product) => p.variants?.length
   ? p.variants.some((v) => v.min_stock > 0 && v.stock <= v.min_stock)
   : (p.min_stock ?? 0) > 0 && p.stock > 0 && p.stock <= (p.min_stock ?? 0)
 export const kondisiOf = (p: Product) => stockTotalOf(p) === 0 ? 'habis' : isLowOf(p) ? 'menipis' : 'aman'

@@ -15,7 +15,7 @@ import {
   type Category, type Product, type StoreSettings,
 } from './api'
 
-export const catalogKeys = {
+const catalogKeys = {
   all: ['catalog'] as const,
   products: (who: string, search: string) => ['catalog', 'products', who, search] as const,
   categories: (who: string) => ['catalog', 'categories', who] as const,

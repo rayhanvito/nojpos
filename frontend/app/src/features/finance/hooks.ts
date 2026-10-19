@@ -14,7 +14,7 @@ import {
   type DebtPaymentInput, type Expense, type ExpenseInput, type Payable, type Receivable,
 } from './api'
 
-export const financeKeys = {
+const financeKeys = {
   all: ['finance'] as const,
   receivables: (who: string) => ['finance', 'receivables', who] as const,
   payables: (who: string) => ['finance', 'payables', who] as const,

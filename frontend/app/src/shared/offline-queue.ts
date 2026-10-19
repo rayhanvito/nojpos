@@ -1,7 +1,7 @@
 import type { CheckoutBody, Trx } from './api'
 
-export type OfflineQueueStatus = 'menunggu' | 'tersinkron' | 'gagal-perlu-tindakan'
-export type OfflineQueuePayload = CheckoutBody & { clientTxId: string }
+type OfflineQueueStatus = 'menunggu' | 'tersinkron' | 'gagal-perlu-tindakan'
+type OfflineQueuePayload = CheckoutBody & { clientTxId: string }
 
 export interface OfflineQueueSummary {
   items: { name: string; qty: number }[]
@@ -133,7 +133,7 @@ function notifyQueueChanged() {
   if (typeof window !== 'undefined') window.dispatchEvent(new Event(CHANGE_EVENT))
 }
 
-export async function saveOfflineQueueItem(item: OfflineQueueItem): Promise<void> {
+async function saveOfflineQueueItem(item: OfflineQueueItem): Promise<void> {
   const db = await openDatabase()
   const tx = db.transaction(STORE_NAME, 'readwrite')
   const done = transactionDone(tx)

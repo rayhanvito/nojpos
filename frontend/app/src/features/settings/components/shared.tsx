@@ -27,7 +27,7 @@ export const BUSINESS_TYPES = [
   { value: 'lainnya', label: 'Lainnya' },
 ]
 
-export const HOURS_LABELS = ['Senin – Jumat', 'Sabtu', 'Minggu']
+const HOURS_LABELS = ['Senin – Jumat', 'Sabtu', 'Minggu']
 
 // Rumus pajak = backend repo/transaction.go: inclusive → total tetap = base,
 // tax = base − base/(1+pct/100); rounding none = round_half_up, down = floor,

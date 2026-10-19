@@ -48,9 +48,6 @@ export function apiListPromos() {
   return request<Page<PromoSchema>>('GET', '/promos').then((d) => (d.items ?? []).map(normalizePromo))
 }
 
-export function apiGetPromo(id: PromoId) {
-  return request<PromoSchema>('GET', `/promos/${id}`).then(normalizePromo)
-}
 
 export function apiCreatePromo(body: PromoInput) {
   return request<PromoSchema>('POST', '/promos', body).then(normalizePromo)

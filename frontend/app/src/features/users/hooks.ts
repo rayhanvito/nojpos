@@ -12,7 +12,7 @@ import {
   type ActivityItem, type Page, type ReportBundle, type Trx, type User,
 } from './api'
 
-export const usersKeys = {
+const usersKeys = {
   all: ['users'] as const,
   list: (who: string) => ['users', 'list', who] as const,
   todayReport: (who: string) => ['users', 'today-report', who] as const,

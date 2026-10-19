@@ -14,7 +14,7 @@ import {
   type Payable, type Product, type PurchaseOrder, type PurchaseOrderInput, type PurchaseOrderReceiptInput, type Supplier, type SupplierInput,
 } from './api'
 
-export const purchasingKeys = {
+const purchasingKeys = {
   all: ['purchasing'] as const,
   orders: (who: string) => ['purchasing', 'orders', who] as const,
   suppliers: (who: string) => ['purchasing', 'suppliers', who] as const,

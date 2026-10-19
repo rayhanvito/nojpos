@@ -5,7 +5,7 @@ declare global {
   interface Window { google?: any }
 }
 
-export function getGoogleClientId(): string | undefined {
+function getGoogleClientId(): string | undefined {
   return import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined
 }
 

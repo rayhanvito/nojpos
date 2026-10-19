@@ -12,7 +12,7 @@ import {
   type Customer, type CustomerInput, type Page, type Receivable,
 } from './api'
 
-export const customerKeys = {
+const customerKeys = {
   all: ['customer'] as const,
   list: (who: string, search: string, page: number, pageSize: number) =>
     ['customer', 'list', who, search, page, pageSize] as const,

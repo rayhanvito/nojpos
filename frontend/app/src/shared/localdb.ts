@@ -26,7 +26,7 @@ export interface OfflineCategory {
   created_at: string
 }
 
-export interface OfflineItem {
+interface OfflineItem {
   productId: string
   name: string
   buyPrice: number
@@ -49,7 +49,7 @@ export interface OfflineTrx {
   created_at: string
 }
 
-export interface OfflineMovement {
+interface OfflineMovement {
   id: string
   productId: string
   productName: string | null
@@ -203,10 +203,6 @@ export function setProductActive(id: string, active: boolean) {
   if (p) { p.active = active; commit() }
 }
 
-export function setProductStock(id: string, stock: number) {
-  const p = db.products.find((x) => x.id === id)
-  if (p) { p.stock = stock; commit() }
-}
 
 export function isSkuTaken(sku: string, excludeId?: string): boolean {
   return db.products.some((p) => p.sku.toLowerCase() === sku.toLowerCase() && p.id !== excludeId)

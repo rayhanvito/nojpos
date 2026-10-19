@@ -21,7 +21,7 @@ export interface TrxFilter {
   to?: string
 }
 
-export const transactionsKeys = {
+const transactionsKeys = {
   all: ['transactions'] as const,
   list: (who: string, f: TrxFilter, page: number, pageSize: number) =>
     ['transactions', 'list', who, f.q ?? '', f.method ?? '', f.status ?? '', f.cashierId ?? '', f.from ?? '', f.to ?? '', page, pageSize] as const,

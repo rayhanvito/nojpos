@@ -18,7 +18,7 @@ import {
   type Movement, type Product, type ReportBundle, type Shift, type TaxReport, type Trx, type User,
 } from './api'
 
-export const reportKeys = {
+const reportKeys = {
   all: ['report'] as const,
   main: (who: string, periodKey: string, outletKey: string) =>
     ['report', 'main', who, periodKey, outletKey] as const,

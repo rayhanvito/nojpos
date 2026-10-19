@@ -12,7 +12,7 @@ import {
   type Promo, type PromoInput,
 } from './api'
 
-export const promoKeys = {
+const promoKeys = {
   all: ['promo'] as const,
   list: (who: string, storeId?: string, outletId?: string) =>
     ['promo', 'list', who, storeId ?? '', outletId ?? ''] as const,

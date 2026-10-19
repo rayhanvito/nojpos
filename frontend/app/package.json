@@ -12,7 +12,6 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "build:offline": "vite build --config vite.offline.config.ts",
-    "mobile:sync": "npm run build:offline && node -e \"require('fs').copyFileSync('dist-offline/offline.html','dist-offline/index.html')\" && cap sync android",
     "knip": "knip",
     "depcruise": "depcruise src --config .dependency-cruiser.cjs --ignore-known .dependency-cruiser-known-violations.json",
     "e2e": "playwright test",

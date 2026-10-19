@@ -16,7 +16,7 @@ import {
   type ApiKey, type Webhook, type WebhookInput,
 } from './api'
 
-export const settingsKeys = {
+const settingsKeys = {
   all: ['settings'] as const,
   main: (who: string) => ['settings', 'main', who] as const,
   users: (who: string) => ['settings', 'users', who] as const,

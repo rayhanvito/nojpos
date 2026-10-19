@@ -11,7 +11,7 @@ import {
   type DashboardAdmin, type DashboardCashier, type Page, type Trx,
 } from './api'
 
-export const dashboardKeys = {
+const dashboardKeys = {
   all: ['dashboard'] as const,
   main: (who: string, from: string, to: string, outletId?: string) =>
     ['dashboard', 'main', who, from, to, outletId ?? ''] as const,

@@ -14,7 +14,7 @@ import {
   type Shift,
 } from './api'
 
-export const shiftKeys = {
+const shiftKeys = {
   all: ['shift'] as const,
   list: (who: string, outletKey: string, rangeKey: string) =>
     ['shift', 'list', who, outletKey, rangeKey] as const,

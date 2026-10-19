@@ -21,7 +21,7 @@ import {
 } from './api'
 import { cartKey as buildCartKey, checkoutItems, type CartLine } from './logic'
 
-export const posKeys = {
+const posKeys = {
   all: ['pos'] as const,
   products: (who: string) => ['pos', 'products', who] as const,
   settings: (who: string) => ['pos', 'settings', who] as const,

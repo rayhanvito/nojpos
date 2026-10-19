@@ -14,9 +14,6 @@ import {
   apiGoogleLogin, apiLogin, apiLogout, apiRegister, apiSetPasscode, apiSwitchAccount,
 } from './api'
 
-export const authKeys = {
-  all: ['auth'] as const,
-}
 
 function useInvalidateAuth() {
   const queryClient = useQueryClient()

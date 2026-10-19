@@ -6,7 +6,7 @@ function localDate(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
-export function isDebtOverdue(status: DebtStatus, dueDate?: string, today = localDate(new Date())) {
+function isDebtOverdue(status: DebtStatus, dueDate?: string, today = localDate(new Date())) {
   const date = dueDate?.slice(0, 10)
   return status !== 'paid' && !!date && /^\d{4}-\d{2}-\d{2}$/.test(date) && date < today
 }

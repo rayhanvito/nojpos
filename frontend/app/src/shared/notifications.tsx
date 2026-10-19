@@ -33,7 +33,7 @@ const STOK_TYPES = new Set(['low_stock', 'out_of_stock', 'restock', 'stock_low',
 // Kategori: tipe menang atas `category` — backend sempat kirim
 // low_stock berlabel category=sistem (sumber wajib dibetulkan,
 // kontrak §2). Lalu fallback kata kunci sebelum pasrah ke sistem.
-export function categoryOf(n: Notification): NotifCategory {
+function categoryOf(n: Notification): NotifCategory {
   const t = (n.type ?? '').toLowerCase()
   if (
     t.startsWith('transaction') || t.startsWith('transaksi') || t.startsWith('refund') ||
@@ -70,7 +70,7 @@ const CAT_STYLE: Record<NotifCategory, { icon: typeof Boxes; box: string }> = {
 // ("tersisa 0 unit" = habis). Hapus bila kontrak §6 live.
 // ponytail: regex spesifik format backend; fallback menipis.
 const OUT_TYPES = new Set(['out_of_stock', 'stock_out'])
-export function stockSeverity(n: Notification): 'habis' | 'menipis' {
+function stockSeverity(n: Notification): 'habis' | 'menipis' {
   const t = (n.type ?? '').toLowerCase()
   if (OUT_TYPES.has(t)) return 'habis'
   const m = /tersisa\s+(\d+)/i.exec(n.message ?? '')
@@ -78,7 +78,7 @@ export function stockSeverity(n: Notification): 'habis' | 'menipis' {
   return 'menipis'
 }
 
-export function displayTitle(n: Notification): string {
+function displayTitle(n: Notification): string {
   if (categoryOf(n) === 'stok') return stockSeverity(n) === 'habis' ? 'Stok habis' : 'Stok menipis'
   return n.title
 }

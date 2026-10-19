@@ -13,7 +13,7 @@ import {
   type Category, type Movement, type Page, type Product, type StockOpnameCountsInput, type StockOpnameSession, type StockTransfer, type StockTransferInput,
 } from './api'
 
-export const inventoryKeys = {
+const inventoryKeys = {
   all: ['inventory'] as const,
   products: (who: string) => ['inventory', 'products', who] as const,
   movements: (who: string, page: number, pageSize: number, type: string, q: string) =>
