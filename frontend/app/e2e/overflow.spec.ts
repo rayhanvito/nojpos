@@ -106,7 +106,6 @@ const RUTES: Rute[] = [
   { slug: 'pengguna', path: '/app/users' },
   { slug: 'pengaturan', path: '/app/settings' },
   { slug: 'pengaturan-outlet', path: '/app/settings', tab: 'Outlet' },
-  { slug: 'unduh', path: '/download' },
 ]
 
 const VIEWPORTS: { label: string; width: number; height: number }[] = [

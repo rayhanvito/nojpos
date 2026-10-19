@@ -125,6 +125,15 @@ test('tab Kategori: toolbar + CRUD + ekspor + impor', async ({ page }) => {
   await page.getByLabel('Urutkan kategori').click()
   await page.getByRole('option', { name: 'Nama A–Z' }).click()
 
+  // --- Siapkan satu kategori kosong milik tes ini (filter Kosong tidak
+  // boleh bergantung pada isi data dev) ---
+  await page.getByRole('button', { name: /Tambah Kategori/ }).click()
+  await page.getByLabel(/Nama kategori baru/).fill(NAMA_AWAL)
+  await page.getByRole('button', { name: 'Simpan', exact: true }).click()
+  const newRow = page.locator('tbody tr', { hasText: NAMA_AWAL })
+  await expect(newRow).toBeVisible({ timeout: 30_000 })
+  await expect(newRow).toContainText('0 produk')
+
   // --- Filter isi: Kosong -> semua baris 0 produk + chip; chip dihapus -> pulih ---
   await page.getByLabel('Filter lanjutan').click()
   await page.getByLabel('Filter isi kategori').click()
@@ -137,7 +146,7 @@ test('tab Kategori: toolbar + CRUD + ekspor + impor', async ({ page }) => {
   expect(kosong.every((n) => n === 0)).toBe(true)
   await expect(page.getByText('Isi: Kosong')).toBeVisible()
   await page.getByLabel('Hapus filter Isi: Kosong').click()
-  await expect(page.locator('tbody tr')).toHaveCount(totalRows, { timeout: 10_000 })
+  await expect(page.locator('tbody tr')).toHaveCount(totalRows + 1, { timeout: 10_000 })
 
   // --- Ekspor CSV: isi unduhan cocok dengan daftar ---
   const downloadPromise = page.waitForEvent('download', { timeout: 30_000 })
@@ -149,17 +158,10 @@ test('tab Kategori: toolbar + CRUD + ekspor + impor', async ({ page }) => {
   const csv = readFileSync(csvPath, 'utf-8').replace(/^﻿/, '')
   const lines = csv.trim().split(/\r?\n/).map((l) => l.replaceAll('"', ''))
   expect(lines[0]).toBe('nama,jumlah produk')
-  expect(lines.length).toBe(totalRows + 1)
+  expect(lines.length).toBe(totalRows + 2)
   expect(lines.some((l) => l.startsWith('Minuman,'))).toBe(true)
 
-  // --- CRUD kategori uji (form modal halaman, pola sama seperti dulu) ---
-  await page.getByRole('button', { name: /Tambah Kategori/ }).click()
-  await page.getByLabel(/Nama kategori baru/).fill(NAMA_AWAL)
-  await page.getByRole('button', { name: 'Simpan', exact: true }).click()
-  const newRow = page.locator('tbody tr', { hasText: NAMA_AWAL })
-  await expect(newRow).toBeVisible({ timeout: 30_000 })
-  await expect(newRow).toContainText('0 produk')
-
+  // --- CRUD kategori uji: rename + hapus (pembuatan di awal tes) ---
   await newRow.getByLabel(`Ubah nama kategori ${NAMA_AWAL}`).click()
   await page.getByLabel(/Nama kategori/).fill(NAMA_BARU)
   await page.getByRole('button', { name: 'Simpan Nama' }).click()

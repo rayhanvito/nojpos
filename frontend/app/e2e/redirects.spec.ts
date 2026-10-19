@@ -61,7 +61,9 @@ test('redirect publik tanpa sesi: /masuk, /daftar, /unduh', async ({ page }) => 
   await expectRedirect(page, '/daftar', '/register')
   // Query string diteruskan persis.
   await expectRedirect(page, '/daftar?sumber=uji', '/register?sumber=uji')
-  await expectRedirect(page, '/unduh', '/download')
+  // Halaman unduh DITUTUP 19 Okt 2026: kedua rute lama kini ke Beranda.
+  await expectRedirect(page, '/unduh', '/')
+  await expectRedirect(page, '/download', '/')
 })
 
 test('redirect aplikasi sesudah login: semua URL lama + query + redirect tab warisan', async ({ page }) => {

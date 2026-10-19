@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Pencil, Trash2 } from 'lucide-react'
 import type { Category } from '../../../shared/api'
-import { CardGrid, DataCard, Empty, FilterChips, FilterField, FilterPanel, RowAction, SearchInput, Select, TableWrap, Td, Th } from '../../../shared/ui'
+import { CardGrid, DataCard, Empty, FilterChips, FilterField, FilterPanel, Pager, RowAction, SearchInput, Select, TableWrap, Td, Th } from '../../../shared/ui'
 import { filterAndSortCategories, type KategoriSort } from './kategori-list'
 
 const ISI_OPTIONS = [
@@ -31,6 +31,13 @@ export function KategoriTab({ categories, loading, busy, onRenameClick, onRemove
     () => filterAndSortCategories(categories, { q, isi, sort }),
     [categories, q, isi, sort],
   )
+
+  const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(10)
+  useEffect(() => { setPage(0) }, [q, isi, sort])
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
+  const safePage = Math.min(page, totalPages - 1)
+  const pageItems = filtered.slice(safePage * pageSize, safePage * pageSize + pageSize)
 
   function rowActions(category: Category) {
     return (
@@ -72,7 +79,7 @@ export function KategoriTab({ categories, loading, busy, onRenameClick, onRemove
                 <tr><Th>Kategori</Th><Th>Jumlah Produk</Th><Th>Aksi</Th></tr>
               </thead>
               <tbody>
-                {filtered.map((category) => (
+                {pageItems.map((category) => (
                   <tr key={category.id}>
                     <Td><span className="font-medium text-fg">{category.name}</span></Td>
                     <Td>{category.product_count} produk</Td>
@@ -84,7 +91,7 @@ export function KategoriTab({ categories, loading, busy, onRenameClick, onRemove
           </TableWrap>
 
           <CardGrid>
-            {filtered.map((category) => (
+            {pageItems.map((category) => (
               <DataCard key={category.id}>
                 <div className="flex min-w-0 items-start justify-between gap-3">
                   <p className="min-w-0 flex-1 truncate text-[15px] font-medium text-fg" title={category.name}>{category.name}</p>
@@ -94,6 +101,7 @@ export function KategoriTab({ categories, loading, busy, onRenameClick, onRemove
               </DataCard>
             ))}
           </CardGrid>
+          <Pager page={safePage} total={totalPages} onChange={setPage} totalItems={filtered.length} pageSize={pageSize} onPageSizeChange={(n) => { setPageSize(n); setPage(0) }} />
         </>
       )}
     </>
