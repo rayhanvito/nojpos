@@ -22,7 +22,6 @@ import Transactions from './features/transactions/TransactionsPage'
 import Reports from './features/report/ReportsPage'
 import Users from './features/users/UsersPage'
 import Settings from './features/settings/SettingsPage'
-import Download from './pages/Download'
 
 // Halaman khusus admin: kasir yang mengetik URL langsung diarahkan balik.
 // API tetap penjaga utama (403); ini pertahanan berlapis + UX.
@@ -68,8 +67,8 @@ export default function App() {
         <Route path="/daftar" element={<LegacyRedirect to="/register" />} />
         <Route path="/select-account" element={<AccountPicker />} />
         <Route path="/pilih-akun" element={<LegacyRedirect to="/select-account" />} />
-        <Route path="/download" element={<Download />} />
-        <Route path="/unduh" element={<LegacyRedirect to="/download" />} />
+        <Route path="/download" element={<LegacyRedirect to="/" />} />
+        <Route path="/unduh" element={<LegacyRedirect to="/" />} />
         <Route path="/app" element={<AppShell />}>
           <Route index element={<Dashboard />} />
           <Route path="pos" element={<PosPage />} />

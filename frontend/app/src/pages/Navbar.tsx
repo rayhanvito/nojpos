@@ -2,10 +2,9 @@ import { Link, useLocation, useNavigate } from 'react-router'
 import { useEffect, useRef, useState } from 'react'
 import { Logo } from '../shared/ui'
 
-const SECTIONS = [
+const SECTIONS: { id: string; label: string; to?: string }[] = [
   { id: 'fitur', label: 'Fitur' },
   { id: 'cara-kerja', label: 'Cara Kerja' },
-  { id: 'unduh', label: 'Unduh', to: '/download' },
 ]
 
 function lockPageScroll(scrollX: number, scrollY: number) {
