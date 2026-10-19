@@ -8,6 +8,7 @@ import "github.com/gin-gonic/gin"
 func RegisterRoutes(auth, admin *gin.RouterGroup, h *Handler) {
 	auth.GET("/categories", h.ListCategories)
 	auth.GET("/products", h.ListProducts)
+	auth.GET("/products/units", h.ListProductUnits)
 	auth.GET("/products/:id", h.GetProduct)
 	auth.GET("/products/:id/variants", h.ListVariants)
 	auth.GET("/products/:id/price-tiers", h.ListPriceTiers)

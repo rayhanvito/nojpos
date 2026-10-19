@@ -118,6 +118,10 @@ type fakeProds struct {
 	createCalls     int
 }
 
+func (f *fakeProds) DistinctUnits(ctx context.Context, storeID uint) ([]string, error) {
+	return []string{}, nil
+}
+
 func (f *fakeProds) GetByIDForStore(ctx context.Context, storeID, id uint) (*Product, error) {
 	return nil, ErrNotFound
 }

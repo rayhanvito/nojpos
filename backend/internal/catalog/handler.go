@@ -35,6 +35,18 @@ func (h *Handler) ListCategories(c *gin.Context) {
 	c.JSON(http.StatusOK, httpx.PaginateList(c, cats))
 }
 
+// ListProductUnits mengembalikan satuan yang sedang dipakai produk
+// toko (untuk dropdown satuan di form produk).
+func (h *Handler) ListProductUnits(c *gin.Context) {
+	claims := middleware.ClaimsFrom(c)
+	units, err := h.svc.ListProductUnits(c.Request.Context(), claims.StoreID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memuat satuan."})
+		return
+	}
+	c.JSON(http.StatusOK, httpx.PaginateList(c, units))
+}
+
 func (h *Handler) CreateCategory(c *gin.Context) {
 	claims := middleware.ClaimsFrom(c)
 	var req categoryReq

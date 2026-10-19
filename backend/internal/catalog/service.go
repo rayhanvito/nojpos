@@ -33,6 +33,7 @@ type ProductRepository interface {
 	ListForOutlet(ctx context.Context, storeID, outletID uint, f ProductFilter) (*ProductPage, error)
 	ListForExport(ctx context.Context, storeID uint) ([]*Product, error)
 	ListForExportAtOutlet(ctx context.Context, storeID, outletID uint) ([]*Product, error)
+	DistinctUnits(ctx context.Context, storeID uint) ([]string, error)
 	InsertProduct(ctx context.Context, storeID, outletID uint, p *Product) error
 	DefaultOutlet(ctx context.Context, storeID uint) (*outlet.Outlet, error)
 	Update(ctx context.Context, storeID, id uint, p *Product) (*Product, error)
@@ -81,6 +82,12 @@ func NewService(cats CategoryRepository, prods ProductRepository, notif Notifier
 // SetInventory memasang StockAdjuster yang dipakai alur impor CSV untuk
 // mencatat stok awal (pola setter yang sama dengan SetOutlets di AuthService).
 func (s *Service) SetInventory(inv StockAdjuster) { s.inv = inv }
+
+// ListProductUnits: satuan yang sedang dipakai produk toko ini —
+// sumber daftar satuan yang mengelola dirinya sendiri di form produk.
+func (s *Service) ListProductUnits(ctx context.Context, storeID uint) ([]string, error) {
+	return s.prods.DistinctUnits(ctx, storeID)
+}
 
 func (s *Service) ListCategories(ctx context.Context, storeID uint) ([]*Category, error) {
 	categories, err := s.cats.ListByStore(ctx, storeID)

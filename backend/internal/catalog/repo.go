@@ -166,6 +166,23 @@ func NewProductRepo(db *gorm.DB) *ProductRepo {
 	return &ProductRepo{BaseRepo: database.NewBaseRepo(db)}
 }
 
+// DistinctUnits mengembalikan satuan unik non-kosong yang sedang
+// dipakai produk toko ini, urut abjad. Daftar satuan di form produk
+// diturunkan dari pemakaian nyata (tanpa tabel master): satuan yang
+// berhenti dipakai hilang sendiri dari daftar.
+func (r *ProductRepo) DistinctUnits(ctx context.Context, storeID uint) ([]string, error) {
+	units := []string{}
+	err := database.ScopeStore(r.DB(ctx), storeID).Model(&Product{}).
+		Where("unit <> ''").
+		Order("unit ASC").
+		Distinct().
+		Pluck("unit", &units).Error
+	if err != nil {
+		return nil, err
+	}
+	return units, nil
+}
+
 func (r *ProductRepo) GetByIDForStore(ctx context.Context, storeID, id uint) (*Product, error) {
 	return r.getByID(ctx, storeID, nil, id)
 }

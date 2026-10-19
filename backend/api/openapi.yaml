@@ -574,6 +574,28 @@ paths:
           $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalError'
+  /products/units:
+    get:
+      summary: Daftar satuan yang sedang dipakai produk toko.
+      tags:
+      - Catalog
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      description: Satuan unik non-kosong yang benar-benar dipakai produk toko ini, urut abjad. Dipakai form produk untuk daftar satuan yang mengelola dirinya sendiri (tanpa tabel master).
+      responses:
+        '200':
+          description: Daftar satuan yang sedang dipakai produk toko.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductUnitPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /products/{id}:
     get:
       summary: Ambil detail produk.
@@ -6161,6 +6183,15 @@ components:
             type: array
             items:
               $ref: '#/components/schemas/Category'
+    ProductUnitPage:
+      allOf:
+      - $ref: '#/components/schemas/Page'
+      - type: object
+        properties:
+          items:
+            type: array
+            items:
+              type: string
     ProductPage:
       allOf:
       - $ref: '#/components/schemas/Page'
