@@ -273,7 +273,7 @@ export default function AppShell() {
                       const active = isMenuActive(loc.pathname, m.to)
                       return (
                         <li key={m.to}>
-                          <Link to={m.to} title={m.label} aria-label={m.label} aria-current={active ? 'page' : undefined} className={`opc-link${active ? ' active' : ''}`}>
+                          <Link to={m.to} title={collapsed ? m.label : undefined} aria-label={m.label} aria-current={active ? 'page' : undefined} className={`opc-link${active ? ' active' : ''}`}>
                             <m.icon className="" />
                             <span>{m.label}</span>
                           </Link>
