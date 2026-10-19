@@ -231,7 +231,7 @@ func (s *Service) Refund(ctx context.Context, storeID, outletID, trxID uint, ite
 		s.checkLowStock(ctx, storeID, outletID, trx)
 		refIDStr := fmt.Sprintf("%d", trxID)
 		title := "Refund"
-		message := fmt.Sprintf("Invoice #TRX-%05d oleh %s", trxID, byName)
+		message := fmt.Sprintf("Invoice #TRX-%05d", trxID)
 		_ = s.notif.Emit(ctx, storeID, title, message, notification.CategoryTransaksi, "refund_created", "", byName, "transaction", refIDStr)
 	}
 	if err == nil && s.webhooks != nil && trx != nil {
