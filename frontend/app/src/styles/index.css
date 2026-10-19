@@ -802,7 +802,11 @@ p, h1, h2, h3, h4, li, span, a, td, th { overflow-wrap: break-word; }
 }
 .opc-link:hover { background: #25394a; color: #fff; }
 .dark .op-classic .opc-link:hover { background: #152838; }
-.opc-link.active { background: var(--t-jet); color: #fff; font-weight: 500; }
+.opc-link.active {
+  background: rgba(140, 170, 215, 0.2); color: #fff; font-weight: 600;
+  border-radius: 0; margin-left: -12px; margin-right: -12px; padding-left: 24px;
+  box-shadow: inset 4px 0 0 var(--t-jet);
+}
 .dark .op-classic .opc-link.active { background: #156dc5; }
 .opc-link svg { width: 19px; height: 19px; flex-shrink: 0; }
 .opc-sidefoot { border-top: 1px solid rgba(255, 255, 255, 0.09); padding: 12px; }
@@ -1027,6 +1031,7 @@ p, h1, h2, h3, h4, li, span, a, td, th { overflow-wrap: break-word; }
   .opc-shell.nav-collapsed .opc-nav { padding: 12px 8px 16px; }
   .opc-shell.nav-collapsed .opc-nav > div + div { border-top: 1px solid rgba(255, 255, 255, 0.08); margin-top: 8px; padding-top: 8px; }
   .opc-shell.nav-collapsed .opc-link { justify-content: center; padding: 0; }
+  .opc-shell.nav-collapsed .opc-link.active { border-radius: 0; margin-left: -8px; margin-right: -8px; box-shadow: inset 4px 0 0 var(--t-jet); }
   .opc-shell.nav-collapsed .opc-link span { display: none; }
   .opc-shell.nav-collapsed .opc-group-label { display: none; }
   .opc-shell.nav-collapsed .opc-outletbox { padding-left: 8px; padding-right: 8px; }
