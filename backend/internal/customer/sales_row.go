@@ -70,25 +70,6 @@ func (l trxItemList) Value() (driver.Value, error) {
 
 type refundItemList map[uint]int
 
-func (m *refundItemList) Scan(value interface{}) error {
-	if value == nil {
-		return nil
-	}
-	bytes, ok := value.([]byte)
-	if !ok {
-		str, okStr := value.(string)
-		if !okStr {
-			return errors.New("type assertion to []byte or string failed")
-		}
-		bytes = []byte(str)
-	}
-	return json.Unmarshal(bytes, m)
-}
-
-func (m refundItemList) Value() (driver.Value, error) {
-	return json.Marshal(m)
-}
-
 type trx struct {
 	database.BaseModel
 	StoreID         uint           `gorm:"not null;index;uniqueIndex:uq_transactions_store_client_tx_id,priority:1,where:client_tx_id <> ''" json:"-"`
@@ -136,10 +117,6 @@ type transactionItem struct {
 	Qty         int    `gorm:"not null;check:qty > 0" json:"qty"`
 }
 
-func (transactionItem) TableName() string {
-	return "transaction_items"
-}
-
 type refund struct {
 	database.BaseModel
 	StoreID      uint           `gorm:"not null" json:"-"`
@@ -157,8 +134,4 @@ type refundDetail struct {
 	Items     []trxItem `json:"items"`
 	Reason    string    `json:"reason"`
 	Actor     string    `json:"actor"`
-}
-
-func (refund) TableName() string {
-	return "refunds"
 }

@@ -162,29 +162,6 @@ func (s *Service) Delete(ctx context.Context, storeID, targetID uint) error {
 	return s.cashiers.Delete(ctx, targetID)
 }
 
-func (s *Service) Rename(ctx context.Context, storeID, targetID uint, name string) error {
-	name = strings.TrimSpace(name)
-	if name == "" {
-		return fmt.Errorf("Nama kasir wajib diisi.")
-	}
-	c, err := s.cashiers.GetByIDUnscoped(ctx, targetID)
-	if err == nil {
-		if c.StoreID != storeID {
-			return ErrStoreMismatch
-		}
-		return s.cashiers.UpdateName(ctx, targetID, name)
-	}
-	if !errors.Is(err, ErrNotFound) {
-		return err
-	}
-	// Cashier not found: check if ID belongs to admin user in same store (ID collision case MEMORY.md §10)
-	u, uErr := s.users.GetByID(ctx, targetID)
-	if uErr == nil && u.StoreID == storeID {
-		return ErrNotRenamable
-	}
-	return ErrStoreMismatch
-}
-
 func (s *Service) UpdateCashier(ctx context.Context, storeID, targetID uint, rawName string, outletID *uint) error {
 	name := strings.TrimSpace(rawName)
 	var nameUpdate *string

@@ -11,14 +11,6 @@ import (
 // requestIDCtxKey adalah key privat untuk request ID di context.Context.
 type requestIDCtxKey struct{}
 
-// RequestIDFromContext membaca request ID dari context.Context ("" bila tidak ada).
-func RequestIDFromContext(ctx context.Context) string {
-	if v, ok := ctx.Value(requestIDCtxKey{}).(string); ok {
-		return v
-	}
-	return ""
-}
-
 // RequestID memastikan setiap request punya ID: memakai header X-Request-Id
 // dari pemanggil bila ada, selain itu membuat ID acak 16 byte hex. ID disimpan
 // di konteks gin ("requestId"), di request context, dan di header respons.

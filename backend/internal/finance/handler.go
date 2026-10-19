@@ -150,15 +150,6 @@ func respondDebtErr(c *gin.Context, err error) {
 	}
 }
 
-func parseDebtID(c *gin.Context) (uint, bool) {
-	value, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil || value == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "ID hutang-piutang tidak valid."})
-		return 0, false
-	}
-	return uint(value), true
-}
-
 // ExpenseHandler adalah ExpenseHandler lama di handler/expense.go,
 // dipindah verbatim.
 type ExpenseHandler struct {

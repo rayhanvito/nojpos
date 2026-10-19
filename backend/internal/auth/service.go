@@ -982,25 +982,6 @@ func (s *Service) Switch(ctx context.Context, claims *middleware.Claims, targetI
 	return nil, nil, ErrNotFound
 }
 
-func (s *Service) switchToOwner(ctx context.Context, owner *User, passcode string) (*PublicUser, *TokenPair, error) {
-	if owner.PasscodeHash == nil || *owner.PasscodeHash == "" {
-		return nil, nil, ErrPasscodeRequired
-	}
-	if err := checkPasscode(owner.PasscodeHash, passcode); err != nil {
-		return nil, nil, err
-	}
-	pair, err := s.issueTokens(ctx, owner.ID, nil)
-	if err != nil {
-		return nil, nil, err
-	}
-	now := time.Now().UTC()
-	_ = s.users.UpdateLastSeenAt(ctx, owner.ID, &now)
-	owner.LastSeenAt = &now
-	pub := owner.Public()
-	setPublicOutlet(&pub, s.sessionOutletID(pair))
-	return &pub, pair, nil
-}
-
 func (s *Service) setSessionOutlet(user *User, pair *TokenPair) {
 	if user == nil || pair == nil {
 		return
@@ -1019,28 +1000,6 @@ func (s *Service) sessionOutletID(pair *TokenPair) uint {
 		return 0
 	}
 	return claims.OutletID
-}
-
-func (s *Service) switchToCashier(ctx context.Context, owner *User, targetID uint, passcode string) (*PublicUser, *TokenPair, error) {
-	cashier, err := s.cashiers.GetByIDUnscoped(ctx, targetID)
-	if err != nil {
-		return nil, nil, ErrNotFound
-	}
-	if cashier.StoreID != owner.StoreID {
-		return nil, nil, ErrNotFound
-	}
-	if !cashier.Active {
-		return nil, nil, ErrAccountInactive
-	}
-	if err := checkPasscode(cashier.PasscodeHash, passcode); err != nil {
-		return nil, nil, err
-	}
-	pair, err := s.issueTokens(ctx, owner.ID, &cashier.ID)
-	if err != nil {
-		return nil, nil, err
-	}
-	pub := PublicUserFromCashier(cashier, owner.StoreName)
-	return &pub, pair, nil
 }
 
 func checkPasscode(hash *string, passcode string) error {
