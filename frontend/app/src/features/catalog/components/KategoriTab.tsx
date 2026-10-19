@@ -1,68 +1,44 @@
-import { useState, type FormEvent } from 'react'
-import { Pencil, Plus, Trash2 } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Pencil, Trash2 } from 'lucide-react'
 import type { Category } from '../../../shared/api'
-import { AlertStrip, Button, CardGrid, DataCard, Empty, Input, Modal, ModalActions, RowAction, TableWrap, Td, Th } from '../../../shared/ui'
+import { CardGrid, DataCard, Empty, FilterChips, FilterField, FilterPanel, RowAction, SearchInput, Select, TableWrap, Td, Th } from '../../../shared/ui'
+import { filterAndSortCategories, type KategoriSort } from './kategori-list'
 
-export function KategoriTab({ categories, loading, busy, onAdd, onRename, onRemove }: {
+const ISI_OPTIONS = [
+  { value: '', label: 'Semua' },
+  { value: 'with', label: 'Ada produk' },
+  { value: 'empty', label: 'Kosong' },
+]
+
+const SORT_OPTIONS: { value: KategoriSort; label: string }[] = [
+  { value: 'name-asc', label: 'Nama A–Z' },
+  { value: 'name-desc', label: 'Nama Z–A' },
+  { value: 'count-desc', label: 'Produk terbanyak' },
+  { value: 'count-asc', label: 'Produk tersedikit' },
+]
+
+export function KategoriTab({ categories, loading, busy, onRenameClick, onRemove }: {
   categories: Category[]
   loading: boolean
   busy: boolean
-  onAdd: (name: string) => Promise<void>
-  onRename: (category: Category, name: string) => Promise<void>
+  onRenameClick: (category: Category) => void
   onRemove: (category: Category) => void
 }) {
-  const [formOpen, setFormOpen] = useState(false)
-  const [editing, setEditing] = useState<Category | null>(null)
-  const [name, setName] = useState('')
-  const [error, setError] = useState('')
-  const [saving, setSaving] = useState(false)
-
-  function openAdd() {
-    setEditing(null)
-    setName('')
-    setError('')
-    setFormOpen(true)
-  }
-
-  function openRename(category: Category) {
-    setEditing(category)
-    setName(category.name)
-    setError('')
-    setFormOpen(true)
-  }
-
-  function closeForm() {
-    if (saving) return
-    setFormOpen(false)
-    setEditing(null)
-    setError('')
-  }
-
-  async function save(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const nextName = name.trim()
-    if (!nextName) return setError('Nama kategori wajib diisi.')
-    setSaving(true)
-    setError('')
-    try {
-      if (editing) await onRename(editing, nextName)
-      else await onAdd(nextName)
-      setFormOpen(false)
-      setEditing(null)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : `Gagal ${editing ? 'mengubah' : 'menambah'} kategori.`)
-    } finally {
-      setSaving(false)
-    }
-  }
+  const [q, setQ] = useState('')
+  const [isi, setIsi] = useState('')
+  const [sort, setSort] = useState<KategoriSort>('name-asc')
+  const filtered = useMemo(
+    () => filterAndSortCategories(categories, { q, isi, sort }),
+    [categories, q, isi, sort],
+  )
 
   function rowActions(category: Category) {
     return (
       <div className="flex shrink-0 items-center gap-1">
-        <RowAction title="Ubah nama" label={`Ubah nama kategori ${category.name}`} onClick={() => openRename(category)} disabled={busy || saving}>
+        <RowAction title="Ubah nama" label={`Ubah nama kategori ${category.name}`} onClick={() => onRenameClick(category)} disabled={busy}>
           <Pencil className="size-4" />
         </RowAction>
-        <RowAction title="Hapus" label={`Hapus kategori ${category.name}`} onClick={() => onRemove(category)} disabled={busy || saving} danger>
+        <RowAction title="Hapus" label={`Hapus kategori ${category.name}`} onClick={() => onRemove(category)} disabled={busy} danger>
           <Trash2 className="size-4" />
         </RowAction>
       </div>
@@ -71,15 +47,23 @@ export function KategoriTab({ categories, loading, busy, onAdd, onRename, onRemo
 
   return (
     <>
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <h2 className="text-sm font-semibold">Daftar kategori</h2>
-        <Button onClick={openAdd} disabled={busy || saving}><Plus className="size-4" />Tambah Kategori</Button>
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row">
+        <SearchInput value={q} onChange={(event) => setQ(event.target.value)} placeholder="Cari nama kategori…" aria-label="Cari kategori" />
+        <Select label="Urutkan kategori" value={sort} onChange={(value) => setSort(value as KategoriSort)} className="shrink-0 sm:w-56" options={SORT_OPTIONS} />
+        <FilterPanel className="shrink-0 sm:w-44" activeCount={isi ? 1 : 0} onReset={() => setIsi('')}>
+          <FilterField label="Isi kategori">
+            <Select label="Filter isi kategori" value={isi} onChange={setIsi} options={ISI_OPTIONS} />
+          </FilterField>
+        </FilterPanel>
       </div>
+      <FilterChips items={isi ? [{ key: 'isi', label: `Isi: ${ISI_OPTIONS.find((option) => option.value === isi)?.label ?? isi}`, onClear: () => setIsi('') }] : []} />
 
       {loading ? (
         <Empty title="Memuat kategori…" sub="Memuat daftar kategori." />
       ) : categories.length === 0 ? (
         <Empty title="Belum ada kategori" sub="Tambah kategori untuk mengelompokkan produk." />
+      ) : filtered.length === 0 ? (
+        <Empty title="Tidak ada kategori yang cocok" sub="Coba ubah kata kunci atau filter." />
       ) : (
         <>
           <TableWrap className="hidden min-[1280px]:block">
@@ -88,7 +72,7 @@ export function KategoriTab({ categories, loading, busy, onAdd, onRename, onRemo
                 <tr><Th>Kategori</Th><Th>Jumlah Produk</Th><Th>Aksi</Th></tr>
               </thead>
               <tbody>
-                {categories.map((category) => (
+                {filtered.map((category) => (
                   <tr key={category.id}>
                     <Td><span className="font-medium text-fg">{category.name}</span></Td>
                     <Td>{category.product_count} produk</Td>
@@ -100,7 +84,7 @@ export function KategoriTab({ categories, loading, busy, onAdd, onRename, onRemo
           </TableWrap>
 
           <CardGrid>
-            {categories.map((category) => (
+            {filtered.map((category) => (
               <DataCard key={category.id}>
                 <div className="flex min-w-0 items-start justify-between gap-3">
                   <p className="min-w-0 flex-1 truncate text-[15px] font-medium text-fg" title={category.name}>{category.name}</p>
@@ -112,17 +96,6 @@ export function KategoriTab({ categories, loading, busy, onAdd, onRename, onRemo
           </CardGrid>
         </>
       )}
-
-      <Modal open={formOpen} title={editing ? 'Ubah Nama Kategori' : 'Tambah Kategori'} onClose={closeForm}>
-        <form className="space-y-3" onSubmit={(event) => void save(event)}>
-          <Input label={editing ? 'Nama kategori' : 'Nama kategori baru'} value={name} onChange={setName} placeholder={editing ? undefined : 'cth: Minuman'} />
-          {error && <AlertStrip>{error}</AlertStrip>}
-          <ModalActions>
-            <Button type="button" variant="ghost" disabled={busy || saving} onClick={closeForm}>Batal</Button>
-            <Button type="submit" disabled={busy || saving}>{saving ? 'Menyimpan…' : editing ? 'Simpan Nama' : 'Simpan'}</Button>
-          </ModalActions>
-        </form>
-      </Modal>
     </>
   )
 }

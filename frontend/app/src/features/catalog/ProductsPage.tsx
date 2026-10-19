@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { Pencil, Plus, Power, Trash2 } from 'lucide-react'
 import { apiExportProducts, apiGetProduct, apiListProducts, fetchAll, type Category, type PriceTier, type Product, type ProductImportResult, type Variant } from './api'
-import { useCatalogSettings, useCategories, useCreateCategory, useCreateProduct, useCreateProductPriceTier, useCreateVariant, useCreateVariantPriceTier, useDeleteCategory, useDeleteProduct, useDeleteProductPriceTier, useDeleteVariant, useDeleteVariantPriceTier, useImportProducts, useProducts, useRenameCategory, useSetProductActive, useUpdateProduct, useUpdateProductPriceTier, useUpdateVariant, useUpdateVariantPriceTier } from './hooks'
+import { useCatalogSettings, useCategories, useCreateCategory, useCreateProduct, useCreateProductPriceTier, useCreateVariant, useCreateVariantPriceTier, useDeleteCategory, useDeleteProduct, useDeleteProductPriceTier, useDeleteVariant, useDeleteVariantPriceTier, useImportCategories, useImportProducts, useProducts, useRenameCategory, useSetProductActive, useUpdateProduct, useUpdateProductPriceTier, useUpdateVariant, useUpdateVariantPriceTier } from './hooks'
 import { CATALOG_TABS, CATALOG_TAB_ALIASES, type CatalogTab } from '../../shared/tab-params'
 import { useTabParam } from '../../shared/use-tab-param'
 import { selectCsvExportHandler } from '../../shared/export-role'
@@ -13,8 +13,11 @@ import { downloadBlob, exportCSV, exportExcel, fmtRp, parseImportFile, useDB } f
 import { ModalActions, AlertStrip, Button, CardGrid, DataCard, Empty, ExportMenu, FilterChips, FilterField, FilterPanel, ImportMenu, Modal, Pager, Pill, RowAction, SearchInput, Select, SkeletonRows, TableWrap, Td, Th } from '../../shared/ui'
 import { Skeleton } from '@/shared/ui/primitives/skeleton'
 import { FormProduk } from './components/FormProduk'
+import { ImportKategoriModal } from './components/ImportKategoriModal'
 import { ImportProdukModal } from './components/ImportProdukModal'
+import { KategoriFormModal } from './components/KategoriFormModal'
 import { KategoriTab } from './components/KategoriTab'
+import { importCategoryFile } from './components/category-import'
 import { StockCell, kondisiOf } from './components/StockCell'
 import { emptyDraft, hasDuplicateTierQty, productDraft, tierDraft, variantDraft, type Draft, type TierDraft, type VariantDraft } from './components/draft'
 import { Tabs, TabsList, TabsTrigger } from '@/shared/ui/primitives/tabs'
@@ -48,6 +51,7 @@ export default function Products() {
   const createCategory = useCreateCategory()
   const deleteCategory = useDeleteCategory()
   const renameCategory = useRenameCategory()
+  const importCategories = useImportCategories()
   const importProducts = useImportProducts()
   const createVariant = useCreateVariant()
   const updateVariant = useUpdateVariant()
@@ -64,6 +68,12 @@ export default function Products() {
   const [saveBusy, setSaveBusy] = useState(false)
   const [deleteFor, setDeleteFor] = useState<Product | null>(null)
   const [catBusy, setCatBusy] = useState(false)
+  const [catFormOpen, setCatFormOpen] = useState(false)
+  const [catEditing, setCatEditing] = useState<Category | null>(null)
+  const [catImportOpen, setCatImportOpen] = useState(false)
+  const [catImportBusy, setCatImportBusy] = useState(false)
+  const [catImportResult, setCatImportResult] = useState<ProductImportResult | null>(null)
+  const [catImportError, setCatImportError] = useState('')
   const [importOpen, setImportOpen] = useState(false)
   const [importBusy, setImportBusy] = useState(false)
   const [importResult, setImportResult] = useState<ProductImportResult | null>(null)
@@ -343,6 +353,11 @@ export default function Products() {
     catq.reload()
   }
 
+  function openCategoryForm(category: Category | null = null) {
+    setCatEditing(category)
+    setCatFormOpen(true)
+  }
+
   async function renameCat(category: Category, name: string) {
     setCatBusy(true)
     try {
@@ -350,6 +365,11 @@ export default function Products() {
     } finally {
       setCatBusy(false)
     }
+  }
+
+  async function saveCategory(name: string) {
+    if (catEditing) await renameCat(catEditing, name)
+    else await addCat(name)
   }
 
   async function removeCategory(c: Category) {
@@ -400,6 +420,13 @@ export default function Products() {
   async function exportListCSV() {
     const all = await fetchAll<Product>((page) => apiListProducts({ page, limit: 200 }))
     exportCSV('produk.csv', productRows(all))
+  }
+
+  function exportKategoriCSV() {
+    exportCSV('ekspor-kategori.csv', [
+      ['nama', 'jumlah produk'],
+      ...cats.map((category) => [category.name, String(category.product_count)]),
+    ])
   }
 
   async function exportServerCSV() {
@@ -493,6 +520,50 @@ export default function Products() {
     downloadBlob('template-import-produk.csv', new Blob(['\ufeff' + rows.map((r) => r.join(',')).join('\n')], { type: 'text/csv;charset=utf-8' }))
   }
 
+  const catFileRef = useRef<HTMLInputElement>(null)
+  function pickCatImport(kind: 'xlsx' | 'csv') {
+    if (kind === 'csv') {
+      setCatImportError('')
+      setCatImportResult(null)
+      setCatImportOpen(true)
+      return
+    }
+    if (catFileRef.current) catFileRef.current.accept = '.xlsx,.xls'
+    catFileRef.current?.click()
+  }
+
+  function pickCatCsvFile() {
+    if (catFileRef.current) catFileRef.current.accept = '.csv'
+    catFileRef.current?.click()
+  }
+
+  async function onCatImportFile(f: File) {
+    setCatImportOpen(true)
+    setCatImportError('')
+    setCatImportResult(null)
+    try {
+      await importCategoryFile(f, parseImportFile, uploadCatImport, setCatImportBusy)
+    } catch (e) {
+      setCatImportError(e instanceof Error ? e.message : 'Gagal membaca file.')
+    }
+  }
+
+  async function uploadCatImport(file: File) {
+    setCatImportError('')
+    try {
+      const res = await importCategories.mutateAsync(file)
+      setCatImportResult(res)
+      catq.reload()
+    } catch (e) {
+      setCatImportError(e instanceof Error ? e.message : 'Gagal mengimpor kategori.')
+    }
+  }
+
+  function downloadCatTemplate() {
+    const rows = [['nama'], ['Contoh Kategori']]
+    downloadBlob('template-import-kategori.csv', new Blob(['\ufeff' + rows.map((r) => r.join(',')).join('\n')], { type: 'text/csv;charset=utf-8' }))
+  }
+
   const pageError = err || (tab === 'categories' ? catq.err : prod.err)
 
   return (
@@ -506,6 +577,13 @@ export default function Products() {
             <ImportMenu onPick={pickImport} />
             <Button onClick={() => editProduct()}><Plus className="size-4" />Tambah Produk</Button>
             <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) onImportFile(f); e.target.value = '' }} />
+          </div>
+        ) : tab === 'categories' ? (
+          <div className="opc-head-actions">
+            <ExportMenu onCSV={exportKategoriCSV} />
+            <ImportMenu onPick={pickCatImport} />
+            <Button onClick={() => openCategoryForm()} disabled={catBusy}><Plus className="size-4" />Tambah Kategori</Button>
+            <input ref={catFileRef} type="file" accept=".csv,.xlsx,.xls" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) void onCatImportFile(f); e.target.value = '' }} />
           </div>
         ) : undefined}
       />
@@ -521,7 +599,7 @@ export default function Products() {
 
       {tab === 'categories' ? (
         <div className="mt-5">
-          <KategoriTab categories={cats} loading={catq.loading} busy={catBusy} onAdd={addCat} onRename={renameCat} onRemove={(category) => { void removeCategory(category) }} />
+          <KategoriTab categories={cats} loading={catq.loading} busy={catBusy} onRenameClick={(category) => openCategoryForm(category)} onRemove={(category) => { void removeCategory(category) }} />
         </div>
       ) : (
       <div className="mb-5">
@@ -682,6 +760,8 @@ export default function Products() {
       </Modal>
 
       <ImportProdukModal open={importOpen} onClose={() => { if (!importBusy) setImportOpen(false) }} busy={importBusy} result={importResult} error={importError} onDownloadTemplate={downloadTemplate} onPickFile={pickCsvFile} onImportAgain={() => { setImportResult(null); setImportError('') }} onDone={() => setImportOpen(false)} />
+      <KategoriFormModal open={catFormOpen} editing={catEditing} busy={catBusy} onClose={() => { setCatFormOpen(false); setCatEditing(null) }} onSubmit={saveCategory} />
+      <ImportKategoriModal open={catImportOpen} onClose={() => { if (!catImportBusy) setCatImportOpen(false) }} busy={catImportBusy} result={catImportResult} error={catImportError} onDownloadTemplate={downloadCatTemplate} onPickFile={pickCatCsvFile} onImportAgain={() => { setCatImportResult(null); setCatImportError('') }} onDone={() => setCatImportOpen(false)} />
     </>
   )
 }

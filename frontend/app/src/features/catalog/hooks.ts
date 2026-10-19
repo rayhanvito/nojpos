@@ -10,7 +10,7 @@ import { useDB } from '../../shared/session/store'
 import {
   apiCreateCategory, apiCreateProduct, apiCreateProductPriceTier, apiCreateVariant, apiCreateVariantPriceTier,
   apiDeleteCategory, apiDeleteProduct, apiDeleteProductPriceTier, apiDeleteVariant, apiDeleteVariantPriceTier, apiRenameCategory,
-  apiGetSettings, apiImportProducts, apiListCategories, apiListProducts, apiSetProductActive,
+  apiGetSettings, apiImportCategories, apiImportProducts, apiListCategories, apiListProducts, apiSetProductActive,
   apiUpdateProduct, apiUpdateProductPriceTier, apiUpdateVariant, apiUpdateVariantPriceTier, fetchAll,
   type Category, type Product, type StoreSettings,
 } from './api'
@@ -160,6 +160,14 @@ export function useImportProducts() {
   const invalidate = useInvalidateCatalog()
   return useMutation({
     mutationFn: (file: File) => apiImportProducts(file),
+    onSuccess: invalidate,
+  })
+}
+
+export function useImportCategories() {
+  const invalidate = useInvalidateCatalog()
+  return useMutation({
+    mutationFn: (file: File) => apiImportCategories(file),
     onSuccess: invalidate,
   })
 }

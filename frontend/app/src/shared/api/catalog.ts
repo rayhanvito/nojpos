@@ -31,6 +31,12 @@ export function apiImportProducts(file: File) {
   return requestForm<ProductImportResult>('/products/import', form)
 }
 
+export function apiImportCategories(file: File) {
+  const form = new FormData()
+  form.append('file', file)
+  return requestForm<ProductImportResult>('/categories/import', form)
+}
+
 export function apiListCategories() {
   return request<Page<Category>>('GET', '/categories').then((d) => d.items ?? [])
 }

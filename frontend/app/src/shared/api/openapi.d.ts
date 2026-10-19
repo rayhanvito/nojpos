@@ -731,6 +731,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/categories/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Impor kategori dari berkas CSV.
+         * @description Khusus admin.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "multipart/form-data": components["schemas"]["CategoryImportRequest"];
+                };
+            };
+            responses: {
+                /** @description Impor kategori dari berkas CSV. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ImportResult"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/products": {
         parameters: {
             query?: never;
@@ -6276,6 +6323,13 @@ export interface components {
             sellPrice: number | null;
         };
         ProductImportRequest: {
+            /**
+             * Format: binary
+             * @description CSV maksimal 5 MiB dan 1.000 baris data.
+             */
+            file: string;
+        };
+        CategoryImportRequest: {
             /**
              * Format: binary
              * @description CSV maksimal 5 MiB dan 1.000 baris data.
