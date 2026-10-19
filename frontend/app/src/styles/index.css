@@ -794,7 +794,6 @@ p, h1, h2, h3, h4, li, span, a, td, th { overflow-wrap: break-word; }
 }
 .dark .op-classic .opc-group-label { color: #92a2b1; }
 .opc-nav ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
-.opc-nav > div + div { margin-top: 14px; }
 .opc-link {
   display: flex; align-items: center; gap: 12px;
   min-height: 44px; padding: 0 12px 0 24px; border-radius: 0;
