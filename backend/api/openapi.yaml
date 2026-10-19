@@ -4261,6 +4261,8 @@ components:
           type: string
         active:
           type: boolean
+        product_count:
+          type: integer
       required:
       - id
       - created_at
@@ -4268,6 +4270,7 @@ components:
       - store_id
       - name
       - active
+      - product_count
     PriceTier:
       type: object
       properties:

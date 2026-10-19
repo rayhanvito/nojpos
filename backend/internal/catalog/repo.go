@@ -52,6 +52,36 @@ func (r *CategoryRepo) ListByStore(ctx context.Context, storeID uint) ([]*Catego
 	return out, nil
 }
 
+func (r *CategoryRepo) ProductCountsByStore(ctx context.Context, storeID uint) (map[uint]int64, error) {
+	type productCount struct {
+		CategoryID uint
+		Count      int64
+	}
+	rows := make([]productCount, 0)
+	err := r.DB(ctx).Model(&Product{}).
+		Select("category_id, COUNT(*) AS count").
+		Where("store_id = ? AND category_id IS NOT NULL", storeID).
+		Group("category_id").
+		Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+
+	counts := make(map[uint]int64, len(rows))
+	for _, row := range rows {
+		counts[row.CategoryID] = row.Count
+	}
+	return counts, nil
+}
+
+func (r *CategoryRepo) ProductCountByCategory(ctx context.Context, storeID, categoryID uint) (int64, error) {
+	var count int64
+	err := r.DB(ctx).Model(&Product{}).
+		Where("store_id = ? AND category_id = ?", storeID, categoryID).
+		Count(&count).Error
+	return count, err
+}
+
 func (r *CategoryRepo) GetByID(ctx context.Context, storeID, id uint) (*Category, error) {
 	var c Category
 	err := r.DB(ctx).Where("id = ? AND store_id = ?", id, storeID).First(&c).Error

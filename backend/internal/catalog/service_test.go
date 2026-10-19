@@ -2,6 +2,7 @@ package catalog
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 
@@ -38,14 +39,21 @@ func (fakeTransactor) WithinTx(ctx context.Context, fn func(ctx context.Context)
 // fakeCats adalah CategoryRepository palsu: hanya metode yang dilalui
 // jalur uji yang berperilaku; sisanya mengembalikan nilai nol.
 type fakeCats struct {
-	createErr  error
-	getErr     error
-	deleteErr  error
-	renameErr  error
-	createCall int
-	renameCall int
-	renameName string
-	items      []*Category
+	createErr              error
+	getErr                 error
+	deleteErr              error
+	renameErr              error
+	createCall             int
+	renameCall             int
+	renameName             string
+	items                  []*Category
+	productCounts          map[uint]int64
+	productCountByCategory map[uint]int64
+	productCountsCalls     int
+	productCountsStoreID   uint
+	productCountCalls      int
+	productCountStoreID    uint
+	productCountCategoryID uint
 }
 
 func (f *fakeCats) ListByStore(ctx context.Context, storeID uint) ([]*Category, error) {
@@ -75,7 +83,22 @@ func (f *fakeCats) Rename(ctx context.Context, storeID, id uint, name string) (*
 	if f.renameErr != nil {
 		return nil, f.renameErr
 	}
-	return &Category{StoreID: storeID, Name: name}, nil
+	c := &Category{StoreID: storeID, Name: name}
+	c.ID = id
+	return c, nil
+}
+
+func (f *fakeCats) ProductCountsByStore(ctx context.Context, storeID uint) (map[uint]int64, error) {
+	f.productCountsCalls++
+	f.productCountsStoreID = storeID
+	return f.productCounts, nil
+}
+
+func (f *fakeCats) ProductCountByCategory(ctx context.Context, storeID, categoryID uint) (int64, error) {
+	f.productCountCalls++
+	f.productCountStoreID = storeID
+	f.productCountCategoryID = categoryID
+	return f.productCountByCategory[categoryID], nil
 }
 
 func (f *fakeCats) Delete(ctx context.Context, storeID, id uint) (bool, error) {
@@ -243,6 +266,39 @@ func TestCreateCategoryDuplicateBecomesCategoryTaken(t *testing.T) {
 	}
 }
 
+func TestCreateCategoryProductCountStartsAtZero(t *testing.T) {
+	svc := NewService(&fakeCats{}, &fakeProds{}, nil)
+	got, err := svc.CreateCategory(context.Background(), 1, "Minuman")
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertCategoryProductCount(t, got, 0)
+}
+
+func TestListCategoriesSetsProductCountsFromOneStoreQuery(t *testing.T) {
+	first := &Category{}
+	first.ID = 1
+	second := &Category{}
+	second.ID = 2
+	cats := &fakeCats{
+		items:         []*Category{first, second},
+		productCounts: map[uint]int64{1: 4},
+	}
+	svc := NewService(cats, &fakeProds{}, nil)
+	got, err := svc.ListCategories(context.Background(), 7)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cats.productCountsCalls != 1 || cats.productCountsStoreID != 7 {
+		t.Fatalf("ProductCountsByStore calls/store = %d/%d, mau 1/7", cats.productCountsCalls, cats.productCountsStoreID)
+	}
+	if len(got) != 2 {
+		t.Fatalf("ListCategories items = %d, mau 2", len(got))
+	}
+	assertCategoryProductCount(t, got[0], 4)
+	assertCategoryProductCount(t, got[1], 0)
+}
+
 func TestDeleteCategoryNotFoundBecomesStoreMismatch(t *testing.T) {
 	cats := &fakeCats{deleteErr: ErrNotFound}
 	svc := NewService(cats, &fakeProds{}, &fakeNotifier{})
@@ -261,6 +317,36 @@ func TestRenameCategoryTrimsNameBeforeRepo(t *testing.T) {
 	}
 	if cats.renameCall != 1 || cats.renameName != "Minuman" || got.Name != "Minuman" {
 		t.Fatalf("Rename harus menerima nama ter-trim sekali, call=%d name=%q hasil=%+v", cats.renameCall, cats.renameName, got)
+	}
+}
+
+func TestRenameCategorySetsProductCount(t *testing.T) {
+	cats := &fakeCats{productCountByCategory: map[uint]int64{9: 3}}
+	svc := NewService(cats, &fakeProds{}, nil)
+	got, err := svc.RenameCategory(context.Background(), 2, 9, "Minuman")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cats.productCountCalls != 1 || cats.productCountStoreID != 2 || cats.productCountCategoryID != 9 {
+		t.Fatalf("ProductCountByCategory calls/store/category = %d/%d/%d, mau 1/2/9", cats.productCountCalls, cats.productCountStoreID, cats.productCountCategoryID)
+	}
+	assertCategoryProductCount(t, got, 3)
+}
+
+func assertCategoryProductCount(t *testing.T, category *Category, want int64) {
+	t.Helper()
+	payload, err := json.Marshal(category)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got struct {
+		ProductCount *int64 `json:"product_count"`
+	}
+	if err := json.Unmarshal(payload, &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.ProductCount == nil || *got.ProductCount != want {
+		t.Fatalf("product_count = %v, mau %d (JSON %s)", got.ProductCount, want, payload)
 	}
 }
 

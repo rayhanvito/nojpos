@@ -15,6 +15,8 @@ import (
 // tipe kini milik slice ini).
 type CategoryRepository interface {
 	ListByStore(ctx context.Context, storeID uint) ([]*Category, error)
+	ProductCountsByStore(ctx context.Context, storeID uint) (map[uint]int64, error)
+	ProductCountByCategory(ctx context.Context, storeID, categoryID uint) (int64, error)
 	GetByID(ctx context.Context, storeID, id uint) (*Category, error)
 	Create(ctx context.Context, storeID uint, name string) (*Category, error)
 	Rename(ctx context.Context, storeID, id uint, name string) (*Category, error)
@@ -81,7 +83,18 @@ func NewService(cats CategoryRepository, prods ProductRepository, notif Notifier
 func (s *Service) SetInventory(inv StockAdjuster) { s.inv = inv }
 
 func (s *Service) ListCategories(ctx context.Context, storeID uint) ([]*Category, error) {
-	return s.cats.ListByStore(ctx, storeID)
+	categories, err := s.cats.ListByStore(ctx, storeID)
+	if err != nil {
+		return nil, err
+	}
+	counts, err := s.cats.ProductCountsByStore(ctx, storeID)
+	if err != nil {
+		return nil, err
+	}
+	for _, category := range categories {
+		category.ProductCount = int(counts[category.ID])
+	}
+	return categories, nil
 }
 
 func (s *Service) CreateCategory(ctx context.Context, storeID uint, name string) (*Category, error) {
@@ -111,7 +124,15 @@ func (s *Service) RenameCategory(ctx context.Context, storeID, id uint, name str
 	if errors.Is(err, ErrNotFound) {
 		return nil, user.ErrStoreMismatch
 	}
-	return category, err
+	if err != nil {
+		return nil, err
+	}
+	count, err := s.cats.ProductCountByCategory(ctx, storeID, id)
+	if err != nil {
+		return nil, err
+	}
+	category.ProductCount = int(count)
+	return category, nil
 }
 
 func (s *Service) DeleteCategory(ctx context.Context, storeID, id uint) (soft bool, err error) {

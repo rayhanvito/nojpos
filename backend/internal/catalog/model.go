@@ -6,9 +6,10 @@ import (
 
 type Category struct {
 	database.BaseModel
-	StoreID uint   `gorm:"not null;index;uniqueIndex:uq_category_store_name" json:"store_id"`
-	Name    string `gorm:"not null;uniqueIndex:uq_category_store_name" json:"name"`
-	Active  bool   `gorm:"not null;default:true" json:"active"`
+	StoreID      uint   `gorm:"not null;index;uniqueIndex:uq_category_store_name" json:"store_id"`
+	Name         string `gorm:"not null;uniqueIndex:uq_category_store_name" json:"name"`
+	Active       bool   `gorm:"not null;default:true" json:"active"`
+	ProductCount int    `gorm:"-" json:"product_count"`
 }
 
 func (Category) TableName() string {

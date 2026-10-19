@@ -38,6 +38,36 @@ func TestListCategoriesUsesCanonicalPagination(t *testing.T) {
 	}
 }
 
+func TestListCategoriesSerializesProductCount(t *testing.T) {
+	s := newTenantCatalogSeed(t)
+	h := NewHandler(NewService(NewCategoryRepo(s.db), NewProductRepo(s.db), nil))
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/categories", nil)
+	c.Set("claims", &middleware.Claims{StoreID: s.storeA, Role: middleware.RoleAdmin})
+
+	h.ListCategories(c)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, body=%s", w.Code, w.Body.String())
+	}
+	var body struct {
+		Items []map[string]json.RawMessage `json:"items"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if len(body.Items) != 1 {
+		t.Fatalf("items = %d, mau 1; body=%s", len(body.Items), w.Body.String())
+	}
+	var got int64
+	if err := json.Unmarshal(body.Items[0]["product_count"], &got); err != nil {
+		t.Fatalf("product_count tidak terserialisasi: %v; body=%s", err, w.Body.String())
+	}
+	if got != 1 {
+		t.Fatalf("product_count = %d, mau 1", got)
+	}
+}
+
 func assertCanonicalListResponse(t *testing.T, w *httptest.ResponseRecorder, itemNameKey string, wantNames []string, total, page, limit int) {
 	t.Helper()
 	if w.Code != http.StatusOK {
