@@ -312,7 +312,7 @@ export default function Reports() {
         )}
       />
 
-      <div className="mb-4">
+      <div className="mb-5">
         <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)} className="mt-2.5">
           <TabsList variant="line" aria-label="Jenis laporan">
             {REPORT_TABS.map((t) => (

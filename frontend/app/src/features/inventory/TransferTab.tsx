@@ -103,7 +103,7 @@ export default function TransferTab() {
   const transferList = transfers.data?.items ?? []
 
   return (
-    <section className="mt-4">
+    <section className="mt-5">
       {(outletsError || productsQuery.err || transfers.err) && <AlertStrip className="mb-4">{outletsError || productsQuery.err || transfers.err}</AlertStrip>}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>

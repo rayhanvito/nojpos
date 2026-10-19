@@ -170,7 +170,7 @@ export default function Stock() {
       {tab === 'stocktake' && <StockOpname embedded />}
 
       {tab === 'stock' && (
-        <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+        <div className="mt-5 flex flex-col gap-3 sm:flex-row">
           <SearchInput value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari nama atau SKU…" aria-label="Cari produk" />
           <Select
             label="Filter kategori"
@@ -273,7 +273,7 @@ export default function Stock() {
 
           <Pager page={stockPage} total={stockPages} onChange={setPage} totalItems={filtered.length} pageSize={pageSize} onPageSizeChange={(n) => { setPageSize(n); setPage(0) }} />
         </div>
-      ) : tab === 'movement' ? (        <div className="mt-4">
+      ) : tab === 'movement' ? (        <div className="mt-5">
           <div className="mb-4 flex flex-col gap-3 sm:flex-row">
             <SearchInput value={mq} onChange={(e) => { setMq(e.target.value); setMpage(0) }} placeholder="Cari nama produk…" aria-label="Cari pergerakan berdasarkan produk" />
             <Select

@@ -205,7 +205,7 @@ export default function StockOpname({ embedded = false }: { embedded?: boolean }
   return (
     <>
 {embedded ? (
-        <div className="mb-4 flex justify-end">
+        <div className="mt-5 mb-4 flex justify-end">
           <Button onClick={() => void startSession()} disabled={createBusy}>{createBusy ? 'Memulai…' : 'Mulai Opname'}</Button>
         </div>
       ) : (

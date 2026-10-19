@@ -308,7 +308,7 @@ export default function Purchases() {
         </TabsList>
       </Tabs>
 
-      {tab === 'purchases' && orders.err && <AlertStrip className="mt-4">{orders.err}</AlertStrip>}
+      {tab === 'purchases' && orders.err && <AlertStrip className="mt-5">{orders.err}</AlertStrip>}
 
       <div className="mt-5">
       {tab === 'expenses' ? (

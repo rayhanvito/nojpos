@@ -595,14 +595,14 @@ export default function Products() {
         </TabsList>
       </Tabs>
 
-      {pageError && !editing && <AlertStrip className="mb-4">{pageError}</AlertStrip>}
+      {pageError && !editing && <AlertStrip className="mt-5 mb-4">{pageError}</AlertStrip>}
 
       {tab === 'categories' ? (
         <div className="mt-5">
           <KategoriTab categories={cats} loading={catq.loading} busy={catBusy} onRenameClick={(category) => openCategoryForm(category)} onRemove={(category) => { void removeCategory(category) }} />
         </div>
       ) : (
-      <div className="mb-5">
+      <div className="mt-5 mb-5">
         <div className="min-w-0">
           <div className="mb-4 flex flex-col gap-3 sm:flex-row">
             <SearchInput value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari nama atau SKU…" aria-label="Cari produk" />

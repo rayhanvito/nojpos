@@ -34,8 +34,13 @@ const tabsListVariants = cva(
       variant: {
         default: "rounded-lg bg-muted p-[3px] group-data-[orientation=horizontal]/tabs:h-9",
         // line: tinggi 42px + pb 6px memberi ruang garis aktif (di -5px di
-        // bawah trigger) di dalam kotak gulir; -mb mengembalikan tata letak.
-        line: "gap-1 bg-transparent group-data-[orientation=horizontal]/tabs:h-[42px] group-data-[orientation=horizontal]/tabs:pb-[6px] group-data-[orientation=horizontal]/tabs:-mb-[6px]",
+        // bawah trigger) di dalam kotak gulir. TANPA -mb: margin negatif
+        // menarik konten sesudahnya menutupi zona garis (bug garis tab
+        // tertutup toolbar, ditemukan Rayhan 19 Okt 2026 di tab Produk).
+        // STANDAR JARAK: konten di bawah garis tab selalu 20px — diatur
+        // SATU sumber per halaman (mb-5 pada Tabs, mt-5 pada konten
+        // pertama, atau mb-5 pada pembungkus Tabs); jangan ditumpuk.
+        line: "gap-1 bg-transparent group-data-[orientation=horizontal]/tabs:h-[42px] group-data-[orientation=horizontal]/tabs:pb-[6px]",
       },
     },
     defaultVariants: {
