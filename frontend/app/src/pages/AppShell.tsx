@@ -248,14 +248,14 @@ export default function AppShell() {
                   onClick={openOutletPicker}
                   aria-label={`Pindah outlet. Outlet aktif: ${activeOutletName || 'tidak diketahui'}`}
                   title="Pindah outlet aktif"
-                  className="flex w-full items-center gap-2 px-6 py-2 text-left text-[13px] font-medium text-white transition hover:bg-white/5"
+                  className="flex h-11 w-full items-center gap-2 px-6 py-2 text-left text-[13px] font-medium text-white transition hover:bg-white/5"
                 >
                   <Store className="size-4 shrink-0" aria-hidden="true" />
                   <span className="min-w-0 flex-1 truncate">Outlet: {activeOutletName || 'Pilih'}</span>
                   <ChevronDown className="size-4 shrink-0 opacity-70" aria-hidden="true" />
                 </button>
               ) : (
-                <p className="flex items-center gap-2 px-6 py-2 text-[13px] font-medium text-white/80" aria-label={`Outlet terikat: ${activeOutletName || 'tidak diketahui'}`}>
+                <p className="flex h-11 items-center gap-2 px-6 py-2 text-[13px] font-medium text-white/80" aria-label={`Outlet terikat: ${activeOutletName || 'tidak diketahui'}`}>
                   <Store className="size-4 shrink-0" aria-hidden="true" />
                   <span className="min-w-0 flex-1 truncate">Outlet: {activeOutletName || '—'}</span>
                 </p>
