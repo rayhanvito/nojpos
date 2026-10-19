@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import { ModalActions, Button, Input, NumInput, RowAction, Select } from '../../../shared/ui'
 import { emptyVariant, type Draft, type TierDraft } from './draft'
+import { UnitField } from './UnitField'
 
 export function FormProduk({ draft, cats, lowStockDefault, onSave, onCancel }: {
   draft: Draft
@@ -39,7 +40,7 @@ export function FormProduk({ draft, cats, lowStockDefault, onSave, onCancel }: {
         Kategori
         <Select label="Kategori" value={d.categoryId} onChange={set('categoryId')} options={[{ value: '', label: 'Tanpa kategori' }, ...cats.map((c) => ({ value: String(c.id), label: c.name }))]} />
       </label>
-      <Input label="Satuan" value={d.unit} onChange={set('unit')} />
+      <UnitField value={d.unit} onChange={set('unit')} />
       <NumInput label="Harga beli (Rp)" value={d.buyPrice} onValue={set('buyPrice')} />
       <NumInput label="Harga jual (Rp)" value={d.sellPrice} onValue={set('sellPrice')} required />
       {!d.id && d.variants.length === 0 && <NumInput label="Stok awal" value={d.stock} onValue={set('stock')} />}

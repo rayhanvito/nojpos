@@ -7,7 +7,7 @@
 export {
   apiCreateCategory, apiRenameCategory, apiCreateProduct, apiCreateProductPriceTier, apiCreateVariant, apiCreateVariantPriceTier,
   apiDeleteCategory, apiDeleteProduct, apiDeleteProductPriceTier, apiDeleteVariant, apiDeleteVariantPriceTier,
-  apiExportProducts, apiGetProduct, apiGetSettings, apiImportCategories, apiImportProducts, apiListCategories, apiListProducts,
+  apiExportProducts, apiGetProduct, apiGetSettings, apiImportCategories, apiImportProducts, apiListCategories, apiListProductUnits, apiListProducts,
   apiSetProductActive, apiUpdateProduct, apiUpdateProductPriceTier, apiUpdateVariant, apiUpdateVariantPriceTier,
   fetchAll,
 } from '../../shared/api'

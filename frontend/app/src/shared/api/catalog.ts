@@ -41,6 +41,10 @@ export function apiListCategories() {
   return request<Page<Category>>('GET', '/categories').then((d) => d.items ?? [])
 }
 
+export function apiListProductUnits() {
+  return request<Page<string>>('GET', '/products/units').then((d) => d.items ?? [])
+}
+
 export function apiCreateCategory(name: string) {
   return request<{ category: Category }>('POST', '/categories', { name })
 }

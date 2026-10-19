@@ -856,6 +856,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/products/units": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Daftar satuan yang sedang dipakai produk toko.
+         * @description Satuan unik non-kosong yang benar-benar dipakai produk toko ini, urut abjad. Dipakai form produk untuk daftar satuan yang mengelola dirinya sendiri (tanpa tabel master).
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Daftar satuan yang sedang dipakai produk toko. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductUnitPage"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                500: components["responses"]["InternalError"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/products/{id}": {
         parameters: {
             query?: never;
@@ -6179,6 +6221,9 @@ export interface components {
         };
         CategoryPage: components["schemas"]["Page"] & {
             items?: components["schemas"]["Category"][];
+        };
+        ProductUnitPage: components["schemas"]["Page"] & {
+            items?: string[];
         };
         ProductPage: components["schemas"]["Page"] & {
             items?: components["schemas"]["Product"][];
