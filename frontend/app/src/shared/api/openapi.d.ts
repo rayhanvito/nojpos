@@ -5359,6 +5359,7 @@ export interface components {
             store_id: number;
             name: string;
             active: boolean;
+            product_count: number;
         };
         PriceTier: {
             /** Format: int64 */

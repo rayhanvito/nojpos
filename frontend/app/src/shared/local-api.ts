@@ -23,7 +23,11 @@ function page<T>(items: T[], f: { page?: number; limit?: number }): Page<T> {
 // ── kategori ────────────────────────────────────────────────────────
 
 export function apiListCategories(): Promise<Category[]> {
-  return Promise.resolve(getLocalDB().categories.map((c) => ({ ...c })))
+  const db = getLocalDB()
+  return Promise.resolve(db.categories.map((category) => ({
+    ...category,
+    product_count: db.products.filter((product) => product.categoryId === category.id).length,
+  })))
 }
 
 export function apiCreateCategory(name: string) {
@@ -32,7 +36,7 @@ export function apiCreateCategory(name: string) {
     return Promise.reject(new Error('Kategori dengan nama itu sudah ada.'))
   }
   const c = saveCategory(name)
-  return Promise.resolve({ category: { id: c.id, name: c.name, active: true, created_at: c.created_at } })
+  return Promise.resolve({ category: { id: c.id, name: c.name, active: true, created_at: c.created_at, product_count: 0 } })
 }
 
 export function apiDeleteCategory(id: string) {

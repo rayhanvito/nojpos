@@ -58,3 +58,14 @@ export const PURCHASE_TAB_ALIASES: Readonly<Record<string, PurchaseTab>> = {
 }
 export const normalizePurchaseTab = (raw: string | null | undefined): TabNormalization<PurchaseTab> =>
   normalizeTabParam(raw, PURCHASE_TABS, PURCHASE_TAB_ALIASES, 'purchases')
+
+// --- Katalog (/app/products) ---
+export const CATALOG_TABS = ['products', 'categories'] as const
+export type CatalogTab = (typeof CATALOG_TABS)[number]
+export const CATALOG_TAB_ALIASES: Readonly<Record<string, CatalogTab>> = {
+  produk: 'products',
+  product: 'products',
+  kategori: 'categories',
+}
+export const normalizeCatalogTab = (raw: string | null | undefined): TabNormalization<CatalogTab> =>
+  normalizeTabParam(raw, CATALOG_TABS, CATALOG_TAB_ALIASES, 'products')

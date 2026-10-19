@@ -59,6 +59,7 @@ export interface Category {
   name: string
   active: boolean
   created_at: string
+  product_count: number
 }
 
 export interface Customer {

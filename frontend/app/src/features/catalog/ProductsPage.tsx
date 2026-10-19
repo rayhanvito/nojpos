@@ -2,9 +2,11 @@
 // Token font/warna milik sistem (tidak ada token baru di file ini).
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router'
-import { FolderPlus, Pencil, Plus, Power, Trash2 } from 'lucide-react'
+import { Pencil, Plus, Power, Trash2 } from 'lucide-react'
 import { apiExportProducts, apiGetProduct, apiListProducts, fetchAll, type Category, type PriceTier, type Product, type ProductImportResult, type Variant } from './api'
 import { useCatalogSettings, useCategories, useCreateCategory, useCreateProduct, useCreateProductPriceTier, useCreateVariant, useCreateVariantPriceTier, useDeleteCategory, useDeleteProduct, useDeleteProductPriceTier, useDeleteVariant, useDeleteVariantPriceTier, useImportProducts, useProducts, useRenameCategory, useSetProductActive, useUpdateProduct, useUpdateProductPriceTier, useUpdateVariant, useUpdateVariantPriceTier } from './hooks'
+import { CATALOG_TABS, CATALOG_TAB_ALIASES, type CatalogTab } from '../../shared/tab-params'
+import { useTabParam } from '../../shared/use-tab-param'
 import { selectCsvExportHandler } from '../../shared/export-role'
 import { PageHeader } from '../../shared/PageHeader'
 import { downloadBlob, exportCSV, exportExcel, fmtRp, parseImportFile, useDB } from '../../shared/session/store'
@@ -12,9 +14,10 @@ import { ModalActions, AlertStrip, Button, CardGrid, DataCard, Empty, ExportMenu
 import { Skeleton } from '@/shared/ui/primitives/skeleton'
 import { FormProduk } from './components/FormProduk'
 import { ImportProdukModal } from './components/ImportProdukModal'
-import { KategoriModal } from './components/KategoriModal'
+import { KategoriTab } from './components/KategoriTab'
 import { StockCell, kondisiOf } from './components/StockCell'
 import { emptyDraft, hasDuplicateTierQty, productDraft, tierDraft, variantDraft, type Draft, type TierDraft, type VariantDraft } from './components/draft'
+import { Tabs, TabsList, TabsTrigger } from '@/shared/ui/primitives/tabs'
 
 const NONE = '__none__'
 
@@ -28,6 +31,7 @@ const KONDISI_OPTS = [{ value: '', label: 'Semua kondisi' }, { value: 'aman', la
 export default function Products() {
   const { session } = useDB()
   const [q, setQ] = useState('')
+  const [tab, setTab] = useTabParam<CatalogTab>(CATALOG_TABS, CATALOG_TAB_ALIASES, 'products')
   const [catFilter, setCatFilter] = useState('')
   const [statusF, setStatusF] = useState('')
   const [kondisiF, setKondisiF] = useState('')
@@ -59,8 +63,6 @@ export default function Products() {
   const [editing, setEditing] = useState<Draft | null>(null)
   const [saveBusy, setSaveBusy] = useState(false)
   const [deleteFor, setDeleteFor] = useState<Product | null>(null)
-  const [catName, setCatName] = useState('')
-  const [catOpen, setCatOpen] = useState(false)
   const [catBusy, setCatBusy] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [importBusy, setImportBusy] = useState(false)
@@ -336,17 +338,9 @@ export default function Products() {
     }
   }
 
-  async function addCat() {
-    const n = catName.trim()
-    if (!n) return
-    try {
-      await createCategory.mutateAsync(n)
-      catq.reload()
-      setCatName('')
-      setCatOpen(false)
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Gagal menambah kategori.')
-    }
+  async function addCat(name: string) {
+    await createCategory.mutateAsync(name.trim())
+    catq.reload()
   }
 
   async function renameCat(category: Category, name: string) {
@@ -499,25 +493,37 @@ export default function Products() {
     downloadBlob('template-import-produk.csv', new Blob(['\ufeff' + rows.map((r) => r.join(',')).join('\n')], { type: 'text/csv;charset=utf-8' }))
   }
 
+  const pageError = err || (tab === 'categories' ? catq.err : prod.err)
+
   return (
     <>
       <PageHeader
         title="Produk & Kategori"
-       
         crumb="Produk & Kategori"
-        actions={(
+        actions={tab === 'products' ? (
           <div className="opc-head-actions">
             <ExportMenu onCSV={selectCsvExportHandler(session?.role, exportServerCSV, exportListCSV)} onExcel={exportListExcel} />
             <ImportMenu onPick={pickImport} />
-            <Button variant="ghost" onClick={() => { setCatName(''); setErr(''); setCatOpen(true) }}><FolderPlus className="size-4" />Kategori</Button>
             <Button onClick={() => editProduct()}><Plus className="size-4" />Tambah Produk</Button>
             <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) onImportFile(f); e.target.value = '' }} />
           </div>
-        )}
+        ) : undefined}
       />
 
-      {(err || prod.err) && !editing && <AlertStrip className="mb-4">{err || prod.err}</AlertStrip>}
+      <Tabs value={tab} onValueChange={(v) => setTab(v as CatalogTab)} className="mt-5">
+        <TabsList variant="line" aria-label="Jenis katalog">
+          <TabsTrigger value="products">Produk</TabsTrigger>
+          <TabsTrigger value="categories">Kategori</TabsTrigger>
+        </TabsList>
+      </Tabs>
 
+      {pageError && !editing && <AlertStrip className="mb-4">{pageError}</AlertStrip>}
+
+      {tab === 'categories' ? (
+        <div className="mt-5">
+          <KategoriTab categories={cats} loading={catq.loading} busy={catBusy} onAdd={addCat} onRename={renameCat} onRemove={(category) => { void removeCategory(category) }} />
+        </div>
+      ) : (
       <div className="mb-5">
         <div className="min-w-0">
           <div className="mb-4 flex flex-col gap-3 sm:flex-row">
@@ -645,8 +651,7 @@ export default function Products() {
           <Pager page={safePage} total={totalPages} onChange={setPage} totalItems={filtered?.length ?? 0} pageSize={pageSize} onPageSizeChange={(n) => { setPageSize(n); setPage(0) }} />
         </div>
       </div>
-
-      <KategoriModal open={catOpen} onClose={() => setCatOpen(false)} catName={catName} onCatName={setCatName} busy={catBusy} onAdd={addCat} cats={activeCats} counts={counts.m} onRename={renameCat} onRemove={removeCategory} />
+      )}
 
       <Modal open={!!editing} title={editing?.id ? 'Ubah Produk' : 'Tambah Produk'} onClose={() => { if (!saveBusy) setEditing(null) }} wide>
         {editing && (

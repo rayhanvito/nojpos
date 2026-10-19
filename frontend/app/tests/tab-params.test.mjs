@@ -3,13 +3,20 @@ import { test } from 'node:test'
 
 const {
   normalizeTabParam, normalizeReportTab, normalizeStockTab, normalizePurchaseTab,
-  REPORT_TABS, STOCK_TABS, PURCHASE_TABS,
+  normalizeCatalogTab, REPORT_TABS, STOCK_TABS, PURCHASE_TABS, CATALOG_TABS,
 } = await import('../src/shared/tab-params.ts')
 
 test('canonical tab lists are English slugs', () => {
   assert.deepEqual(REPORT_TABS, ['sales', 'products', 'profit', 'stock', 'shift', 'cashier', 'tax'])
   assert.deepEqual(STOCK_TABS, ['stock', 'stocktake', 'movement', 'transfers'])
   assert.deepEqual(PURCHASE_TABS, ['purchases', 'expenses'])
+  assert.deepEqual(CATALOG_TABS, ['products', 'categories'])
+})
+
+test('catalog aliases: produk/product -> products, kategori -> categories', () => {
+  assert.deepEqual(normalizeCatalogTab('produk'), { tab: 'products', aliased: true })
+  assert.deepEqual(normalizeCatalogTab('product'), { tab: 'products', aliased: true })
+  assert.deepEqual(normalizeCatalogTab('kategori'), { tab: 'categories', aliased: true })
 })
 
 test('report aliases: Indonesian values map to canonical and flag for URL replace', () => {
@@ -40,6 +47,7 @@ test('canonical values pass through without alias flag', () => {
   for (const t of REPORT_TABS) assert.deepEqual(normalizeReportTab(t), { tab: t, aliased: false })
   for (const t of STOCK_TABS) assert.deepEqual(normalizeStockTab(t), { tab: t, aliased: false })
   for (const t of PURCHASE_TABS) assert.deepEqual(normalizePurchaseTab(t), { tab: t, aliased: false })
+  for (const t of CATALOG_TABS) assert.deepEqual(normalizeCatalogTab(t), { tab: t, aliased: false })
 })
 
 test('missing or unknown values fall back without alias flag', () => {
@@ -48,6 +56,7 @@ test('missing or unknown values fall back without alias flag', () => {
   assert.deepEqual(normalizeReportTab('tidak-ada'), { tab: 'sales', aliased: false })
   assert.deepEqual(normalizeStockTab(''), { tab: 'stock', aliased: false })
   assert.deepEqual(normalizePurchaseTab('xyz'), { tab: 'purchases', aliased: false })
+  assert.deepEqual(normalizeCatalogTab('tidak-ada'), { tab: 'products', aliased: false })
 })
 
 test('generic normalizeTabParam honours caller canonical/alias/fallback', () => {
