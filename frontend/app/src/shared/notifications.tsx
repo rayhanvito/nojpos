@@ -100,6 +100,7 @@ export function NotifBell() {
   const [fetched, setFetched] = useState(0)
   const [page, setPage] = useState(1)
   const [unread, setUnread] = useState(0)
+  const [unreadByCat, setUnreadByCat] = useState<Record<NotifCategory, number>>({ stok: 0, transaksi: 0, sistem: 0 })
   const [loading, setLoading] = useState(true)
   const [more, setMore] = useState(false)
   const [err, setErr] = useState('')
@@ -147,6 +148,23 @@ export function NotifBell() {
     }
   }
 
+  // Jumlah belum dibaca total + per kategori (untuk titik di tab).
+  // Per kategori cukup total dari daftar unread limit 1.
+  async function refreshCounts() {
+    try {
+      const [totalUnread, stok, transaksi, sistem] = await Promise.all([
+        apiGetNotifUnreadCount(),
+        apiListNotifications({ unread: true, limit: 1, category: 'stok' }),
+        apiListNotifications({ unread: true, limit: 1, category: 'transaksi' }),
+        apiListNotifications({ unread: true, limit: 1, category: 'sistem' }),
+      ])
+      setUnread(totalUnread)
+      setUnreadByCat({ stok: stok.total, transaksi: transaksi.total, sistem: sistem.total })
+    } catch {
+      // best-effort; poll berikutnya menyelaraskan
+    }
+  }
+
   // Badge unread, poll 60 dtk (bukan realtime).
   useEffect(() => {
     if (!isAdmin) return
@@ -154,13 +172,11 @@ export function NotifBell() {
     enforceCap()
     let timer: ReturnType<typeof setTimeout>
     const poll = () => {
-      apiGetNotifUnreadCount()
-        .then((c) => { if (!dead) setUnread(c) })
-        .catch(() => {})
-        .finally(() => { if (!dead) timer = setTimeout(poll, 60_000) })
+      refreshCounts().finally(() => { if (!dead) timer = setTimeout(poll, 60_000) })
     }
     poll()
     return () => { dead = true; clearTimeout(timer) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAdmin])
 
   // Daftar per tab + halaman.
@@ -215,6 +231,7 @@ export function NotifBell() {
         setFetched(0)
         setTick((t) => t + 1)
         enforceCap()
+        refreshCounts()
       }
       return !o
     })
@@ -231,6 +248,7 @@ export function NotifBell() {
       }
     }
     const cat = categoryOf(n)
+    if (!n.read) setUnreadByCat((m) => ({ ...m, [cat]: Math.max(0, m[cat] - 1) }))
     setOpen(false)
     if (cat === 'stok') nav('/app/stock')
     else if (cat === 'transaksi') nav('/app/transactions')
@@ -239,6 +257,7 @@ export function NotifBell() {
   async function readAll() {
     setItems((xs) => xs.map((x) => ({ ...x, read: true })))
     setUnread(0)
+    setUnreadByCat({ stok: 0, transaksi: 0, sistem: 0 })
     try {
       await apiMarkAllNotifsRead()
     } catch {
@@ -274,7 +293,7 @@ export function NotifBell() {
           aria-label="Notifikasi"
           className={sheet ? 'fixed inset-x-0 bottom-0 z-50 flex max-h-[85dvh] w-full flex-col rounded-t-3xl bg-paper pb-4 shadow-xl' : 'absolute right-0 top-full z-50 mt-2 flex max-h-[70vh] w-[22rem] max-w-[calc(100vw-2rem)] flex-col rounded-xl border border-dove bg-paper shadow-lg'}
         >
-          <div className="flex items-center justify-between gap-2 px-4 pb-2 pt-3">
+          <div className="flex shrink-0 items-center justify-between gap-2 px-4 pb-2 pt-3">
             <p className="text-sm font-medium text-fg">Notifikasi</p>
             {unread > 0 && (
               <button onClick={readAll} className="rounded text-xs text-muted transition outline-none hover:text-fg hover:underline focus-visible:ring-2 focus-visible:ring-ring">
@@ -283,20 +302,27 @@ export function NotifBell() {
             )}
           </div>
 
-          <div role="tablist" aria-label="Filter kategori" className="mx-3 mb-1 grid grid-cols-4 gap-1 rounded-lg bg-surface p-1 sm:mx-4">
-            {TABS.map((t) => (
-              <button
-                key={t.id}
-                role="tab"
-                aria-selected={t.id === tab}
-                onClick={() => pickTab(t.id)}
-                className={`rounded-md px-1.5 py-1.5 text-[11px] transition outline-none focus-visible:ring-2 focus-visible:ring-ring max-sm:min-h-[40px] sm:px-2 sm:text-xs ${
-                  t.id === tab ? 'bg-paper font-medium text-fg shadow-sm' : 'text-muted hover:text-fg'
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
+          <div role="tablist" aria-label="Filter kategori" className="mx-4 mb-1 grid shrink-0 grid-cols-4 gap-1 rounded-lg bg-surface p-1">
+            {TABS.map((t) => {
+              const count = t.id === 'all' ? unread : unreadByCat[t.id]
+              return (
+                <button
+                  key={t.id}
+                  role="tab"
+                  aria-selected={t.id === tab}
+                  aria-label={count > 0 ? `${t.label}, ${count} belum dibaca` : t.label}
+                  onClick={() => pickTab(t.id)}
+                  className={`flex h-10 items-center justify-center rounded-md px-1.5 text-[11px] transition outline-none focus-visible:ring-2 focus-visible:ring-ring sm:px-2 sm:text-xs ${
+                    t.id === tab ? 'bg-paper font-medium text-fg shadow-sm' : 'text-muted hover:text-fg'
+                  }`}
+                >
+                  <span className="relative">
+                    {t.label}
+                    {count > 0 && <span className="absolute -right-2 -top-0.5 size-1.5 rounded-full bg-ember" aria-hidden="true" />}
+                  </span>
+                </button>
+              )
+            })}
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto" aria-live="polite">
@@ -346,7 +372,7 @@ export function NotifBell() {
           </div>
 
           {!loading && !err && (hasMore || tab !== 'all') && (
-            <div className="border-t border-dove px-4 py-2.5">
+            <div className="shrink-0 border-t border-dove px-4 py-2.5">
               {hasMore ? (
                 <button
                   onClick={() => setPage((p) => p + 1)}
